@@ -1,33 +1,42 @@
-import fs from "fs/promises";
-import path from "path";
-import matter from "gray-matter";
+import fs from 'fs/promises';
+import path from 'path';
+import matter from 'gray-matter';
+import TagManager from './tag-manager.js';
+import SkillDiscoveryService from '../services/skills.js';
 
-const IN = ".work/extracted";
-const OUT = ".work/validated";
+const IN = '.work/extracted';
+const OUT = '.work/validated';
+
+// Initialize managers
+const tagManager = new TagManager();
+await tagManager.loadConfiguration();
+
+const skillService = new SkillDiscoveryService();
+await skillService.initialize();
 
 // Load controlled vocabularies
-const skillsConfig = JSON.parse(await fs.readFile("config/skills.json", "utf8"));
-const tagsConfig = JSON.parse(await fs.readFile("config/tags.json", "utf8"));
+const skillsConfig = JSON.parse(await fs.readFile('config/skills.json', 'utf8'));
+const tagsConfig = JSON.parse(await fs.readFile('config/tags.json', 'utf8'));
 
-const VALID_TYPES = ["job", "project", "education", "cert", "bio"];
+const VALID_TYPES = ['job', 'project', 'education', 'cert', 'bio'];
 
 // PII patterns to strip from content
 const PII_PATTERNS = [
   /\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Z|a-z]{2,}\b/g, // emails
   /\b\d{3}[-.]?\d{3}[-.]?\d{4}\b/g, // phone numbers
-  /\b\d{1,5}\s+[A-Za-z0-9\s,]+(?:Street|St|Avenue|Ave|Road|Rd|Boulevard|Blvd|Lane|Ln|Drive|Dr)\b/gi, // addresses
+  /\b\d{1,5}\s+[A-Za-z0-9\s,]+(?:Street|St|Avenue|Ave|Road|Rd|Boulevard|Blvd|Lane|Ln|Drive|Dr)\b/gi // addresses
 ];
 
 function stripPII(text) {
   let cleaned = text;
   PII_PATTERNS.forEach(pattern => {
-    cleaned = cleaned.replace(pattern, "[REDACTED]");
+    cleaned = cleaned.replace(pattern, '[REDACTED]');
   });
   return cleaned;
 }
 
-function normalizeSkills(skills) {
-  if (!Array.isArray(skills)) return [];
+async function normalizeSkills(skills, context = {}) {
+  if (!Array.isArray(skills)) {return [];}
   
   const normalized = new Set();
   const allSkills = [
@@ -48,8 +57,16 @@ function normalizeSkills(skills) {
     if (found) {
       normalized.add(found);
     } else {
-      // Keep skill but log for review
-      console.log(`⚠️  Unknown skill: "${skill}" - consider adding to controlled vocabulary`);
+      // Use skill discovery service to handle unknown skills
+      const discovery = await skillService.discoverSkill(skill, context);
+      
+      if (discovery.status === 'new_discovery') {
+        console.log(`🔍 New skill discovered: "${skill}" (${discovery.category}) - logged for approval`);
+      } else if (discovery.status === 'existing_discovery') {
+        console.log(`📈 Skill "${skill}" seen again (${discovery.occurrences}x total)`);
+      }
+      
+      // Still include the skill in output for now
       normalized.add(skill);
     }
   });
@@ -57,13 +74,13 @@ function normalizeSkills(skills) {
   return Array.from(normalized);
 }
 
-function normalizeTags(tags) {
-  if (!Array.isArray(tags)) return [];
+async function normalizeTags(tags, context = {}) {
+  if (!Array.isArray(tags)) {return [];}
   
   const normalized = new Set();
   const allTags = tagsConfig.controlled_vocabulary;
   
-  tags.forEach(tag => {
+  for (const tag of tags) {
     const found = allTags.find(t => 
       t.toLowerCase() === tag.toLowerCase() ||
       tagsConfig.synonyms[t]?.some(synonym => 
@@ -74,10 +91,19 @@ function normalizeTags(tags) {
     if (found) {
       normalized.add(found);
     } else {
-      console.log(`⚠️  Unknown tag: "${tag}" - consider adding to controlled vocabulary`);
+      // Use tag manager to handle unknown tags
+      const status = await tagManager.processTag(tag, context);
+      
+      if (status === 'new-pending') {
+        console.log(`🆕 New tag discovered: "${tag}" - added to pending approval`);
+      } else if (status === 'pending') {
+        console.log(`⏸️  Tag "${tag}" already pending approval (occurrence incremented)`);
+      }
+      
+      // Still include the tag in normalized output for now
       normalized.add(tag);
     }
-  });
+  }
   
   return Array.from(normalized);
 }
@@ -102,7 +128,7 @@ function validateDates(dateStart, dateEnd) {
       const start = new Date(dateStart);
       const end = new Date(dateEnd);
       if (start > end) {
-        errors.push("date_start cannot be after date_end");
+        errors.push('date_start cannot be after date_end');
       }
     }
   }
@@ -111,14 +137,14 @@ function validateDates(dateStart, dateEnd) {
 }
 
 async function validate() {
-  console.log("✅ Validating content...");
+  console.log('✅ Validating content...');
   
   await fs.mkdir(OUT, { recursive: true });
   
-  const files = (await fs.readdir(IN)).filter(f => f.endsWith(".md"));
+  const files = (await fs.readdir(IN)).filter(f => f.endsWith('.md'));
   
   if (files.length === 0) {
-    console.log("📄 No extracted files found to validate");
+    console.log('📄 No extracted files found to validate');
     return;
   }
   
@@ -129,25 +155,25 @@ async function validate() {
     console.log(`🔍 Validating: ${f}`);
     
     try {
-      const raw = await fs.readFile(path.join(IN, f), "utf8");
+      const raw = await fs.readFile(path.join(IN, f), 'utf8');
       const { data, content } = matter(raw);
       const errors = [];
       
       // Required field validation
-      if (!data.id || typeof data.id !== "string") {
-        errors.push("Missing or invalid 'id' field");
+      if (!data.id || typeof data.id !== 'string') {
+        errors.push('Missing or invalid \'id\' field');
       }
       
       if (!data.type || !VALID_TYPES.includes(data.type)) {
-        errors.push(`Invalid 'type' field. Must be one of: ${VALID_TYPES.join(", ")}`);
+        errors.push(`Invalid 'type' field. Must be one of: ${VALID_TYPES.join(', ')}`);
       }
       
-      if (!data.title || typeof data.title !== "string") {
-        errors.push("Missing or invalid 'title' field");
+      if (!data.title || typeof data.title !== 'string') {
+        errors.push('Missing or invalid \'title\' field');
       }
       
-      if (!data.org || typeof data.org !== "string") {
-        errors.push("Missing or invalid 'org' field");
+      if (!data.org || typeof data.org !== 'string') {
+        errors.push('Missing or invalid \'org\' field');
       }
       
       // Date validation
@@ -155,8 +181,17 @@ async function validate() {
       errors.push(...dateErrors);
       
       // Normalize and validate skills/tags
-      data.skills = normalizeSkills(data.skills);
-      data.industry_tags = normalizeTags(data.industry_tags);
+      data.skills = await normalizeSkills(data.skills, {
+        file: f,
+        content: content.substring(0, 500)
+      });
+      data.industry_tags = await normalizeTags(data.industry_tags, {
+        file: f,
+        content: content.substring(0, 500),
+        type: data.type,
+        title: data.title,
+        org: data.org
+      });
       
       // Strip PII from content
       const cleanContent = stripPII(content);

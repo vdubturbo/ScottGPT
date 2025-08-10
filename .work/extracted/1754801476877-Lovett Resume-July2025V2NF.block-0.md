@@ -14,31 +14,27 @@ skills:
   - Program Management
   - Agile
   - Cybersecurity
-  - Strategic Planning
 outcomes:
-  - Reduced budget variance to within 3%, achieving a 90% YoY improvement by integrating finance controls with product roadmapping.
-  - Launched the organization’s first Agile pilot product, delivered on time and 37% under budget, establishing a repeatable product release process.
-summary: As Senior Director at Binary Defense, I revitalized the PMO to enhance product execution across a $30M cybersecurity portfolio, significantly improving time-to-value and aligning delivery with strategic business outcomes.
+  - Reduced budget variance to within 3%, achieving a 90% YoY improvement.
+  - Launched the organization’s first Agile pilot product, delivered on time and 37% under budget.
+summary: As Senior Director at Binary Defense, I revitalized the PMO to enhance product execution and align delivery with strategic business outcomes, significantly improving project predictability and customer adoption.
 pii_allow: false
 ---
 
 # Context
-In my role as Senior Director of the Delivery Support Office (DSO) at Binary Defense, I was recruited to restore momentum across a $30M cybersecurity solution portfolio. The organization faced challenges with prior leadership struggling to manage risk, budget, and schedule control. My primary responsibility was to strengthen product execution through PMO revitalization, ensuring that delivery was aligned with strategic business outcomes. The DSO team consisted of cross-functional members focused on enhancing project management capabilities and improving customer adoption.
+In my role as Senior Director of the Delivery Support Office (DSO) at Binary Defense, I was recruited to restore momentum across a $30M cybersecurity solution portfolio. The organization faced challenges with prior leadership struggling to maintain control over risk, budget, and schedule. My primary objective was to strengthen product execution through PMO revitalization, improving time-to-value, and aligning delivery with strategic business outcomes. The DSO team consisted of cross-functional members, including project managers, product owners, and technical leads, all focused on enhancing the company's cybersecurity offerings.
 
 ## Highlights
-- **Delivery Restructuring:** Collaborated with executive leadership to assess project management inefficiencies, resulting in a prioritized roadmap that scaled capability delivery and improved customer adoption.
-- **Value-Driven Process Redesign:** Developed a 30/60/90-day transformation plan that enhanced project execution predictability through improved scope definition and Agile delivery frameworks.
-- **Customer-Centric Operating Rhythm:** Re-engineered internal communications to focus on customer feedback and value delivery, enhancing stakeholder engagement.
+- **Delivery Restructuring:** Collaborated with executive leadership to identify project management inefficiencies, resulting in a prioritized roadmap that enhanced capability delivery and customer adoption.
+- **Value-Driven Process Redesign:** Implemented a 30/60/90-day transformation plan that improved project execution through enhanced scope definition, Agile delivery frameworks, and risk/change governance aligned with product milestones.
+- **Customer-Centric Operating Rhythm:** Re-engineered internal communications to prioritize customer feedback and value delivery, improving stakeholder engagement and satisfaction.
 
 ## Technical Details
-- Implemented Agile delivery frameworks for iterative releases, establishing KPIs tied to user impact and ROI.
+- Utilized Agile methodologies to implement iterative release cycles, enhancing project predictability and responsiveness to market needs.
 - Integrated finance controls with product roadmapping, ensuring budget variance was reduced to within 3%.
-- Established PMR cycles and risk/change governance aligned to product milestones, enhancing overall project predictability.
+- Established a scalable Risk Management framework that was embedded in product lifecycle reviews, enabling earlier detection of cyber risks.
 
 ## Key Accomplishments
-- Achieved a 90% YoY improvement in budget variance management, demonstrating effective financial oversight.
-- Authored and operationalized a scalable Risk Management framework that enabled earlier detection and mitigation of cyber risks.
-- Successfully launched and scaled the organization’s first Agile pilot product, which was delivered on time and 37% under budget, proving the effectiveness of the Agile model.
-- Cut product planning cycle time by 3 months, improving responsiveness to market needs by restructuring teams around value streams instead of projects.
-
-This role not only allowed me to leverage my extensive experience in program management and cybersecurity but also positioned Binary Defense for future growth through improved operational efficiencies and customer-centric strategies.
+- Achieved a 90% YoY improvement in budget variance, demonstrating effective financial oversight and project management.
+- Successfully launched the organization’s first Agile pilot product, which was delivered on time and 37% under budget, establishing a repeatable product release process.
+- Cut product planning cycle time by 3 months, significantly improving the organization’s ability to respond to market demands and customer needs.

@@ -1,5 +1,5 @@
-const RetrievalService = require('./retrieval');
-const OpenAI = require('openai');
+import RetrievalService from './retrieval.js';
+import OpenAI from 'openai';
 
 class RAGService {
   constructor() {
@@ -42,7 +42,7 @@ class RAGService {
 
       if (contextResult.chunks.length === 0) {
         return {
-          answer: "I don't have any information about that topic in my knowledge base. This could mean:\n\n• The information hasn't been uploaded yet\n• Try rephrasing your question\n• The topic might be outside of Scott's documented experience\n\nFeel free to ask about Scott's work in cybersecurity, AI/ML, program management, or specific companies and projects!",
+          answer: 'I don\'t have any information about that topic in my knowledge base. This could mean:\n\n• The information hasn\'t been uploaded yet\n• Try rephrasing your question\n• The topic might be outside of Scott\'s documented experience\n\nFeel free to ask about Scott\'s work in cybersecurity, AI/ML, program management, or specific companies and projects!',
           confidence: 'low',
           sources: [],
           contextUsed: contextResult,
@@ -151,23 +151,23 @@ INSTRUCTIONS:
     const queryLower = query.toLowerCase();
     
     if (queryLower.includes('leadership') || queryLower.includes('management')) {
-      prompt += `\n• Focus on leadership examples, team sizes, and management outcomes`;
+      prompt += '\n• Focus on leadership examples, team sizes, and management outcomes';
     }
     
     if (queryLower.includes('technical') || queryLower.includes('technology')) {
-      prompt += `\n• Emphasize technical implementations, architectures, and tools used`;
+      prompt += '\n• Emphasize technical implementations, architectures, and tools used';
     }
     
     if (queryLower.includes('achievement') || queryLower.includes('success')) {
-      prompt += `\n• Highlight quantified results, metrics, and business impact`;
+      prompt += '\n• Highlight quantified results, metrics, and business impact';
     }
 
     if (hasQuantitativeResults) {
-      prompt += `\n• Include specific numbers, percentages, and measurable outcomes`;
+      prompt += '\n• Include specific numbers, percentages, and measurable outcomes';
     }
 
     if (hasRecentWork) {
-      prompt += `\n• Emphasize recent and current experience when relevant`;
+      prompt += '\n• Emphasize recent and current experience when relevant';
     }
 
     return prompt;
@@ -213,32 +213,32 @@ Please provide a comprehensive answer based on this context.`;
     let score = 0;
     
     // Base score from context quality
-    if (contextResult.avgSimilarity >= 0.85) score += 40;
-    else if (contextResult.avgSimilarity >= 0.80) score += 35;
-    else if (contextResult.avgSimilarity >= 0.75) score += 30;
-    else if (contextResult.avgSimilarity >= 0.70) score += 20;
-    else score += 10;
+    if (contextResult.avgSimilarity >= 0.85) {score += 40;}
+    else if (contextResult.avgSimilarity >= 0.80) {score += 35;}
+    else if (contextResult.avgSimilarity >= 0.75) {score += 30;}
+    else if (contextResult.avgSimilarity >= 0.70) {score += 20;}
+    else {score += 10;}
     
     // Number of relevant chunks
     const chunkCount = contextResult.chunks.length;
-    if (chunkCount >= 6) score += 25;
-    else if (chunkCount >= 4) score += 20;
-    else if (chunkCount >= 2) score += 15;
-    else score += 5;
+    if (chunkCount >= 6) {score += 25;}
+    else if (chunkCount >= 4) {score += 20;}
+    else if (chunkCount >= 2) {score += 15;}
+    else {score += 5;}
     
     // Answer quality indicators
-    if (answer.length > 200) score += 15; // Comprehensive answer
-    if (answer.includes('$') || answer.includes('%') || /\d+/.test(answer)) score += 10; // Specific metrics
-    if (answer.toLowerCase().includes('i ')) score += 5; // First person (good for this use case)
+    if (answer.length > 200) {score += 15;} // Comprehensive answer
+    if (answer.includes('$') || answer.includes('%') || /\d+/.test(answer)) {score += 10;} // Specific metrics
+    if (answer.toLowerCase().includes('i ')) {score += 5;} // First person (good for this use case)
     
     // Recent vs historical context
     const hasRecentContext = contextResult.chunks.some(chunk => chunk.recency_score > 0.7);
-    if (hasRecentContext) score += 10;
+    if (hasRecentContext) {score += 10;}
     
-    if (score >= 85) return 'very-high';
-    if (score >= 70) return 'high';
-    if (score >= 55) return 'medium';
-    if (score >= 40) return 'low';
+    if (score >= 85) {return 'very-high';}
+    if (score >= 70) {return 'high';}
+    if (score >= 55) {return 'medium';}
+    if (score >= 40) {return 'low';}
     return 'very-low';
   }
 
@@ -339,4 +339,4 @@ Please provide a comprehensive answer based on this context.`;
   }
 }
 
-module.exports = RAGService;
+export default RAGService;

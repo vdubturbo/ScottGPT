@@ -42,10 +42,16 @@ echo "💾 Step 4: Writing to source files..."
 node scripts/write.js
 
 echo "🔗 Step 5: Indexing and embedding..."
-COHERE_API_KEY=j2GfQeuTCGKQhQecEnBNTUMi50jsLxyJu6x2t2qm node scripts/indexer.cjs
+node scripts/indexer.cjs
 
 echo "🧹 Cleaning up temporary files..."
-rm -rf .work
+# Safety check: only remove .work directory if it exists and is in the correct location
+if [ -d ".work" ] && [ "$(pwd | basename)" = "ScottGPT" ]; then
+    rm -rf .work
+    echo "✅ Temporary .work directory cleaned up"
+else
+    echo "⚠️  Skipped cleanup: .work directory not found or script not run from ScottGPT root"
+fi
 
 echo "✅ ScottGPT ingestion complete!"
 echo "📊 Check the database for new chunks and sources."

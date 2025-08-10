@@ -73,12 +73,11 @@ async function generateSummary(content, title) {
 
 async function upsertSource(data) {
   try {
-    // Check if source already exists
+    // Check if source already exists by ID (the actual unique constraint)
     const existing = await supabase
       .from("sources")
       .select("id")
-      .eq("title", data.title)
-      .eq("org", data.org)
+      .eq("id", data.id)
       .single();
     
     if (existing.data) {

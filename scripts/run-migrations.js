@@ -45,7 +45,7 @@ async function runMigrations() {
 
       for (let i = 0; i < statements.length; i++) {
         const statement = statements[i];
-        if (!statement) continue;
+        if (!statement) {continue;}
         
         console.log(`   Executing statement ${i + 1}/${statements.length}...`);
         
@@ -70,17 +70,17 @@ async function runMigrations() {
               throw new Error(`HTTP ${response.status}: ${await response.text()}`);
             }
             
-            console.log(`   ✅ Statement executed successfully`);
+            console.log('   ✅ Statement executed successfully');
           } else {
-            console.log(`   ✅ Statement executed successfully`);
+            console.log('   ✅ Statement executed successfully');
           }
         } catch (err) {
-          console.error(`   ❌ Failed to execute statement:`, err.message);
+          console.error('   ❌ Failed to execute statement:', err.message);
           console.error(`   SQL: ${statement.substring(0, 100)}...`);
           
           // Continue with other statements unless it's a critical error
           if (statement.includes('CREATE SCHEMA') || statement.includes('CREATE TABLE')) {
-            console.log(`   ⚠️  Continuing with remaining statements...`);
+            console.log('   ⚠️  Continuing with remaining statements...');
           }
         }
       }

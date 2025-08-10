@@ -1,0 +1,7 @@
+node_modules/
+client/
+logs/
+.work/
+processed/
+incoming/
+*.log

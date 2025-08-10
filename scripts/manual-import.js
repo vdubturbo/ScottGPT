@@ -1,22 +1,22 @@
-const fs = require("fs/promises");
-const path = require("path");
-const matter = require("gray-matter");
-const crypto = require("crypto");
+const fs = require('fs/promises');
+const path = require('path');
+const matter = require('gray-matter');
+const crypto = require('crypto');
 
 // Simple manual import tool for documents that bypass the extraction pipeline
 async function manualImport() {
-  console.log("🔧 Manual import tool for ScottGPT");
+  console.log('🔧 Manual import tool for ScottGPT');
   
-  const incomingDir = "incoming";
-  const sourcesDir = "sources";
+  const incomingDir = 'incoming';
+  const sourcesDir = 'sources';
   
   try {
     const files = await fs.readdir(incomingDir);
     const docFiles = files.filter(f => f.match(/\.(md|txt)$/i));
     
     if (docFiles.length === 0) {
-      console.log("📂 No .md or .txt files found in incoming/ directory");
-      console.log("   Place markdown files with YAML frontmatter in incoming/ to import");
+      console.log('📂 No .md or .txt files found in incoming/ directory');
+      console.log('   Place markdown files with YAML frontmatter in incoming/ to import');
       return;
     }
     
@@ -26,7 +26,7 @@ async function manualImport() {
       console.log(`\n🔍 Processing: ${file}`);
       
       const filePath = path.join(incomingDir, file);
-      const content = await fs.readFile(filePath, "utf8");
+      const content = await fs.readFile(filePath, 'utf8');
       
       try {
         const parsed = matter(content);
@@ -38,7 +38,7 @@ async function manualImport() {
         
         if (missing.length > 0) {
           console.log(`❌ Missing required fields: ${missing.join(', ')}`);
-          console.log(`   Add these to the YAML frontmatter and try again`);
+          console.log('   Add these to the YAML frontmatter and try again');
           continue;
         }
         
@@ -59,7 +59,7 @@ async function manualImport() {
         try {
           await fs.access(outputFile);
           console.log(`⚠️  File already exists: ${outputFile}`);
-          console.log(`   Skipping to avoid overwrite`);
+          console.log('   Skipping to avoid overwrite');
           continue;
         } catch (e) {
           // File doesn't exist, proceed
@@ -70,7 +70,7 @@ async function manualImport() {
         console.log(`✅ Imported: ${outputFile}`);
         
         // Move original to processed
-        const processedDir = "processed";
+        const processedDir = 'processed';
         await fs.mkdir(processedDir, { recursive: true });
         const timestamp = Date.now();
         const processedFile = path.join(processedDir, `${timestamp}-${file}`);
@@ -79,12 +79,12 @@ async function manualImport() {
         
       } catch (error) {
         console.log(`❌ Error parsing ${file}: ${error.message}`);
-        console.log(`   Make sure the file has valid YAML frontmatter`);
+        console.log('   Make sure the file has valid YAML frontmatter');
       }
     }
     
-    console.log(`\n✅ Manual import complete!`);
-    console.log(`🔗 Run "npm run ingest:index" to create embeddings for new content`);
+    console.log('\n✅ Manual import complete!');
+    console.log('🔗 Run "npm run ingest:index" to create embeddings for new content');
     
   } catch (error) {
     console.error('💥 Import failed:', error);

@@ -1,5 +1,6 @@
-const express = require('express');
-const RAGService = require('../services/rag');
+import express from 'express';
+import RAGService from '../services/rag.js';
+
 const router = express.Router();
 
 const rag = new RAGService();
@@ -24,6 +25,7 @@ router.post('/', async (req, res) => {
     }
 
     console.log(`💬 Chat request: "${query}"`);
+    console.log(`🔧 Environment check - COHERE_API_KEY: ${process.env.COHERE_API_KEY ? 'Set' : 'Missing'}`);
     const startTime = Date.now();
 
     // Generate answer using RAG pipeline
@@ -33,6 +35,13 @@ router.post('/', async (req, res) => {
       conversationHistory: conversationHistory || [],
       temperature: options?.temperature || 0.3,
       maxTokens: options?.maxTokens || 500
+    });
+    
+    console.log(`📊 RAG result summary:`, { 
+      hasAnswer: !!result.answer, 
+      sourcesCount: result.sources?.length || 0,
+      confidence: result.confidence,
+      tokensUsed: result.tokensUsed || 0
     });
 
     console.log(`✅ Chat response generated in ${Date.now() - startTime}ms`);
@@ -121,7 +130,7 @@ router.get('/health', async (req, res) => {
 // POST /api/chat/test - Test RAG pipeline with sample query
 router.post('/test', async (req, res) => {
   try {
-    const testQuery = req.body.query || "What experience do you have with AI and machine learning?";
+    const testQuery = req.body.query || 'What experience do you have with AI and machine learning?';
     
     console.log(`🧪 Testing RAG pipeline with query: "${testQuery}"`);
     
@@ -148,4 +157,4 @@ router.post('/test', async (req, res) => {
   }
 });
 
-module.exports = router;
+export default router;

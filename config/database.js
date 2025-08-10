@@ -1,5 +1,7 @@
-const { createClient } = require('@supabase/supabase-js');
-require('dotenv').config();
+import { createClient } from '@supabase/supabase-js';
+import dotenv from 'dotenv';
+
+dotenv.config();
 
 // Initialize Supabase client
 const supabaseUrl = process.env.SUPABASE_URL;
@@ -18,64 +20,174 @@ const supabase = createClient(supabaseUrl, supabaseKey, {
 
 // Database helper functions
 const db = {
-  // Search chunks with filters and ranking
+  // Search chunks with filters and ranking using vector similarity
   async searchChunks(queryEmbedding, options = {}) {
     const {
       filterSkills = [],
       filterTags = [],
-      filterIndustries = [],
+      filterIndustries = [], // eslint-disable-line no-unused-vars
       dateAfter = null,
       similarityThreshold = 0.78,
       maxResults = 12
     } = options;
 
-    // Use public schema since tables were created there
-    let query = supabase
-      .from('content_chunks')
-      .select('*');
+    try {
+      // Build the RPC call for vector similarity search
+      // This assumes you have a PostgreSQL function for vector similarity
+      // If not using pgvector, we'll do a regular search with filters
+      
+      let query = supabase
+        .from('content_chunks')
+        .select(`
+          *,
+          sources(
+            title,
+            type,
+            org
+          )
+        `);
 
-    // Apply filters
-    if (filterSkills.length > 0) {
-      query = query.overlaps('skills', filterSkills);
+      // Apply filters
+      if (filterSkills.length > 0) {
+        query = query.overlaps('skills', filterSkills);
+      }
+      
+      if (filterTags.length > 0) {
+        query = query.overlaps('tags', filterTags);
+      }
+      
+      if (dateAfter) {
+        query = query.gte('date_end', dateAfter);
+      }
+
+      query = query.limit(maxResults * 2); // Get more results to filter by similarity
+
+      const { data, error } = await query;
+
+      if (error) {
+        console.error('Database search error:', error);
+        throw new Error(`Search failed: ${error.message}`);
+      }
+
+      console.log(`📊 Found ${data?.length || 0} chunks before similarity filtering`);
+
+      // Calculate cosine similarity for each chunk if we have embeddings
+      let rankedResults = [];
+      
+      console.log(`🧮 Query embedding dimensions: ${queryEmbedding?.length || 'none'}`);
+      
+      if (queryEmbedding && Array.isArray(queryEmbedding)) {
+        rankedResults = (data || []).map(chunk => {
+          // Calculate cosine similarity if chunk has embedding
+          let similarity = 0;
+          let chunkEmbedding = chunk.embedding;
+          
+          // Handle different embedding formats (string, array, or parsed)
+          if (chunkEmbedding) {
+            if (typeof chunkEmbedding === 'string') {
+              try {
+                chunkEmbedding = JSON.parse(chunkEmbedding);
+              } catch (e) {
+                console.log(`❌ Chunk ${chunk.id}: invalid embedding format`);
+                chunkEmbedding = null;
+              }
+            }
+            
+            if (Array.isArray(chunkEmbedding) && chunkEmbedding.length > 0) {
+              similarity = this.cosineSimilarity(queryEmbedding, chunkEmbedding);
+              console.log(`📊 Chunk ${chunk.id}: similarity ${similarity.toFixed(4)} (embedding: ${chunkEmbedding.length}d)`);
+            } else {
+              console.log(`❌ Chunk ${chunk.id}: embedding not array (${typeof chunkEmbedding})`);
+            }
+          } else {
+            console.log(`❌ Chunk ${chunk.id}: no embedding found`);
+          }
+
+          // Calculate recency score (higher for more recent content)
+          const recencyScore = chunk.date_end ? 
+            Math.max(0, 1.0 - (Date.now() - new Date(chunk.date_end).getTime()) / (365 * 24 * 60 * 60 * 1000 * 2)) : 1.0;
+
+          return {
+            chunk_id: chunk.id,
+            source_id: chunk.source_id,
+            title: chunk.title,
+            content: chunk.content,
+            content_summary: chunk.content_summary,
+            skills: chunk.skills || [],
+            tags: chunk.tags || [],
+            similarity: similarity,
+            recency_score: recencyScore,
+            combined_score: (similarity * 0.8) + (recencyScore * 0.2), // Weighted combination
+            source_title: chunk.sources?.title || 'Unknown Source',
+            source_type: chunk.sources?.type || chunk.source_type || 'unknown',
+            source_org: chunk.sources?.org || 'Unknown',
+            date_start: chunk.date_start,
+            date_end: chunk.date_end
+          };
+        });
+
+        console.log(`🔍 Before filtering: ${rankedResults.length} results`);
+        console.log(`📊 Similarity threshold: ${similarityThreshold}`);
+        
+        // Filter by similarity threshold and sort by combined score
+        const filtered = rankedResults.filter(r => r.similarity >= similarityThreshold);
+        console.log(`✅ After similarity filtering: ${filtered.length} results`);
+        
+        rankedResults = filtered
+          .sort((a, b) => b.combined_score - a.combined_score)
+          .slice(0, maxResults);
+      } else {
+        // No embedding provided, return filtered results without similarity ranking
+        rankedResults = (data || []).slice(0, maxResults).map(chunk => ({
+          chunk_id: chunk.id,
+          source_id: chunk.source_id,
+          title: chunk.title,
+          content: chunk.content,
+          content_summary: chunk.content_summary,
+          skills: chunk.skills || [],
+          tags: chunk.tags || [],
+          similarity: 0.5, // Default similarity when no embedding
+          recency_score: chunk.date_end ? 
+            Math.max(0, 1.0 - (Date.now() - new Date(chunk.date_end).getTime()) / (365 * 24 * 60 * 60 * 1000 * 2)) : 1.0,
+          source_title: chunk.sources?.title || 'Unknown Source',
+          source_type: chunk.sources?.type || chunk.source_type || 'unknown',
+          source_org: chunk.sources?.org || 'Unknown',
+          date_start: chunk.date_start,
+          date_end: chunk.date_end
+        }));
+      }
+
+      return rankedResults;
+    } catch (error) {
+      console.error('Search error:', error);
+      throw error;
     }
-    
-    if (filterTags.length > 0) {
-      query = query.overlaps('tags', filterTags);
-    }
-    
-    if (dateAfter) {
-      query = query.gte('date_end', dateAfter);
-    }
+  },
 
-    query = query.limit(maxResults);
-
-    const { data, error } = await query;
-
-    if (error) {
-      console.error('Database search error:', error);
-      throw new Error(`Search failed: ${error.message}`);
+  // Calculate cosine similarity between two vectors
+  cosineSimilarity(vecA, vecB) {
+    if (!vecA || !vecB || vecA.length !== vecB.length) {
+      return 0;
     }
 
-    // Transform the data to match expected format
-    const transformedData = (data || []).map(chunk => ({
-      chunk_id: chunk.id,
-      source_id: chunk.source_id,
-      title: chunk.title,
-      content: chunk.content,
-      content_summary: chunk.content_summary,
-      skills: chunk.skills,
-      tags: chunk.tags,
-      similarity: 0.85, // Mock similarity for now - would come from vector search
-      recency_score: chunk.date_end ? 
-        Math.max(0, 1.0 - (Date.now() - new Date(chunk.date_end).getTime()) / (365 * 24 * 60 * 60 * 1000 * 2)) : 1.0,
-      source_title: 'Fed Fusion AI', // Mock data for now
-      source_type: 'project',
-      source_org: 'Self-Developed',
-      date_start: chunk.date_start,
-      date_end: chunk.date_end
-    }));
+    let dotProduct = 0;
+    let normA = 0;
+    let normB = 0;
 
-    return transformedData;
+    for (let i = 0; i < vecA.length; i++) {
+      dotProduct += vecA[i] * vecB[i];
+      normA += vecA[i] * vecA[i];
+      normB += vecB[i] * vecB[i];
+    }
+
+    normA = Math.sqrt(normA);
+    normB = Math.sqrt(normB);
+
+    if (normA === 0 || normB === 0) {
+      return 0;
+    }
+
+    return dotProduct / (normA * normB);
   },
 
   // Insert new source
@@ -222,7 +334,95 @@ const db = {
         source_breakdown: {}
       };
     }
+  },
+
+  // Get chunk statistics
+  async getChunkStats() {
+    try {
+      const { data, error, count } = await supabase
+        .from('content_chunks')
+        .select('created_at', { count: 'exact' })
+        .order('created_at', { ascending: false })
+        .limit(1);
+
+      if (error) {throw error;}
+
+      return {
+        count: count || 0,
+        last_updated: data && data.length > 0 ? data[0].created_at : null
+      };
+    } catch (error) {
+      console.error('Chunk stats error:', error);
+      return { count: 0, last_updated: null };
+    }
+  },
+
+  // Get source statistics
+  async getSourceStats() {
+    try {
+      const { data, error, count } = await supabase
+        .from('sources')
+        .select('type', { count: 'exact' });
+
+      if (error) {throw error;}
+
+      const types = [...new Set(data?.map(s => s.type) || [])];
+
+      return {
+        count: count || 0,
+        types: types
+      };
+    } catch (error) {
+      console.error('Source stats error:', error);
+      return { count: 0, types: [] };
+    }
+  },
+
+  // Get unique skills
+  async getUniqueSkills() {
+    try {
+      const { data, error } = await supabase
+        .from('content_chunks')
+        .select('skills');
+
+      if (error) {throw error;}
+
+      const allSkills = new Set();
+      data?.forEach(chunk => {
+        if (chunk.skills && Array.isArray(chunk.skills)) {
+          chunk.skills.forEach(skill => allSkills.add(skill));
+        }
+      });
+
+      return Array.from(allSkills).sort();
+    } catch (error) {
+      console.error('Unique skills error:', error);
+      return [];
+    }
+  },
+
+  // Get unique tags
+  async getUniqueTags() {
+    try {
+      const { data, error } = await supabase
+        .from('content_chunks')
+        .select('tags');
+
+      if (error) {throw error;}
+
+      const allTags = new Set();
+      data?.forEach(chunk => {
+        if (chunk.tags && Array.isArray(chunk.tags)) {
+          chunk.tags.forEach(tag => allTags.add(tag));
+        }
+      });
+
+      return Array.from(allTags).sort();
+    } catch (error) {
+      console.error('Unique tags error:', error);
+      return [];
+    }
   }
 };
 
-module.exports = { supabase, db };
+export { supabase, db };

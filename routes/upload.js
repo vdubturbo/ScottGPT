@@ -1,16 +1,35 @@
-const express = require('express');
-const multer = require('multer');
-const fs = require('fs/promises');
-const path = require('path');
-const { exec } = require('child_process');
-const { promisify } = require('util');
-const router = express.Router();
+import express from 'express';
+import multer from 'multer';
+import fs from 'fs/promises';
+import path from 'path';
+import { exec } from 'child_process';
+import { promisify } from 'util';
+import { api as logger } from '../utils/logger.js';
 
+const router = express.Router();
 const execAsync = promisify(exec);
+
+// Ensure required directories exist
+const ensureDirectoryExists = async (dirPath) => {
+  try {
+    await fs.access(dirPath);
+  } catch (error) {
+    await fs.mkdir(dirPath, { recursive: true });
+    logger.info(`Created directory: ${dirPath}`);
+  }
+};
+
+// Initialize required directories
+(async () => {
+  await ensureDirectoryExists('incoming');
+  await ensureDirectoryExists('processed');
+  await ensureDirectoryExists('logs');
+})();
 
 // Configure multer for file uploads
 const storage = multer.diskStorage({
-  destination: function (req, file, cb) {
+  destination: async function (req, file, cb) {
+    await ensureDirectoryExists('incoming');
     cb(null, 'incoming/');
   },
   filename: function (req, file, cb) {
@@ -52,6 +71,12 @@ router.post('/', upload.array('files', 10), async (req, res) => {
       mimetype: file.mimetype
     }));
 
+    logger.info('Files uploaded successfully', {
+      fileCount: uploadedFiles.length,
+      files: uploadedFiles.map(f => ({ name: f.originalName, size: f.size })),
+      ip: req.ip
+    });
+
     res.json({
       success: true,
       message: `${uploadedFiles.length} files uploaded successfully`,
@@ -59,7 +84,11 @@ router.post('/', upload.array('files', 10), async (req, res) => {
     });
 
   } catch (error) {
-    console.error('Upload error:', error);
+    logger.error('File upload failed', {
+      error: error.message,
+      stack: error.stack,
+      ip: req.ip
+    });
     res.status(500).json({ error: 'Failed to upload files' });
   }
 });
@@ -115,13 +144,13 @@ router.post('/process', async (req, res) => {
         
         if (stdout) {
           stdout.split('\n').forEach(line => {
-            if (line.trim()) sendProgress(`   ${line}`);
+            if (line.trim()) {sendProgress(`   ${line}`);}
           });
         }
         
         if (stderr) {
           stderr.split('\n').forEach(line => {
-            if (line.trim()) sendProgress(`   ⚠️ ${line}`);
+            if (line.trim()) {sendProgress(`   ⚠️ ${line}`);}
           });
         }
         
@@ -168,7 +197,7 @@ router.post('/process', async (req, res) => {
 // GET /api/upload/stats - Get database statistics
 router.get('/stats', async (req, res) => {
   try {
-    const { db } = require('../config/database');
+    const { db } = await import('../config/database.js');
     const stats = await db.getStats();
     
     res.json({
@@ -209,4 +238,4 @@ router.get('/incoming', async (req, res) => {
   }
 });
 
-module.exports = router;
+export default router;

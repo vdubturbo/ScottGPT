@@ -2,7 +2,7 @@
 
 ## Base URL
 ```
-http://localhost:5000/api
+http://localhost:3001/api
 ```
 
 ## Authentication
@@ -65,7 +65,7 @@ POST /api/upload
 
 **Example:**
 ```bash
-curl -X POST http://localhost:5000/api/upload \
+curl -X POST http://localhost:3001/api/upload \
   -F "files=@resume.pdf" \
   -F "files=@cover_letter.docx"
 ```
@@ -115,7 +115,7 @@ POST /api/upload/process
 
 **Example:**
 ```bash
-curl -X POST http://localhost:5000/api/upload/process
+curl -X POST http://localhost:3001/api/upload/process
 ```
 
 #### Get Upload Statistics
@@ -203,7 +203,7 @@ POST /api/chat
 
 **Example:**
 ```bash
-curl -X POST http://localhost:5000/api/chat \
+curl -X POST http://localhost:3001/api/chat \
   -H "Content-Type: application/json" \
   -d '{"message": "Tell me about Scott'\''s project management experience"}'
 ```
@@ -282,7 +282,7 @@ GET /api/search?q={query}&limit={limit}&type={type}
 
 **Example:**
 ```bash
-curl "http://localhost:5000/api/search?q=AI%20machine%20learning&limit=5"
+curl "http://localhost:3001/api/search?q=AI%20machine%20learning&limit=5"
 ```
 
 #### Find Similar Content
@@ -354,7 +354,7 @@ POST /api/webhooks/error-occurred
 const ScottGPT = require('scottgpt-client');
 
 const client = new ScottGPT({
-  baseUrl: 'http://localhost:5000/api'
+  baseUrl: 'http://localhost:3001/api'
 });
 
 // Upload and process files
@@ -374,7 +374,7 @@ const results = await client.search.query("project management");
 ```python
 import scottgpt
 
-client = scottgpt.Client(base_url='http://localhost:5000/api')
+client = scottgpt.Client(base_url='http://localhost:3001/api')
 
 # Upload files
 client.upload.files(['resume.pdf', 'portfolio.docx'])
@@ -394,22 +394,22 @@ Complete workflow example:
 
 ```bash
 # 1. Upload files
-curl -X POST http://localhost:5000/api/upload \
+curl -X POST http://localhost:3001/api/upload \
   -F "files=@resume.pdf"
 
 # 2. Process files
-curl -X POST http://localhost:5000/api/upload/process
+curl -X POST http://localhost:3001/api/upload/process
 
 # 3. Check stats
-curl http://localhost:5000/api/upload/stats
+curl http://localhost:3001/api/upload/stats
 
 # 4. Chat with ScottGPT
-curl -X POST http://localhost:5000/api/chat \
+curl -X POST http://localhost:3001/api/chat \
   -H "Content-Type: application/json" \
   -d '{"message": "What industries has Scott worked in?"}'
 
 # 5. Search content
-curl "http://localhost:5000/api/search?q=leadership%20experience"
+curl "http://localhost:3001/api/search?q=leadership%20experience"
 ```
 
 ## Development Notes

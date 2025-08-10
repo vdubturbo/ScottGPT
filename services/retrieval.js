@@ -1,5 +1,5 @@
-const { db } = require('../config/database');
-const EmbeddingService = require('./embeddings');
+import { db } from '../config/database.js';
+import EmbeddingService from './embeddings.js';
 
 class RetrievalService {
   constructor() {
@@ -23,17 +23,23 @@ class RetrievalService {
 
       console.log(`🔍 Retrieving context for: "${query}"`);
       
-      // Step 1: Expand query with synonyms
-      const expandedQuery = await this.embeddings.expandQuery(query);
-      console.log(`📝 Expanded query: "${expandedQuery}"`);
+      // Step 1: Expand query with synonyms (with fallback)
+      let expandedQuery;
+      try {
+        expandedQuery = await this.embeddings.expandQuery(query);
+        console.log(`📝 Expanded query: "${expandedQuery}"`);
+      } catch (error) {
+        console.log(`⚠️  Query expansion failed, using original query: ${error.message}`);
+        expandedQuery = query;
+      }
 
       // Step 2: Generate query embedding
       const queryEmbedding = await this.embeddings.embedText(expandedQuery, 'search_query');
-      console.log(`🎯 Generated embedding (${queryEmbedding.length} dimensions)`);
+      console.log(`🎯 Generated embedding (${queryEmbedding?.length || 'failed'} dimensions)`);
 
       // Step 3: Extract filters from query
       const filters = this.embeddings.extractFilters(query);
-      console.log(`🏷️  Extracted filters:`, filters);
+      console.log('🏷️  Extracted filters:', filters);
 
       // Step 4: Calculate dynamic similarity threshold
       const similarityThreshold = minSimilarity || this.embeddings.calculateSimilarityThreshold(query);
@@ -181,10 +187,10 @@ class RetrievalService {
   calculateConfidence(chunk) {
     const score = chunk.rerank_score || chunk.similarity;
     
-    if (score >= 0.85) return 'very-high';
-    if (score >= 0.80) return 'high';
-    if (score >= 0.75) return 'medium';
-    if (score >= 0.70) return 'low';
+    if (score >= 0.85) {return 'very-high';}
+    if (score >= 0.80) {return 'high';}
+    if (score >= 0.75) {return 'medium';}
+    if (score >= 0.70) {return 'low';}
     return 'very-low';
   }
 
@@ -224,12 +230,12 @@ class RetrievalService {
    * @returns {string} - Formatted date range
    */
   formatDateRange(startDate, endDate) {
-    if (!startDate) return 'Date unknown';
+    if (!startDate) {return 'Date unknown';}
     
     const start = new Date(startDate);
     const startFormatted = start.toLocaleDateString('en-US', { year: 'numeric', month: 'short' });
     
-    if (!endDate) return `${startFormatted} - Present`;
+    if (!endDate) {return `${startFormatted} - Present`;}
     
     const end = new Date(endDate);
     const endFormatted = end.toLocaleDateString('en-US', { year: 'numeric', month: 'short' });
@@ -289,7 +295,7 @@ class RetrievalService {
       parts.push(`covering ${topSkills.slice(0, 3).join(', ')}`);
     }
     
-    return parts.join(' ') + '.';
+    return `${parts.join(' ')  }.`;
   }
 
   /**
@@ -326,14 +332,14 @@ class RetrievalService {
       .map(date => new Date(date))
       .sort((a, b) => a - b);
     
-    if (dates.length < 2) return null;
+    if (dates.length < 2) {return null;}
     
     const earliest = dates[0];
     const latest = dates[dates.length - 1];
     const yearDiff = latest.getFullYear() - earliest.getFullYear();
     
-    if (yearDiff === 0) return 'recent experience';
-    if (yearDiff === 1) return '2 years of experience';
+    if (yearDiff === 0) {return 'recent experience';}
+    if (yearDiff === 1) {return '2 years of experience';}
     return `${yearDiff + 1} years of experience`;
   }
 
@@ -365,11 +371,11 @@ class RetrievalService {
    * @returns {number} - Average similarity
    */
   calculateAverageSimilarity(chunks) {
-    if (chunks.length === 0) return 0;
+    if (chunks.length === 0) {return 0;}
     
     const totalSimilarity = chunks.reduce((sum, chunk) => sum + (chunk.similarity || 0), 0);
     return Math.round((totalSimilarity / chunks.length) * 100) / 100;
   }
 }
 
-module.exports = RetrievalService;
+export default RetrievalService;

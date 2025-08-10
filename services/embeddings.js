@@ -1,4 +1,4 @@
-const { CohereClient } = require('cohere-ai');
+import { CohereClient } from 'cohere-ai';
 
 class EmbeddingService {
   constructor() {
@@ -110,7 +110,7 @@ class EmbeddingService {
   async expandQuery(query) {
     try {
       // Load synonyms from database
-      const { db } = require('../config/database');
+      const { db } = await import('../config/database.js');
       const words = query.toLowerCase().split(/\s+/);
       const expandedTerms = new Set([query]);
       
@@ -233,13 +233,30 @@ class EmbeddingService {
    */
   calculateSimilarityThreshold(query) {
     const queryLength = query.split(/\s+/).length;
+    const queryLower = query.toLowerCase();
     
-    // More specific queries can have higher thresholds
-    if (queryLength >= 8) return 0.75; // Very specific
-    if (queryLength >= 5) return 0.72; // Moderately specific
-    if (queryLength >= 3) return 0.70; // Somewhat specific
-    return 0.68; // General queries
+    // Special handling for common resume queries that may have low semantic similarity
+    const resumeQueries = [
+      'job', 'work', 'position', 'role', 'employment', 'career',
+      'experience', 'background', 'history', 'resume', 'cv'
+    ];
+    
+    const isResumeQuery = resumeQueries.some(term => queryLower.includes(term));
+    
+    if (isResumeQuery) {
+      // Use lower thresholds for resume-related queries to ensure job content is found
+      if (queryLength >= 8) {return 0.25;} // Very specific
+      if (queryLength >= 5) {return 0.20;} // Moderately specific  
+      if (queryLength >= 3) {return 0.18;} // Somewhat specific
+      return 0.15; // General resume queries
+    }
+    
+    // Standard thresholds for other queries
+    if (queryLength >= 8) {return 0.35;} // Very specific
+    if (queryLength >= 5) {return 0.32;} // Moderately specific
+    if (queryLength >= 3) {return 0.30;} // Somewhat specific
+    return 0.28; // General queries
   }
 }
 
-module.exports = EmbeddingService;
+export default EmbeddingService;

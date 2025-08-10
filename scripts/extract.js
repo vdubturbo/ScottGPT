@@ -1,10 +1,10 @@
-import fs from "fs/promises";
-import path from "path";
-import OpenAI from "openai";
+import fs from 'fs/promises';
+import path from 'path';
+import OpenAI from 'openai';
 
 const client = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
-const IN = ".work/normalized";
-const OUT = ".work/extracted";
+const IN = '.work/normalized';
+const OUT = '.work/extracted';
 
 const SYSTEM_PROMPT = `You are a resume data extraction specialist for Scott Lovett. Extract ONE job, project, or experience from the text and format it as a complete Markdown document with YAML frontmatter AND detailed content body.
 
@@ -68,14 +68,14 @@ REQUIREMENTS:
 Output EXACTLY ONE complete Markdown document with both YAML frontmatter AND detailed content body.`;
 
 async function extract() {
-  console.log("🔍 Extracting structured data...");
+  console.log('🔍 Extracting structured data...');
   
   await fs.mkdir(OUT, { recursive: true });
 
-  const files = (await fs.readdir(IN)).filter(f => f.endsWith(".md"));
+  const files = (await fs.readdir(IN)).filter(f => f.endsWith('.md'));
   
   if (files.length === 0) {
-    console.log("📄 No normalized files found to extract");
+    console.log('📄 No normalized files found to extract');
     return;
   }
 
@@ -83,7 +83,7 @@ async function extract() {
   
   for (const f of files) {
     console.log(`📖 Processing: ${f}`);
-    const raw = await fs.readFile(path.join(IN, f), "utf8");
+    const raw = await fs.readFile(path.join(IN, f), 'utf8');
 
     // Split by headings to identify job/project blocks
     // Look for patterns like "## Job Title" or "# Project Name"
@@ -92,13 +92,13 @@ async function extract() {
       .filter(block => {
         // Filter for substantial content blocks (likely jobs/projects)
         return block.length > 200 && 
-               (block.includes("experience") || 
-                block.includes("project") || 
-                block.includes("role") ||
-                block.includes("position") ||
-                block.includes("director") ||
-                block.includes("manager") ||
-                block.includes("lead"));
+               (block.includes('experience') || 
+                block.includes('project') || 
+                block.includes('role') ||
+                block.includes('position') ||
+                block.includes('director') ||
+                block.includes('manager') ||
+                block.includes('lead'));
       });
 
     console.log(`📋 Found ${blocks.length} content blocks in ${f}`);
@@ -107,18 +107,18 @@ async function extract() {
     for (const block of blocks) {
       try {
         const response = await client.chat.completions.create({
-          model: "gpt-4o-mini",
+          model: 'gpt-4o-mini',
           messages: [
-            { role: "system", content: SYSTEM_PROMPT },
-            { role: "user", content: `Extract structured data from this resume section:\n\n${block}` }
+            { role: 'system', content: SYSTEM_PROMPT },
+            { role: 'user', content: `Extract structured data from this resume section:\n\n${block}` }
           ],
           temperature: 0.2
         });
 
         const extractedMd = response.choices[0].message.content;
         
-        if (extractedMd && extractedMd.includes("---")) {
-          const fileName = f.replace(".md", `.block-${blockIndex}.md`);
+        if (extractedMd && extractedMd.includes('---')) {
+          const fileName = f.replace('.md', `.block-${blockIndex}.md`);
           await fs.writeFile(path.join(OUT, fileName), extractedMd);
           console.log(`💾 Extracted: ${fileName}`);
           totalBlocks++;
@@ -134,7 +134,7 @@ async function extract() {
       } catch (error) {
         console.error(`❌ Error processing block ${blockIndex} in ${f}:`, error.message);
         if (error.status === 429) {
-          console.log("⏳ Rate limited - waiting 30 seconds...");
+          console.log('⏳ Rate limited - waiting 30 seconds...');
           await new Promise(resolve => setTimeout(resolve, 30000));
         }
       }
