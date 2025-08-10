@@ -98,14 +98,20 @@ router.post('/process', async (req, res) => {
       { name: 'extract', script: 'scripts/extract.js', description: 'Extracting structured data with AI' },
       { name: 'validate', script: 'scripts/validate.js', description: 'Validating content and stripping PII' },
       { name: 'write', script: 'scripts/write.js', description: 'Organizing files by type' },
-      { name: 'index', script: 'scripts/indexer.js', description: 'Creating embeddings and indexing' }
+      { name: 'index', script: 'scripts/indexer.cjs', description: 'Creating embeddings and indexing' }
     ];
 
     for (const step of steps) {
       sendProgress(`\n📋 Step: ${step.description}...`);
       
       try {
-        const { stdout, stderr } = await execAsync(`node ${step.script}`);
+        let command = `node ${step.script}`;
+        if (step.name === 'index') {
+          command = `COHERE_API_KEY=${process.env.COHERE_API_KEY} node ${step.script}`;
+        } else if (step.name === 'extract') {
+          command = `OPENAI_API_KEY=${process.env.OPENAI_API_KEY} node ${step.script}`;
+        }
+        const { stdout, stderr } = await execAsync(command);
         
         if (stdout) {
           stdout.split('\n').forEach(line => {

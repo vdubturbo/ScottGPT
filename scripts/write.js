@@ -51,7 +51,7 @@ async function write() {
       await fs.mkdir(targetDir, { recursive: true });
       
       // Create stable filename: YYYY-title-slug.md
-      const year = data.date_start ? data.date_start.slice(0, 4) : "0000";
+      const year = data.date_start ? String(data.date_start).slice(0, 4) : "0000";
       const titleSlug = slugify(data.title || "untitled");
       const fileName = `${year}-${titleSlug}.md`;
       const filePath = path.join(targetDir, fileName);

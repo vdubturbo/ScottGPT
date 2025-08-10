@@ -42,7 +42,7 @@ echo "💾 Step 4: Writing to source files..."
 node scripts/write.js
 
 echo "🔗 Step 5: Indexing and embedding..."
-node scripts/indexer.cjs
+COHERE_API_KEY=j2GfQeuTCGKQhQecEnBNTUMi50jsLxyJu6x2t2qm node scripts/indexer.cjs
 
 echo "🧹 Cleaning up temporary files..."
 rm -rf .work
