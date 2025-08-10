@@ -10,7 +10,13 @@
     "build": "npm run build:client",
     "build:client": "cd client && npm run build",
     "test": "jest",
-    "lint": "eslint ."
+    "lint": "eslint .",
+    "ingest": "./scripts/ingest.sh",
+    "ingest:normalize": "node scripts/normalize.js",
+    "ingest:extract": "node scripts/extract.js",
+    "ingest:validate": "node scripts/validate.js",
+    "ingest:write": "node scripts/write.js",
+    "ingest:index": "node scripts/indexer.js"
   },
   "keywords": ["ai", "resume", "rag", "chatgpt", "interactive"],
   "author": "Scott Lovett",
@@ -22,7 +28,11 @@
     "openai": "^4.24.1",
     "cohere-ai": "^7.7.0",
     "@supabase/supabase-js": "^2.39.0",
-    "helmet": "^7.1.0"
+    "helmet": "^7.1.0",
+    "execa": "^8.0.1",
+    "gray-matter": "^4.0.3",
+    "@sindresorhus/slugify": "^2.2.1",
+    "multer": "^1.4.5-lts.1"
   },
   "devDependencies": {
     "nodemon": "^3.0.2",

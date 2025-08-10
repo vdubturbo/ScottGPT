@@ -19,6 +19,7 @@ app.use(express.static(path.join(__dirname, 'client/build')));
 // API Routes
 app.use('/api/chat', require('./routes/chat'));
 app.use('/api/data', require('./routes/data'));
+app.use('/api/upload', require('./routes/upload'));
 
 // Health check endpoint
 app.get('/api/health', (req, res) => {

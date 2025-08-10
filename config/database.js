@@ -12,6 +12,9 @@ const supabase = createClient(supabaseUrl, supabaseKey, {
   auth: {
     autoRefreshToken: false,
     persistSession: false
+  },
+  db: {
+    schema: 'scottgpt'
   }
 });
 
@@ -28,7 +31,7 @@ const db = {
       maxResults = 12
     } = options;
 
-    const { data, error } = await supabase.rpc('search_chunks', {
+    const { data, error } = await supabase.rpc('scottgpt.search_chunks', {
       query_embedding: queryEmbedding,
       filter_skills: filterSkills,
       filter_tags: filterTags,

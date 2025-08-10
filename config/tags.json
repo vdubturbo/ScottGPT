@@ -1,0 +1,42 @@
+{
+  "controlled_vocabulary": [
+    "AI Product",
+    "Gov Contracting",
+    "Proposal Automation",
+    "OT Security",
+    "Critical Infrastructure",
+    "Healthcare Technology",
+    "Supply Chain",
+    "Platform Development",
+    "Product Strategy",
+    "Technical Leadership",
+    "Security Framework",
+    "Compliance Program",
+    "Risk Management",
+    "Digital Transformation",
+    "Process Improvement",
+    "Team Building",
+    "Strategic Initiative",
+    "Innovation",
+    "Research & Development",
+    "Market Research",
+    "Customer Success",
+    "Partnership",
+    "Acquisition",
+    "Integration",
+    "Scaling",
+    "Performance Optimization",
+    "Cost Reduction",
+    "Revenue Growth",
+    "Regulatory Affairs",
+    "Audit & Compliance"
+  ],
+  "synonyms": {
+    "AI Product": ["AI Platform", "Machine Learning Product", "AI Solution"],
+    "Gov Contracting": ["Government Contracts", "Federal Contracting", "Public Sector"],
+    "OT Security": ["Operational Technology", "Industrial Security", "SCADA Security"],
+    "Healthcare Technology": ["HealthTech", "Medical Technology", "Digital Health"],
+    "Technical Leadership": ["Engineering Leadership", "Technology Management", "CTO"],
+    "Digital Transformation": ["Digital Innovation", "Technology Modernization", "Digital Strategy"]
+  }
+}
