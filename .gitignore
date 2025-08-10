@@ -49,3 +49,20 @@ Thumbs.db
 # Temporary files
 *.tmp
 *.temp
+
+# ScottGPT specific directories
+.work/
+incoming/
+processed/
+
+# Database backups
+*.sql.backup
+*.db
+
+# API keys backup
+*.key
+*.pem
+
+# Supabase local
+supabase/.branches
+supabase/.temp
