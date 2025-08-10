@@ -1,9 +1,13 @@
-import fs from "fs/promises";
-import path from "path";
-import matter from "gray-matter";
-import crypto from "crypto";
-import { CohereClient } from "cohere-ai";
-import { db } from "../config/database.js";
+const fs = require("fs/promises");
+const path = require("path");
+const matter = require("gray-matter");
+const crypto = require("crypto");
+const dotenv = require("dotenv");
+const { CohereClient } = require("cohere-ai");
+const { db, supabase } = require("../config/database.js");
+
+// Load environment variables
+dotenv.config();
 
 const cohere = new CohereClient({ token: process.env.COHERE_API_KEY });
 
@@ -16,6 +20,11 @@ const MIN_CHUNK_LENGTH = 50; // Minimum characters for a valid chunk
 function estimateTokens(text) {
   // Rough estimate: 1 token ≈ 0.75 words for English text
   return Math.ceil(text.split(/\s+/).length / 0.75);
+}
+
+// Rate limiting helper
+function sleep(ms) {
+  return new Promise(resolve => setTimeout(resolve, ms));
 }
 
 function chunkText(text, header) {
@@ -38,6 +47,9 @@ function chunkText(text, header) {
 
 async function embedText(text) {
   try {
+    // Add delay to respect rate limits
+    await sleep(2000); // 2 second delay between API calls
+    
     const response = await cohere.embed({
       texts: [text],
       model: "embed-english-v3.0",
@@ -62,8 +74,8 @@ async function generateSummary(content, title) {
 async function upsertSource(data) {
   try {
     // Check if source already exists
-    const existing = await db.supabase
-      .from("scottgpt.sources")
+    const existing = await supabase
+      .from("sources")
       .select("id")
       .eq("title", data.title)
       .eq("org", data.org)
@@ -71,8 +83,8 @@ async function upsertSource(data) {
     
     if (existing.data) {
       // Update existing source
-      const { data: updated, error } = await db.supabase
-        .from("scottgpt.sources")
+      const { data: updated, error } = await supabase
+        .from("sources")
         .update({
           type: data.type,
           location: data.location,
@@ -92,6 +104,7 @@ async function upsertSource(data) {
     } else {
       // Insert new source
       const newSource = await db.insertSource({
+        id: data.id,
         type: data.type,
         title: data.title,
         org: data.org,
@@ -120,8 +133,8 @@ async function processFile(filePath, sourceDir) {
     const { data, content } = matter(raw);
     
     // Check if we've already processed this exact content
-    const existingChunks = await db.supabase
-      .from("scottgpt.content_chunks")
+    const existingChunks = await supabase
+      .from("content_chunks")
       .select("id")
       .eq("file_hash", fileHash)
       .limit(1);
@@ -151,8 +164,8 @@ async function processFile(filePath, sourceDir) {
     }
     
     // Delete existing chunks for this source (in case of updates)
-    await db.supabase
-      .from("scottgpt.content_chunks")
+    await supabase
+      .from("content_chunks")
       .delete()
       .eq("source_id", sourceId)
       .eq("file_hash", fileHash);
@@ -192,9 +205,9 @@ async function processFile(filePath, sourceDir) {
         console.error(`❌ Error processing chunk ${i + 1} of ${fileName}:`, error.message);
         
         // If rate limited, wait longer
-        if (error.message?.includes("rate") || error.message?.includes("429")) {
-          console.log("⏳ Rate limited - waiting 30 seconds...");
-          await new Promise(resolve => setTimeout(resolve, 30000));
+        if (error.message?.includes("rate") || error.message?.includes("429") || error.statusCode === 429) {
+          console.log("⏳ Rate limited - waiting 60 seconds...");
+          await sleep(60000);
         }
       }
     }
@@ -285,8 +298,8 @@ async function indexer() {
 }
 
 // Run if called directly
-if (import.meta.url === `file://${process.argv[1]}`) {
+if (require.main === module) {
   indexer().catch(console.error);
 }
 
-export default indexer;
+module.exports = indexer;

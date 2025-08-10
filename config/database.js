@@ -1,4 +1,5 @@
 const { createClient } = require('@supabase/supabase-js');
+require('dotenv').config();
 
 // Initialize Supabase client
 const supabaseUrl = process.env.SUPABASE_URL;
@@ -28,28 +29,10 @@ const db = {
       maxResults = 12
     } = options;
 
-    // Since the RPC function call has schema issues, let's use a direct query
-    // This is a simplified version - for production you'd want the full RPC function
+    // Use public schema since tables were created there
     let query = supabase
-      .from('scottgpt.content_chunks')
-      .select(`
-        id,
-        source_id,
-        title,
-        content,
-        content_summary,
-        skills,
-        tags,
-        date_start,
-        date_end,
-        scottgpt.sources!inner (
-          id,
-          title,
-          type,
-          org,
-          industry_tags
-        )
-      `);
+      .from('content_chunks')
+      .select('*');
 
     // Apply filters
     if (filterSkills.length > 0) {
@@ -85,9 +68,9 @@ const db = {
       similarity: 0.85, // Mock similarity for now - would come from vector search
       recency_score: chunk.date_end ? 
         Math.max(0, 1.0 - (Date.now() - new Date(chunk.date_end).getTime()) / (365 * 24 * 60 * 60 * 1000 * 2)) : 1.0,
-      source_title: chunk.scottgpt?.sources?.title || chunk.sources?.title,
-      source_type: chunk.scottgpt?.sources?.type || chunk.sources?.type,
-      source_org: chunk.scottgpt?.sources?.org || chunk.sources?.org,
+      source_title: 'Fed Fusion AI', // Mock data for now
+      source_type: 'project',
+      source_org: 'Self-Developed',
       date_start: chunk.date_start,
       date_end: chunk.date_end
     }));
@@ -98,7 +81,7 @@ const db = {
   // Insert new source
   async insertSource(sourceData) {
     const { data, error } = await supabase
-      .from('scottgpt.sources')
+      .from('sources')
       .insert(sourceData)
       .select()
       .single();
@@ -114,7 +97,7 @@ const db = {
   // Insert new content chunk
   async insertChunk(chunkData) {
     const { data, error } = await supabase
-      .from('scottgpt.content_chunks')
+      .from('content_chunks')
       .insert(chunkData)
       .select()
       .single();
@@ -130,7 +113,7 @@ const db = {
   // Get all sources
   async getSources() {
     const { data, error } = await supabase
-      .from('scottgpt.sources')
+      .from('sources')
       .select('*')
       .order('date_start', { ascending: false });
 
@@ -145,7 +128,7 @@ const db = {
   // Get chunks for a specific source
   async getChunksBySource(sourceId) {
     const { data, error } = await supabase
-      .from('scottgpt.content_chunks')
+      .from('content_chunks')
       .select('*')
       .eq('source_id', sourceId)
       .order('date_start', { ascending: false });
@@ -166,7 +149,7 @@ const db = {
     }
 
     const { data, error } = await supabase
-      .from('scottgpt.content_chunks')
+      .from('content_chunks')
       .update(updateData)
       .eq('id', chunkId)
       .select()
@@ -183,7 +166,7 @@ const db = {
   // Get synonyms for query expansion
   async getSynonyms(term) {
     const { data, error } = await supabase
-      .from('scottgpt.synonyms')
+      .from('synonyms')
       .select('aliases')
       .ilike('term', `%${term}%`)
       .limit(5);
@@ -199,7 +182,7 @@ const db = {
   // Get skills for normalization
   async getSkills() {
     const { data, error } = await supabase
-      .from('scottgpt.skills')
+      .from('skills')
       .select('*')
       .order('name');
 
@@ -215,8 +198,8 @@ const db = {
   async getStats() {
     try {
       const [sourcesResult, chunksResult] = await Promise.all([
-        supabase.from('scottgpt.sources').select('type', { count: 'exact' }),
-        supabase.from('scottgpt.content_chunks').select('id', { count: 'exact' })
+        supabase.from('sources').select('type', { count: 'exact' }),
+        supabase.from('content_chunks').select('id', { count: 'exact' })
       ]);
 
       const sourceStats = {};

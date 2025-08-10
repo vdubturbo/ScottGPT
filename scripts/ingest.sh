@@ -42,7 +42,7 @@ echo "💾 Step 4: Writing to source files..."
 node scripts/write.js
 
 echo "🔗 Step 5: Indexing and embedding..."
-node scripts/indexer.js
+node scripts/indexer.cjs
 
 echo "🧹 Cleaning up temporary files..."
 rm -rf .work

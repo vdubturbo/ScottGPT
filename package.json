@@ -16,7 +16,7 @@
     "ingest:extract": "node scripts/extract.js",
     "ingest:validate": "node scripts/validate.js",
     "ingest:write": "node scripts/write.js",
-    "ingest:index": "node scripts/indexer.js"
+    "ingest:index": "node scripts/indexer.cjs"
   },
   "keywords": ["ai", "resume", "rag", "chatgpt", "interactive"],
   "author": "Scott Lovett",
