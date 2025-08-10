@@ -54,6 +54,8 @@ Thumbs.db
 .work/
 incoming/
 processed/
+sources/jobs/*.md
+logs/pending-tags.json
 
 # Database backups
 *.sql.backup

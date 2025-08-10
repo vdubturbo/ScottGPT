@@ -5,6 +5,10 @@ import path from 'path';
 import { exec } from 'child_process';
 import { promisify } from 'util';
 import { api as logger } from '../utils/logger.js';
+import dotenv from 'dotenv';
+
+// Ensure environment variables are loaded
+dotenv.config();
 
 const router = express.Router();
 const execAsync = promisify(exec);
@@ -93,6 +97,33 @@ router.post('/', upload.array('files', 10), async (req, res) => {
   }
 });
 
+// POST /api/upload/clear - Clear incoming directory
+router.post('/clear', async (req, res) => {
+  try {
+    const files = await fs.readdir('incoming/');
+    let deleted = 0;
+    
+    for (const file of files) {
+      const filePath = path.join('incoming', file);
+      await fs.unlink(filePath);
+      deleted++;
+    }
+    
+    // Also clean up .work directory
+    if (await fs.access('.work').then(() => true).catch(() => false)) {
+      await fs.rm('.work', { recursive: true, force: true });
+    }
+    
+    res.json({
+      success: true,
+      message: `Cleared ${deleted} files from incoming directory and cleaned work directory`
+    });
+  } catch (error) {
+    console.error('Clear error:', error);
+    res.status(500).json({ error: 'Failed to clear directories' });
+  }
+});
+
 // POST /api/upload/process - Run the ingestion pipeline
 router.post('/process', async (req, res) => {
   try {
@@ -100,92 +131,115 @@ router.post('/process', async (req, res) => {
     res.writeHead(200, {
       'Content-Type': 'text/plain',
       'Cache-Control': 'no-cache',
-      'Connection': 'keep-alive'
+      'Connection': 'keep-alive',
+      'Access-Control-Allow-Origin': '*'
     });
 
     const sendProgress = (message) => {
       res.write(`${message}\n`);
+      // Note: Express doesn't have res.flush() - write() automatically flushes
     };
 
-    sendProgress('🚀 Starting ingestion pipeline...');
+    sendProgress('🚀 PIPELINE STARTING - Initializing ingestion process...');
 
     // Check if there are files to process
     const incomingFiles = await fs.readdir('incoming/');
     const validFiles = incomingFiles.filter(f => /\.(pdf|docx|doc|txt|md)$/i.test(f));
     
     if (validFiles.length === 0) {
-      sendProgress('❌ No valid files found in incoming directory');
+      sendProgress('❌ PIPELINE STOPPED - No valid files found in incoming directory');
+      sendProgress('   Please upload files first, then try processing again');
       res.end();
       return;
     }
 
-    sendProgress(`📁 Found ${validFiles.length} files to process`);
-
-    // Run each step of the pipeline
-    const steps = [
-      { name: 'normalize', script: 'scripts/normalize.js', description: 'Converting documents to markdown' },
-      { name: 'extract', script: 'scripts/extract.js', description: 'Extracting structured data with AI' },
-      { name: 'validate', script: 'scripts/validate.js', description: 'Validating content and stripping PII' },
-      { name: 'write', script: 'scripts/write.js', description: 'Organizing files by type' },
-      { name: 'index', script: 'scripts/indexer.cjs', description: 'Creating embeddings and indexing' }
-    ];
-
-    for (const step of steps) {
-      sendProgress(`\n📋 Step: ${step.description}...`);
-      
-      try {
-        let command = `node ${step.script}`;
-        if (step.name === 'index') {
-          command = `COHERE_API_KEY=${process.env.COHERE_API_KEY} node ${step.script}`;
-        } else if (step.name === 'extract') {
-          command = `OPENAI_API_KEY=${process.env.OPENAI_API_KEY} node ${step.script}`;
-        }
-        const { stdout, stderr } = await execAsync(command);
-        
-        if (stdout) {
-          stdout.split('\n').forEach(line => {
-            if (line.trim()) {sendProgress(`   ${line}`);}
-          });
-        }
-        
-        if (stderr) {
-          stderr.split('\n').forEach(line => {
-            if (line.trim()) {sendProgress(`   ⚠️ ${line}`);}
-          });
-        }
-        
-        sendProgress(`✅ ${step.name} completed`);
-        
-      } catch (error) {
-        sendProgress(`❌ Error in ${step.name}: ${error.message}`);
-        if (error.stdout) {
-          sendProgress(`stdout: ${error.stdout}`);
-        }
-        if (error.stderr) {
-          sendProgress(`stderr: ${error.stderr}`);
-        }
-      }
-    }
-
-    // Clean up processed files
-    sendProgress('\n🧹 Cleaning up...');
-    try {
-      // Move processed files to a processed folder
-      await fs.mkdir('processed', { recursive: true });
-      for (const file of validFiles) {
-        const src = path.join('incoming', file);
-        const dest = path.join('processed', file);
-        await fs.rename(src, dest);
-      }
-      sendProgress(`📦 Moved ${validFiles.length} files to processed/`);
-    } catch (cleanupError) {
-      sendProgress(`⚠️ Cleanup warning: ${cleanupError.message}`);
-    }
-
-    sendProgress('\n✅ Ingestion pipeline completed successfully!');
-    sendProgress('🎉 Your knowledge base has been updated.');
+    sendProgress(`📁 FOUND ${validFiles.length} files to process: ${validFiles.map(f => f).join(', ')}`);
     
-    res.end();
+    // Add a small delay to ensure the UI receives the initial status
+    await new Promise(resolve => setTimeout(resolve, 500));
+
+    // Use spawn instead of exec for better streaming
+    const { spawn } = await import('child_process');
+    
+    sendProgress('🔧 EXECUTING PIPELINE - Running ingestion script...');
+    
+    // Create a unique log file for this run
+    const logFile = `./logs/progress-${Date.now()}.log`;
+    await fs.writeFile(logFile, ''); // Create empty log file
+    
+    // Start tailing the log file for real-time updates
+    const tailChild = spawn('tail', ['-f', logFile]);
+    tailChild.stdout.on('data', (data) => {
+      const output = data.toString();
+      output.split('\n').forEach(line => {
+        if (line.trim()) {
+          sendProgress(`   ${line}`);
+        }
+      });
+    });
+    
+    // Run the main script with log output
+    const child = spawn('/bin/bash', ['./scripts/ingest.sh'], {
+      env: {
+        ...process.env,
+        OPENAI_API_KEY: process.env.OPENAI_API_KEY,
+        COHERE_API_KEY: process.env.COHERE_API_KEY,
+        SUPABASE_URL: process.env.SUPABASE_URL,
+        SUPABASE_SERVICE_ROLE_KEY: process.env.SUPABASE_SERVICE_ROLE_KEY,
+        PYTHONUNBUFFERED: '1',
+        PROGRESS_LOG: logFile
+      },
+      cwd: process.cwd(),
+      stdio: ['pipe', 'pipe', 'pipe']
+    });
+    
+    child.stdout.on('data', (data) => {
+      const output = data.toString();
+      // Send each line immediately as it arrives
+      output.split('\n').forEach(line => {
+        if (line.trim()) {
+          const cleanLine = line.replace(/^\s*[\[✓✗❌✅🔄📝⚡🎯]\s*/, '').trim();
+          sendProgress(`   ${cleanLine}`);
+        }
+      });
+    });
+    
+    child.stderr.on('data', (data) => {
+      const output = data.toString();
+      output.split('\n').forEach(line => {
+        if (line.trim()) {
+          sendProgress(`   ⚠️ ${line}`);
+        }
+      });
+    });
+    
+    child.on('close', async (code) => {
+      // Clean up the tail process
+      tailChild.kill();
+      
+      // Clean up the log file
+      try {
+        await fs.unlink(logFile);
+      } catch (error) {
+        // Ignore cleanup errors
+      }
+      
+      if (code === 0) {
+        sendProgress('🎉 PIPELINE SUCCESS - All processing completed!');
+        sendProgress('   ✅ Files processed, extracted, and indexed successfully');
+        sendProgress('   📊 Knowledge base has been updated');
+      } else {
+        sendProgress(`❌ PIPELINE FAILED - Process exited with code ${code}`);
+        sendProgress('   Check logs above for error details');
+      }
+      res.end();
+    });
+    
+    child.on('error', (error) => {
+      sendProgress(`❌ PIPELINE ERROR - ${error.message}`);
+      sendProgress('   Check server logs and environment configuration');
+      res.end();
+    });
 
   } catch (error) {
     console.error('Process error:', error);
@@ -207,6 +261,118 @@ router.get('/stats', async (req, res) => {
   } catch (error) {
     console.error('Stats error:', error);
     res.status(500).json({ error: 'Failed to get statistics' });
+  }
+});
+
+// POST /api/upload/test-stream - Test streaming functionality
+router.post('/test-stream', async (req, res) => {
+  try {
+    res.writeHead(200, {
+      'Content-Type': 'text/plain',
+      'Cache-Control': 'no-cache',
+      'Connection': 'keep-alive'
+    });
+
+    const sendProgress = (message) => {
+      res.write(`${message}\n`);
+    };
+
+    sendProgress('🧪 Testing streaming...');
+    await new Promise(resolve => setTimeout(resolve, 500));
+    
+    sendProgress('📝 Step 1: Starting test');
+    await new Promise(resolve => setTimeout(resolve, 500));
+    
+    sendProgress('🔄 Step 2: Processing');
+    await new Promise(resolve => setTimeout(resolve, 500));
+    
+    sendProgress('✅ Step 3: Complete');
+    await new Promise(resolve => setTimeout(resolve, 500));
+    
+    sendProgress('🎉 Streaming test finished!');
+    res.end();
+
+  } catch (error) {
+    console.error('Stream test error:', error);
+    res.write(`❌ Test failed: ${error.message}\n`);
+    res.end();
+  }
+});
+
+// POST /api/upload/test - Test indexer execution
+router.post('/test-indexer', async (req, res) => {
+  try {
+    res.writeHead(200, {
+      'Content-Type': 'text/plain',
+      'Cache-Control': 'no-cache',
+      'Connection': 'keep-alive'
+    });
+
+    const sendProgress = (message) => {
+      res.write(`${message}\n`);
+    };
+
+    sendProgress('🔍 Testing indexer in web context...');
+    
+    const execEnv = {
+      ...process.env,
+      COHERE_API_KEY: process.env.COHERE_API_KEY
+    };
+    
+    sendProgress(`Environment: COHERE_API_KEY exists: ${!!execEnv.COHERE_API_KEY}`);
+    
+    try {
+      const { stdout, stderr } = await execAsync('node scripts/indexer.cjs', {
+        env: execEnv,
+        timeout: 120000,
+        maxBuffer: 1024 * 1024 * 10
+      });
+      
+      sendProgress('✅ Indexer completed successfully');
+      if (stdout) {
+        stdout.split('\n').slice(0, 5).forEach(line => {
+          if (line.trim()) sendProgress(`   ${line}`);
+        });
+      }
+      
+    } catch (error) {
+      sendProgress(`❌ Indexer failed: ${error.message}`);
+      sendProgress(`   Code: ${error.code}`);
+      sendProgress(`   Signal: ${error.signal}`);
+      if (error.stderr) {
+        sendProgress(`   Stderr: ${error.stderr}`);
+      }
+    }
+    
+    res.end();
+    
+  } catch (error) {
+    console.error('Test error:', error);
+    res.write(`❌ Test failed: ${error.message}\n`);
+    res.end();
+  }
+});
+
+// GET /api/upload/debug - Debug environment variables
+router.get('/debug', async (req, res) => {
+  try {
+    const envCheck = {
+      OPENAI_API_KEY: !!process.env.OPENAI_API_KEY,
+      OPENAI_API_KEY_LENGTH: process.env.OPENAI_API_KEY?.length || 0,
+      COHERE_API_KEY: !!process.env.COHERE_API_KEY,
+      COHERE_API_KEY_LENGTH: process.env.COHERE_API_KEY?.length || 0,
+      SUPABASE_URL: !!process.env.SUPABASE_URL,
+      NODE_ENV: process.env.NODE_ENV,
+      CWD: process.cwd()
+    };
+    
+    res.json({
+      success: true,
+      environment: envCheck
+    });
+  } catch (error) {
+    console.error('Debug error:', error);
+    res.status(500).json({ error: 'Debug failed' });
   }
 });
 

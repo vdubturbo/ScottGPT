@@ -1,0 +1,10 @@
+{
+  "delay": 2000,
+  "ignore": [
+    "client/**",
+    "logs/**",
+    ".work/**",
+    "incoming/**",
+    "processed/**"
+  ]
+}

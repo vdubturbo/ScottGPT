@@ -12,6 +12,7 @@
     "Digital Transformation",
     "Gov Contracting",
     "Government",
+    "Healthcare",
     "Healthcare Technology",
     "Innovation",
     "Integration",
@@ -37,17 +38,65 @@
     "Technical Leadership"
   ],
   "synonyms": {
-    "AI Product": ["AI Platform", "Machine Learning Product", "AI Solution"],
-    "Agile Project Management": ["Agile PM", "Scrum", "Kanban", "Agile Methodology"],
-    "Cloud Security": ["Cloud Protection", "Cloud Computing Security", "Public Cloud Security"],
-    "Gov Contracting": ["Government Contracts", "Federal Contracting", "Public Sector"],
-    "OT Security": ["Operational Technology", "Industrial Security", "SCADA Security"],
-    "Healthcare Technology": ["HealthTech", "Medical Technology", "Digital Health"],
-    "Technical Leadership": ["Engineering Leadership", "Technology Management", "CTO"],
-    "Digital Transformation": ["Digital Innovation", "Technology Modernization", "Digital Strategy"],
-    "Cybersecurity": ["Information Security", "Cyber Defense", "Security Operations"],
-    "Government": ["Public Sector", "Federal", "State Government"],
-    "Regulated Industries": ["Compliance-Heavy Industries", "Highly Regulated Sectors"],
-    "Risk Management & Compliance": ["Risk & Compliance", "GRC", "Risk Assessment"]
+    "AI Product": [
+      "AI Platform",
+      "Machine Learning Product",
+      "AI Solution"
+    ],
+    "Agile Project Management": [
+      "Agile PM",
+      "Scrum",
+      "Kanban",
+      "Agile Methodology"
+    ],
+    "Cloud Security": [
+      "Cloud Protection",
+      "Cloud Computing Security",
+      "Public Cloud Security"
+    ],
+    "Gov Contracting": [
+      "Government Contracts",
+      "Federal Contracting",
+      "Public Sector"
+    ],
+    "OT Security": [
+      "Operational Technology",
+      "Industrial Security",
+      "SCADA Security"
+    ],
+    "Healthcare Technology": [
+      "HealthTech",
+      "Medical Technology",
+      "Digital Health"
+    ],
+    "Technical Leadership": [
+      "Engineering Leadership",
+      "Technology Management",
+      "CTO"
+    ],
+    "Digital Transformation": [
+      "Digital Innovation",
+      "Technology Modernization",
+      "Digital Strategy"
+    ],
+    "Cybersecurity": [
+      "Information Security",
+      "Cyber Defense",
+      "Security Operations"
+    ],
+    "Government": [
+      "Public Sector",
+      "Federal",
+      "State Government"
+    ],
+    "Regulated Industries": [
+      "Compliance-Heavy Industries",
+      "Highly Regulated Sectors"
+    ],
+    "Risk Management & Compliance": [
+      "Risk & Compliance",
+      "GRC",
+      "Risk Assessment"
+    ]
   }
 }

@@ -1,0 +1,188 @@
+.tag-manager {
+  padding: 20px;
+  max-width: 1200px;
+  margin: 0 auto;
+}
+
+.tag-manager h2 {
+  color: #333;
+  margin-bottom: 20px;
+}
+
+.message {
+  padding: 10px 15px;
+  margin-bottom: 20px;
+  background: #f0f8ff;
+  border: 1px solid #4CAF50;
+  border-radius: 5px;
+  color: #333;
+}
+
+.tabs {
+  display: flex;
+  gap: 10px;
+  margin-bottom: 20px;
+  border-bottom: 2px solid #e0e0e0;
+}
+
+.tabs button {
+  padding: 10px 20px;
+  background: none;
+  border: none;
+  cursor: pointer;
+  color: #666;
+  font-size: 16px;
+  transition: all 0.3s;
+}
+
+.tabs button.active {
+  color: #4CAF50;
+  border-bottom: 2px solid #4CAF50;
+  margin-bottom: -2px;
+}
+
+.tabs button:hover {
+  color: #333;
+}
+
+.actions {
+  display: flex;
+  gap: 10px;
+  margin-bottom: 20px;
+  flex-wrap: wrap;
+}
+
+.actions button {
+  padding: 8px 16px;
+  border: 1px solid #ddd;
+  background: white;
+  border-radius: 5px;
+  cursor: pointer;
+  transition: all 0.3s;
+}
+
+.actions button:hover:not(:disabled) {
+  background: #f5f5f5;
+}
+
+.actions button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.actions .approve-btn {
+  background: #4CAF50;
+  color: white;
+  border-color: #4CAF50;
+}
+
+.actions .approve-btn:hover:not(:disabled) {
+  background: #45a049;
+}
+
+.actions .reject-btn {
+  background: #f44336;
+  color: white;
+  border-color: #f44336;
+}
+
+.actions .reject-btn:hover:not(:disabled) {
+  background: #da190b;
+}
+
+.tags-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+  gap: 15px;
+  margin-top: 20px;
+}
+
+.tag-card {
+  border: 2px solid #e0e0e0;
+  border-radius: 8px;
+  padding: 15px;
+  cursor: pointer;
+  transition: all 0.3s;
+  background: white;
+}
+
+.tag-card:hover {
+  border-color: #4CAF50;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+}
+
+.tag-card.selected {
+  border-color: #4CAF50;
+  background: #f0f8ff;
+}
+
+.tag-name {
+  font-size: 18px;
+  font-weight: bold;
+  color: #333;
+  margin-bottom: 8px;
+}
+
+.tag-info {
+  display: flex;
+  justify-content: space-between;
+  font-size: 12px;
+  color: #666;
+  margin-bottom: 8px;
+}
+
+.occurrences {
+  background: #e3f2fd;
+  padding: 2px 6px;
+  border-radius: 3px;
+}
+
+.first-seen {
+  color: #999;
+}
+
+.tag-context {
+  margin-top: 10px;
+  padding-top: 10px;
+  border-top: 1px solid #e0e0e0;
+  font-size: 12px;
+}
+
+.context-file {
+  color: #666;
+  margin-bottom: 4px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.additional-files {
+  color: #999;
+  font-size: 11px;
+}
+
+.no-tags {
+  padding: 40px;
+  text-align: center;
+  color: #999;
+  font-size: 16px;
+}
+
+.approved-tags {
+  margin-top: 20px;
+}
+
+.tags-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.approved-tag {
+  display: inline-block;
+  padding: 6px 12px;
+  background: #4CAF50;
+  color: white;
+  border-radius: 20px;
+  font-size: 14px;
+}

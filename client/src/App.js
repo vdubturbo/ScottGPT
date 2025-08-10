@@ -2,6 +2,9 @@ import React, { useState } from 'react';
 import axios from 'axios';
 import './App.css';
 
+// Lazy load TagManager to avoid blocking the app
+const TagManager = React.lazy(() => import('./TagManager'));
+
 function App() {
   const [message, setMessage] = useState('');
   const [response, setResponse] = useState(null);
@@ -13,6 +16,8 @@ function App() {
   const [processing, setProcessing] = useState(false);
   const [processLog, setProcessLog] = useState('');
   const [stats, setStats] = useState(null);
+  const [processStatus, setProcessStatus] = useState('');
+  const [isProcessActive, setIsProcessActive] = useState(false);
   const [activeTab, setActiveTab] = useState('chat');
 
   const handleSubmit = async (e) => {
@@ -72,31 +77,123 @@ function App() {
 
   const handleProcess = async () => {
     setProcessing(true);
-    setProcessLog('');
-
+    setIsProcessActive(true);
+    setProcessLog('🚀 Starting pipeline processing...\n');
+    setProcessStatus('🚀 Initializing processing pipeline...');
+    
+    let hasReceivedData = false;
+    let lastUpdateTime = Date.now();
+    
+    let activityTimeout;
+    let overallTimeout;
+    
     try {
       const response = await fetch('/api/upload/process', {
-        method: 'POST'
+        method: 'POST',
+        headers: {
+          'Accept': 'text/plain',
+          'Cache-Control': 'no-cache'
+        }
       });
+
+      if (!response.ok) {
+        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+      }
 
       const reader = response.body.getReader();
       const decoder = new TextDecoder();
+      
+      // Set up activity timeout and connection monitoring
+      activityTimeout = setInterval(() => {
+        const elapsed = Date.now() - lastUpdateTime;
+        if (!hasReceivedData && elapsed > 10000) {
+          setProcessStatus('⚠️ No response from server - check connection');
+        } else if (elapsed > 8000) {
+          setProcessStatus(`⏳ Processing... (${Math.floor(elapsed / 1000)}s since last update)`);
+        }
+      }, 1000);
+      
+      // Set up overall timeout
+      overallTimeout = setTimeout(() => {
+        if (processing) {
+          setProcessLog(prev => prev + '\n❌ Processing timed out after 3 minutes\n');
+          setProcessStatus('❌ Processing timed out - operation may still be running in background');
+        }
+      }, 180000); // 3 minutes
 
       while (true) {
         const { done, value } = await reader.read();
-        if (done) break;
+        if (done) {
+          clearInterval(activityTimeout);
+          break;
+        }
 
-        const chunk = decoder.decode(value);
-        setProcessLog(prev => prev + chunk);
+        const chunk = decoder.decode(value, { stream: true });
+        if (chunk) {
+          hasReceivedData = true;
+          lastUpdateTime = Date.now();
+          setProcessLog(prev => prev + chunk);
+          
+          // Update status based on log content
+          const lines = chunk.split('\n').filter(line => line.trim());
+          if (lines.length > 0) {
+            const lastLine = lines[lines.length - 1];
+            
+            // Extract meaningful status updates
+            if (lastLine.includes('Step 1:')) {
+              setProcessStatus('📄 Step 1: Converting documents to markdown...');
+            } else if (lastLine.includes('Step 2:')) {
+              setProcessStatus('🤖 Step 2: Extracting job data with AI...');
+            } else if (lastLine.includes('Step 3:')) {
+              setProcessStatus('✅ Step 3: Validating extracted content...');
+            } else if (lastLine.includes('Step 4:')) {
+              setProcessStatus('💾 Step 4: Writing structured job files...');
+            } else if (lastLine.includes('Step 5:')) {
+              setProcessStatus('🔗 Step 5: Creating embeddings and indexing...');
+            } else if (lastLine.includes('Calling OpenAI API')) {
+              const blockMatch = lastLine.match(/block (\d+)\/(\d+)/);
+              if (blockMatch) {
+                setProcessStatus(`🤖 Processing job ${blockMatch[1]} of ${blockMatch[2]} with AI...`);
+              }
+            } else if (lastLine.includes('Processing batch')) {
+              setProcessStatus('⚡ Creating embeddings for search...');
+            } else {
+              // Clean status line for display
+              const cleanStatus = lastLine.replace(/^[\s]*[📁🔧📖💾⏭️✅❌🚀⚡📋🤖][\s]*/, '').trim();
+              if (cleanStatus && !cleanStatus.includes('   ')) {
+                setProcessStatus(cleanStatus);
+              }
+            }
+          }
+        }
       }
       
-      // Refresh stats after processing
-      loadStats();
+      // Clear timeouts
+      clearInterval(activityTimeout);
+      clearTimeout(overallTimeout);
+      
+      // Show completion with summary
+      setProcessLog(prev => prev + '\n🎉 PROCESSING COMPLETED SUCCESSFULLY!\n');
+      setProcessStatus('🎉 Processing completed successfully!');
+      
+      // Load updated stats and show results
+      await loadStats();
+      
+      // Show success message with delay
+      setTimeout(() => {
+        setProcessStatus('✅ Ready for next operation');
+      }, 3000);
       
     } catch (error) {
-      setProcessLog(prev => prev + `\n❌ Error: ${error.message}`);
+      setProcessLog(prev => prev + `\n❌ PROCESSING FAILED: ${error.message}\n`);
+      setProcessStatus(`❌ Processing failed: ${error.message}`);
+      console.error('Processing error:', error);
     } finally {
       setProcessing(false);
+      setIsProcessActive(false);
+      // Clean up any remaining timeouts
+      if (activityTimeout) clearInterval(activityTimeout);
+      if (overallTimeout) clearTimeout(overallTimeout);
     }
   };
 
@@ -132,6 +229,12 @@ function App() {
             onClick={() => setActiveTab('admin')}
           >
             ⚙️ Data Management
+          </button>
+          <button 
+            className={`tab-button ${activeTab === 'tags' ? 'active' : ''}`}
+            onClick={() => setActiveTab('tags')}
+          >
+            🏷️ Tags
           </button>
         </div>
       </header>
@@ -304,6 +407,49 @@ function App() {
               >
                 {processing ? '⏳ Processing...' : '🚀 Process Documents'}
               </button>
+              
+              {/* Progress indicator */}
+              {isProcessActive && (
+                <div className="progress-section">
+                  <div className="progress-bar">
+                    <div className="progress-bar-fill"></div>
+                  </div>
+                  <div className="progress-status">
+                    {processStatus || 'Processing...'}
+                  </div>
+                </div>
+              )}
+              
+              <button
+                onClick={async () => {
+                  setProcessing(true);
+                  setProcessLog('🧪 Starting stream test...\n');
+                  
+                  try {
+                    const response = await fetch('/api/upload/test-stream', { method: 'POST' });
+                    const reader = response.body.getReader();
+                    const decoder = new TextDecoder();
+
+                    while (true) {
+                      const { done, value } = await reader.read();
+                      if (done) break;
+                      const chunk = decoder.decode(value, { stream: true });
+                      if (chunk) {
+                        setProcessLog(prev => prev + chunk);
+                      }
+                    }
+                  } catch (error) {
+                    setProcessLog(prev => prev + `\n❌ Test failed: ${error.message}`);
+                  } finally {
+                    setProcessing(false);
+                  }
+                }}
+                disabled={processing}
+                className="process-button"
+                style={{marginLeft: '10px', backgroundColor: '#666'}}
+              >
+                🧪 Test Stream
+              </button>
 
               {processLog && (
                 <div className="process-log">
@@ -313,6 +459,12 @@ function App() {
               )}
             </div>
           </div>
+        )}
+
+        {activeTab === 'tags' && (
+          <React.Suspense fallback={<div>Loading Tags...</div>}>
+            <TagManager />
+          </React.Suspense>
         )}
       </main>
     </div>

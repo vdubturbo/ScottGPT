@@ -45,7 +45,7 @@ async function normalizeSkills(skills, context = {}) {
     ...skillsConfig.controlled_vocabulary.domain
   ];
   
-  skills.forEach(skill => {
+  for (const skill of skills) {
     // Check if skill is in controlled vocabulary
     const found = allSkills.find(s => 
       s.toLowerCase() === skill.toLowerCase() ||
@@ -69,7 +69,7 @@ async function normalizeSkills(skills, context = {}) {
       // Still include the skill in output for now
       normalized.add(skill);
     }
-  });
+  }
   
   return Array.from(normalized);
 }

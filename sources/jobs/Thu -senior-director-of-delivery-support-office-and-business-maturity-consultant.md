@@ -14,8 +14,8 @@ skills:
   - Program Management
   - Cybersecurity
   - Risk Management & Compliance
-  - Cloud Security
-  - Agile Project Management
+  - Agile
+  - Strategic Planning
 outcomes:
   - >-
     Improved budget management to within 3% of baseline, significantly enhancing
@@ -25,28 +25,28 @@ outcomes:
     execution and delivery.
 summary: >-
   As Senior Director at Binary Defense, I revitalized a $30M cybersecurity
-  project portfolio, enhancing delivery capabilities and project execution
-  through strategic assessments and process optimizations.
+  project portfolio, enhancing delivery capabilities and establishing robust
+  project management frameworks.
 pii_allow: false
 ---
 
 # Context
-In my role as Senior Director of Delivery Support Office & Business Maturity Consultant at Binary Defense, I was brought on board to address significant challenges in managing a $30M portfolio of cybersecurity projects. The organization specializes in providing cybersecurity solutions and services, and my primary focus was to improve delivery capabilities and project execution, which had been hindered by previous leadership issues. The team consisted of cross-functional members from various departments, and I reported directly to the executive leadership team. The key challenges included budget overruns, schedule delays, and ineffective risk management practices.
+In my role as the Senior Director of Delivery Support Office and Business Maturity Consultant at Binary Defense, I was brought on board to address significant challenges within a $30M portfolio of cybersecurity projects. The organization specializes in providing advanced cybersecurity solutions, and my primary objective was to improve project execution and delivery capabilities that had faltered under previous leadership. The team consisted of cross-functional experts in cybersecurity, project management, and compliance, and I reported directly to the executive leadership team. The key challenges included ineffective budget management, lack of structured project oversight, and insufficient risk management processes.
 
 ## Highlights
-- **Budget Management**: Reimagined financial management processes, achieving a budget adherence of within 3% of baseline, a significant improvement from previous years.
-- **Project Planning Efficiency**: Reduced project planning time by 3 months, allowing for a greater focus on execution and delivery.
-- **Risk Management Framework**: Authored and implemented a comprehensive Risk Management process and tool, fostering a culture of risk awareness.
-- **Change Management**: Established a Change Control Board that meets weekly to assess project changes, enhancing accountability and control.
+- **Budget Management**: Reimagined financial management processes, achieving a drastic improvement in budget adherence to within 3% of baseline, which was a significant enhancement compared to previous years.
+- **Project Planning Efficiency**: Implemented strategic assessments and a 30/60/90-day plan that led to a reduction in project planning time by 3 months, allowing for more focus on execution and delivery.
+- **Risk and Change Management**: Authored and implemented a comprehensive Risk Management process and a Change Control Board, fostering a culture of accountability and proactive risk management.
+- **Enhanced Communication**: Improved internal communications and transparency, which significantly enhanced engagement with senior leadership.
 
 ## Technical Details
-- **Methodologies**: Implemented Agile methodologies, specifically a basic Agile framework, to improve project management capabilities.
-- **Tools**: Utilized Azure DevOps for iterative project management, setting the groundwork for a more mature framework in the upcoming year.
-- **Process Improvements**: Instituted a 30/60/90-day plan focusing on quick wins and long-term strategies, including rigorous monthly Project Management Review (PMR) cycles.
+- **Methodologies**: Employed Agile methodologies, specifically introducing a basic Agile framework utilizing Azure DevOps for iterative project management.
+- **Tools**: Utilized Azure DevOps for project tracking and management, alongside traditional project management tools like MS Project and JIRA for planning and reporting.
+- **Process Improvements**: Established rigorous monthly Project Management Review (PMR) cycles and developed comprehensive Risk and Change Management frameworks to enhance project oversight.
 
 ## Key Accomplishments
-- **Enhanced Communication**: Improved transparency and engagement through streamlined internal communications, which significantly enhanced risk management and communication with senior leadership.
-- **Standardized Reporting**: Developed a reliable master schedule with robust interdependency mapping and standardized project reporting with clear status thresholds.
-- **Cultural Shift**: Fostered a disciplined, proactive project management culture that emphasized accountability and continuous improvement.
+- **Quantified Improvements**: Achieved a 3-month reduction in project planning time, which directly contributed to improved project delivery timelines and resource allocation.
+- **Cultural Shift**: Fostered a disciplined project management culture that emphasized proactive risk management and accountability, leading to enhanced team performance.
+- **Stakeholder Engagement**: Significantly improved communication and reporting structures, which facilitated better alignment with senior leadership and project stakeholders.
 
-Through these initiatives, I successfully transformed the project delivery landscape at Binary Defense, ensuring that the organization could effectively manage its cybersecurity projects and meet its strategic objectives.
+In summary, my tenure at Binary Defense has been marked by strategic improvements in project management processes, enhanced financial oversight, and a commitment to fostering a proactive project management culture that aligns with organizational goals.

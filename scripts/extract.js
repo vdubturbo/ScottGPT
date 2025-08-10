@@ -70,6 +70,14 @@ Output EXACTLY ONE complete Markdown document with both YAML frontmatter AND det
 async function extract() {
   console.log('🔍 Extracting structured data...');
   
+  // Check environment variables
+  if (!process.env.OPENAI_API_KEY) {
+    console.error('❌ OPENAI_API_KEY not found in environment');
+    console.error('Available env vars:', Object.keys(process.env).filter(k => k.includes('API')));
+    process.exit(1);
+  }
+  
+  console.log('✅ OpenAI API key found');
   await fs.mkdir(OUT, { recursive: true });
 
   const files = (await fs.readdir(IN)).filter(f => f.endsWith('.md'));
@@ -81,24 +89,41 @@ async function extract() {
 
   let totalBlocks = 0;
   
-  for (const f of files) {
-    console.log(`📖 Processing: ${f}`);
+  for (let i = 0; i < files.length; i++) {
+    const f = files[i];
+    console.log(`📖 Processing: ${f} (${i + 1}/${files.length})`);
+    console.log(`   🔍 Reading file content...`);
     const raw = await fs.readFile(path.join(IN, f), 'utf8');
 
-    // Split by headings to identify job/project blocks
-    // Look for patterns like "## Job Title" or "# Project Name"
-    const blocks = raw.split(/\n#{1,3}\s+/g)
-      .map(block => block.trim())
-      .filter(block => {
-        // Filter for substantial content blocks (likely jobs/projects)
-        return block.length > 200 && 
-               (block.includes('experience') || 
-                block.includes('project') || 
-                block.includes('role') ||
-                block.includes('position') ||
-                block.includes('director') ||
-                block.includes('manager') ||
-                block.includes('lead'));
+    // Find the "Full Professional Experience" section first
+    const experienceStart = raw.indexOf('Full Professional Experience');
+    let experienceSection = '';
+    
+    if (experienceStart !== -1) {
+      experienceSection = raw.substring(experienceStart);
+    } else {
+      // Fallback to full document if no experience section found
+      experienceSection = raw;
+    }
+    
+    // Split by company names followed by dates
+    // Pattern: Company Name followed by date (MM/YYYY-Present or MM/YYYY-MM/YYYY)
+    const jobSections = experienceSection.split(/\n(?=[A-Z][A-Za-z0-9\s&,.'-]+\s+\d{1,2}\/\d{4}[-–—])/);
+    
+    const blocks = jobSections
+      .map(section => section.trim())
+      .filter(section => {
+        // Must contain job title patterns and substantial content
+        return section.length > 100 && 
+               section.includes('**') && // Bold job titles
+               (section.includes('Director') || 
+                section.includes('Manager') || 
+                section.includes('Lead') ||
+                section.includes('Engineer') ||
+                section.includes('Consultant') ||
+                section.includes('Architect') ||
+                section.includes('Analyst') ||
+                section.includes('-')); // Bullet points with accomplishments
       });
 
     console.log(`📋 Found ${blocks.length} content blocks in ${f}`);
@@ -106,6 +131,8 @@ async function extract() {
     let blockIndex = 0;
     for (const block of blocks) {
       try {
+        console.log(`   🤖 Calling OpenAI API for block ${blockIndex + 1}/${blocks.length}...`);
+        process.stdout.write(''); // Force flush
         const response = await client.chat.completions.create({
           model: 'gpt-4o-mini',
           messages: [
@@ -121,6 +148,7 @@ async function extract() {
           const fileName = f.replace('.md', `.block-${blockIndex}.md`);
           await fs.writeFile(path.join(OUT, fileName), extractedMd);
           console.log(`💾 Extracted: ${fileName}`);
+          process.stdout.write(''); // Force flush
           totalBlocks++;
         } else {
           console.log(`⚠️  Skipping block ${blockIndex} - no valid YAML front-matter`);
@@ -128,8 +156,7 @@ async function extract() {
         
         blockIndex++;
         
-        // Rate limiting - wait between API calls
-        await new Promise(resolve => setTimeout(resolve, 1000));
+        // No artificial delay needed - OpenAI handles rate limiting well
         
       } catch (error) {
         console.error(`❌ Error processing block ${blockIndex} in ${f}:`, error.message);

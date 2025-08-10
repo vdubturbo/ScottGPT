@@ -52,6 +52,9 @@ console.log('✅ All required environment variables are configured');
 const app = express();
 const PORT = process.env.PORT || 3001;
 
+// Enable trust proxy for rate limiting with proxy
+app.set('trust proxy', 1);
+
 // Rate limiting configuration
 const createRateLimit = (windowMs, max, message) => rateLimit({
   windowMs,
@@ -85,11 +88,13 @@ async function startServer() {
   const chatRoutes = await import('./routes/chat.js');
   const dataRoutes = await import('./routes/data.js');
   const uploadRoutes = await import('./routes/upload.js');
+  const tagsRoutes = await import('./routes/tags.js');
 
   // API Routes with specific rate limiting
   app.use('/api/chat', chatLimit, chatRoutes.default);
   app.use('/api/data', dataLimit, dataRoutes.default);
   app.use('/api/upload', uploadLimit, uploadRoutes.default);
+  app.use('/api/tags', generalLimit, tagsRoutes.default);
 
   // Health check endpoint
   app.get('/api/health', (req, res) => {

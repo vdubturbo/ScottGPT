@@ -60,7 +60,7 @@ const db = {
         query = query.gte('date_end', dateAfter);
       }
 
-      query = query.limit(maxResults * 2); // Get more results to filter by similarity
+      query = query.limit(200); // Get a large sample to ensure we don't miss recent additions
 
       const { data, error } = await query;
 
