@@ -1,0 +1,375 @@
+const { db } = require('../config/database');
+const EmbeddingService = require('./embeddings');
+
+class RetrievalService {
+  constructor() {
+    this.embeddings = new EmbeddingService();
+  }
+
+  /**
+   * Retrieve relevant context chunks for a query
+   * @param {string} query - User query
+   * @param {Object} options - Search options
+   * @returns {Promise<Object>} - Retrieved chunks with metadata
+   */
+  async retrieveContext(query, options = {}) {
+    try {
+      const {
+        maxResults = 12,
+        minSimilarity = null,
+        includeMetadata = true,
+        rerankResults = true
+      } = options;
+
+      console.log(`🔍 Retrieving context for: "${query}"`);
+      
+      // Step 1: Expand query with synonyms
+      const expandedQuery = await this.embeddings.expandQuery(query);
+      console.log(`📝 Expanded query: "${expandedQuery}"`);
+
+      // Step 2: Generate query embedding
+      const queryEmbedding = await this.embeddings.embedText(expandedQuery, 'search_query');
+      console.log(`🎯 Generated embedding (${queryEmbedding.length} dimensions)`);
+
+      // Step 3: Extract filters from query
+      const filters = this.embeddings.extractFilters(query);
+      console.log(`🏷️  Extracted filters:`, filters);
+
+      // Step 4: Calculate dynamic similarity threshold
+      const similarityThreshold = minSimilarity || this.embeddings.calculateSimilarityThreshold(query);
+      console.log(`📊 Similarity threshold: ${similarityThreshold}`);
+
+      // Step 5: Search database
+      const searchResults = await db.searchChunks(queryEmbedding, {
+        filterSkills: filters.skills,
+        filterTags: filters.tags,
+        filterIndustries: filters.industries,
+        dateAfter: filters.dateAfter,
+        similarityThreshold,
+        maxResults: Math.max(maxResults * 2, 20) // Get more results for reranking
+      });
+
+      console.log(`💾 Database returned ${searchResults.length} chunks`);
+
+      if (searchResults.length === 0) {
+        return {
+          chunks: [],
+          totalFound: 0,
+          query: query,
+          expandedQuery: expandedQuery,
+          filters: filters,
+          similarityThreshold,
+          message: 'No relevant information found. Try a more general query or check if data has been uploaded.'
+        };
+      }
+
+      // Step 6: Rerank and enhance results
+      let processedChunks = searchResults;
+
+      if (rerankResults) {
+        processedChunks = this.rerankChunks(searchResults, query, filters);
+        console.log(`📈 Reranked ${processedChunks.length} chunks`);
+      }
+
+      // Step 7: Limit to final results
+      processedChunks = processedChunks.slice(0, maxResults);
+
+      // Step 8: Add metadata and group by source
+      const enrichedChunks = await this.enrichChunks(processedChunks, includeMetadata);
+
+      // Step 9: Generate context summary
+      const contextSummary = this.generateContextSummary(enrichedChunks, query);
+
+      return {
+        chunks: enrichedChunks,
+        totalFound: searchResults.length,
+        query: query,
+        expandedQuery: expandedQuery,
+        filters: filters,
+        similarityThreshold,
+        contextSummary,
+        avgSimilarity: this.calculateAverageSimilarity(enrichedChunks),
+        sources: this.extractUniqueSources(enrichedChunks)
+      };
+
+    } catch (error) {
+      console.error('Context retrieval error:', error);
+      throw new Error(`Context retrieval failed: ${error.message}`);
+    }
+  }
+
+  /**
+   * Rerank chunks using multiple signals
+   * @param {Array} chunks - Raw search results
+   * @param {string} query - Original query
+   * @param {Object} filters - Extracted filters
+   * @returns {Array} - Reranked chunks
+   */
+  rerankChunks(chunks, query, filters) {
+    const queryWords = query.toLowerCase().split(/\s+/);
+    
+    return chunks
+      .map(chunk => {
+        let score = chunk.similarity;
+        
+        // Recency boost (already included in DB query, but we can enhance it)
+        score += chunk.recency_score * 0.1;
+        
+        // Exact keyword matches boost
+        const contentLower = chunk.content.toLowerCase();
+        const keywordMatches = queryWords.filter(word => 
+          word.length > 2 && contentLower.includes(word)
+        ).length;
+        score += (keywordMatches / queryWords.length) * 0.05;
+        
+        // Skills/tags alignment boost
+        const skillMatches = filters.skills.filter(skill => 
+          chunk.skills && chunk.skills.includes(skill)
+        ).length;
+        const tagMatches = filters.tags.filter(tag => 
+          chunk.tags && chunk.tags.includes(tag)
+        ).length;
+        score += (skillMatches + tagMatches) * 0.03;
+        
+        // Source type boost for certain queries
+        if (query.toLowerCase().includes('project') && chunk.source_type === 'project') {
+          score += 0.02;
+        } else if (query.toLowerCase().includes('job') && chunk.source_type === 'job') {
+          score += 0.02;
+        }
+        
+        // Title relevance boost
+        if (chunk.source_title) {
+          const titleLower = chunk.source_title.toLowerCase();
+          const titleMatches = queryWords.filter(word => titleLower.includes(word)).length;
+          score += (titleMatches / queryWords.length) * 0.02;
+        }
+
+        return { ...chunk, rerank_score: score };
+      })
+      .sort((a, b) => b.rerank_score - a.rerank_score);
+  }
+
+  /**
+   * Enrich chunks with additional metadata
+   * @param {Array} chunks - Processed chunks
+   * @param {boolean} includeMetadata - Whether to include metadata
+   * @returns {Promise<Array>} - Enriched chunks
+   */
+  async enrichChunks(chunks, includeMetadata) {
+    if (!includeMetadata) {
+      return chunks;
+    }
+
+    return chunks.map(chunk => ({
+      ...chunk,
+      // Add computed fields
+      confidence: this.calculateConfidence(chunk),
+      relevanceReason: this.generateRelevanceReason(chunk),
+      // Format dates for display
+      displayDateRange: this.formatDateRange(chunk.date_start, chunk.date_end),
+      // Extract key phrases
+      keyPhrases: this.extractKeyPhrases(chunk.content)
+    }));
+  }
+
+  /**
+   * Calculate confidence score for a chunk
+   * @param {Object} chunk - Chunk data
+   * @returns {string} - Confidence level
+   */
+  calculateConfidence(chunk) {
+    const score = chunk.rerank_score || chunk.similarity;
+    
+    if (score >= 0.85) return 'very-high';
+    if (score >= 0.80) return 'high';
+    if (score >= 0.75) return 'medium';
+    if (score >= 0.70) return 'low';
+    return 'very-low';
+  }
+
+  /**
+   * Generate explanation for why this chunk is relevant
+   * @param {Object} chunk - Chunk data
+   * @returns {string} - Relevance explanation
+   */
+  generateRelevanceReason(chunk) {
+    const reasons = [];
+    
+    if (chunk.similarity >= 0.85) {
+      reasons.push('high semantic similarity');
+    }
+    
+    if (chunk.recency_score > 0.8) {
+      reasons.push('recent experience');
+    }
+    
+    if (chunk.skills && chunk.skills.length > 0) {
+      reasons.push(`relevant skills: ${chunk.skills.slice(0, 3).join(', ')}`);
+    }
+    
+    if (chunk.source_type === 'project') {
+      reasons.push('project experience');
+    } else if (chunk.source_type === 'job') {
+      reasons.push('work experience');
+    }
+
+    return reasons.length > 0 ? reasons.join(', ') : 'content similarity';
+  }
+
+  /**
+   * Format date range for display
+   * @param {string} startDate - Start date
+   * @param {string} endDate - End date
+   * @returns {string} - Formatted date range
+   */
+  formatDateRange(startDate, endDate) {
+    if (!startDate) return 'Date unknown';
+    
+    const start = new Date(startDate);
+    const startFormatted = start.toLocaleDateString('en-US', { year: 'numeric', month: 'short' });
+    
+    if (!endDate) return `${startFormatted} - Present`;
+    
+    const end = new Date(endDate);
+    const endFormatted = end.toLocaleDateString('en-US', { year: 'numeric', month: 'short' });
+    
+    return `${startFormatted} - ${endFormatted}`;
+  }
+
+  /**
+   * Extract key phrases from content
+   * @param {string} content - Chunk content
+   * @returns {Array} - Key phrases
+   */
+  extractKeyPhrases(content) {
+    // Simple extraction - could be enhanced with NLP
+    const sentences = content.split(/[.!?]+/);
+    const keyPhrases = [];
+    
+    sentences.forEach(sentence => {
+      const trimmed = sentence.trim();
+      if (trimmed.length > 20 && trimmed.length < 100) {
+        // Look for sentences with numbers (likely achievements)
+        if (/\d+[%$]?/.test(trimmed)) {
+          keyPhrases.push(trimmed);
+        }
+      }
+    });
+    
+    return keyPhrases.slice(0, 3); // Limit to top 3
+  }
+
+  /**
+   * Generate context summary
+   * @param {Array} chunks - Retrieved chunks
+   * @param {string} query - Original query
+   * @returns {string} - Context summary
+   */
+  generateContextSummary(chunks, query) {
+    if (chunks.length === 0) {
+      return 'No relevant context found.';
+    }
+    
+    const sources = this.extractUniqueSources(chunks);
+    const timeSpan = this.calculateTimeSpan(chunks);
+    const topSkills = this.extractTopSkills(chunks);
+    
+    const parts = [`Found ${chunks.length} relevant pieces of information`];
+    
+    if (sources.length > 0) {
+      parts.push(`from ${sources.length} source${sources.length > 1 ? 's' : ''}`);
+    }
+    
+    if (timeSpan) {
+      parts.push(`spanning ${timeSpan}`);
+    }
+    
+    if (topSkills.length > 0) {
+      parts.push(`covering ${topSkills.slice(0, 3).join(', ')}`);
+    }
+    
+    return parts.join(' ') + '.';
+  }
+
+  /**
+   * Extract unique sources from chunks
+   * @param {Array} chunks - Retrieved chunks
+   * @returns {Array} - Unique sources
+   */
+  extractUniqueSources(chunks) {
+    const sources = new Map();
+    
+    chunks.forEach(chunk => {
+      if (chunk.source_id && chunk.source_title) {
+        sources.set(chunk.source_id, {
+          id: chunk.source_id,
+          title: chunk.source_title,
+          type: chunk.source_type,
+          org: chunk.source_org
+        });
+      }
+    });
+    
+    return Array.from(sources.values());
+  }
+
+  /**
+   * Calculate time span covered by chunks
+   * @param {Array} chunks - Retrieved chunks
+   * @returns {string|null} - Time span description
+   */
+  calculateTimeSpan(chunks) {
+    const dates = chunks
+      .map(chunk => chunk.date_start)
+      .filter(date => date)
+      .map(date => new Date(date))
+      .sort((a, b) => a - b);
+    
+    if (dates.length < 2) return null;
+    
+    const earliest = dates[0];
+    const latest = dates[dates.length - 1];
+    const yearDiff = latest.getFullYear() - earliest.getFullYear();
+    
+    if (yearDiff === 0) return 'recent experience';
+    if (yearDiff === 1) return '2 years of experience';
+    return `${yearDiff + 1} years of experience`;
+  }
+
+  /**
+   * Extract top skills from chunks
+   * @param {Array} chunks - Retrieved chunks
+   * @returns {Array} - Top skills
+   */
+  extractTopSkills(chunks) {
+    const skillCounts = {};
+    
+    chunks.forEach(chunk => {
+      if (chunk.skills) {
+        chunk.skills.forEach(skill => {
+          skillCounts[skill] = (skillCounts[skill] || 0) + 1;
+        });
+      }
+    });
+    
+    return Object.entries(skillCounts)
+      .sort(([,a], [,b]) => b - a)
+      .map(([skill]) => skill)
+      .slice(0, 5);
+  }
+
+  /**
+   * Calculate average similarity score
+   * @param {Array} chunks - Retrieved chunks
+   * @returns {number} - Average similarity
+   */
+  calculateAverageSimilarity(chunks) {
+    if (chunks.length === 0) return 0;
+    
+    const totalSimilarity = chunks.reduce((sum, chunk) => sum + (chunk.similarity || 0), 0);
+    return Math.round((totalSimilarity / chunks.length) * 100) / 100;
+  }
+}
+
+module.exports = RetrievalService;

@@ -63,7 +63,7 @@ async function upsertSource(data) {
   try {
     // Check if source already exists
     const existing = await db.supabase
-      .from("sources")
+      .from("scottgpt.sources")
       .select("id")
       .eq("title", data.title)
       .eq("org", data.org)
@@ -72,7 +72,7 @@ async function upsertSource(data) {
     if (existing.data) {
       // Update existing source
       const { data: updated, error } = await db.supabase
-        .from("sources")
+        .from("scottgpt.sources")
         .update({
           type: data.type,
           location: data.location,
@@ -91,7 +91,7 @@ async function upsertSource(data) {
       return updated.id;
     } else {
       // Insert new source
-      return await db.insertSource({
+      const newSource = await db.insertSource({
         type: data.type,
         title: data.title,
         org: data.org,
@@ -102,6 +102,7 @@ async function upsertSource(data) {
         summary: data.summary,
         url: data.url
       });
+      return newSource.id;
     }
   } catch (error) {
     console.error("Error upserting source:", error);
@@ -120,7 +121,7 @@ async function processFile(filePath, sourceDir) {
     
     // Check if we've already processed this exact content
     const existingChunks = await db.supabase
-      .from("content_chunks")
+      .from("scottgpt.content_chunks")
       .select("id")
       .eq("file_hash", fileHash)
       .limit(1);
@@ -151,7 +152,7 @@ async function processFile(filePath, sourceDir) {
     
     // Delete existing chunks for this source (in case of updates)
     await db.supabase
-      .from("content_chunks")
+      .from("scottgpt.content_chunks")
       .delete()
       .eq("source_id", sourceId)
       .eq("file_hash", fileHash);

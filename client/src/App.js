@@ -4,7 +4,7 @@ import './App.css';
 
 function App() {
   const [message, setMessage] = useState('');
-  const [response, setResponse] = useState('');
+  const [response, setResponse] = useState(null);
   const [loading, setLoading] = useState(false);
   
   // Upload state
@@ -21,10 +21,20 @@ function App() {
 
     setLoading(true);
     try {
-      const result = await axios.post('/api/chat', { message });
-      setResponse(result.data.response);
+      const result = await axios.post('/api/chat', { 
+        message,
+        options: {
+          includeContext: false // Set to true for debugging
+        }
+      });
+      setResponse(result.data);
     } catch (error) {
-      setResponse('Error: Failed to get response from ScottGPT');
+      setResponse({
+        response: error.response?.data?.error || 'Error: Failed to get response from ScottGPT',
+        confidence: 'error',
+        sources: [],
+        metadata: { error: true }
+      });
       console.error('Chat error:', error);
     } finally {
       setLoading(false);
@@ -151,10 +161,65 @@ function App() {
 
             {response && (
               <div className="response-area">
-                <h3>Response:</h3>
-                <div className="response-text">
-                  {response}
+                <div className="response-header">
+                  <h3>Response:</h3>
+                  {response.confidence && response.confidence !== 'error' && (
+                    <span className={`confidence-badge confidence-${response.confidence}`}>
+                      {response.confidence.replace('-', ' ')} confidence
+                    </span>
+                  )}
                 </div>
+                
+                <div className="response-text">
+                  {response.response}
+                </div>
+
+                {response.sources && response.sources.length > 0 && (
+                  <div className="sources-section">
+                    <h4>Sources:</h4>
+                    <div className="sources-list">
+                      {response.sources.map((source, index) => (
+                        <div key={index} className="source-item">
+                          <span className="source-title">{source.title}</span>
+                          {source.organization && (
+                            <span className="source-org">at {source.organization}</span>
+                          )}
+                          <span className={`source-type source-type-${source.type}`}>
+                            {source.type}
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {response.metadata && !response.metadata.error && (
+                  <div className="metadata-section">
+                    <details>
+                      <summary>Technical Details</summary>
+                      <div className="metadata-grid">
+                        <div className="metadata-item">
+                          <span className="label">Processing Time:</span>
+                          <span className="value">{response.metadata.processingTime}ms</span>
+                        </div>
+                        <div className="metadata-item">
+                          <span className="label">Context Chunks:</span>
+                          <span className="value">{response.metadata.totalChunksFound}</span>
+                        </div>
+                        <div className="metadata-item">
+                          <span className="label">Similarity:</span>
+                          <span className="value">{Math.round((response.metadata.avgSimilarity || 0) * 100)}%</span>
+                        </div>
+                        {response.metadata.reasoning && (
+                          <div className="metadata-item full-width">
+                            <span className="label">Reasoning:</span>
+                            <span className="value">{response.metadata.reasoning}</span>
+                          </div>
+                        )}
+                      </div>
+                    </details>
+                  </div>
+                )}
               </div>
             )}
           </div>
