@@ -1,14 +1,25 @@
 import fs from 'fs/promises';
 import path from 'path';
 import OpenAI from 'openai';
+import 'dotenv/config';
 
 const client = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 const IN = '.work/normalized';
 const OUT = '.work/extracted';
 
-const SYSTEM_PROMPT = `You are a resume data extraction specialist for Scott Lovett. Extract ONE job, project, or experience from the text and format it as a complete Markdown document with YAML frontmatter AND detailed content body.
+const SYSTEM_PROMPT = `You are a resume data extraction specialist for Scott Lovett. You will receive an ENTIRE resume document and must extract ALL jobs, projects, experiences, and roles found within it.
 
-CRITICAL: You MUST output BOTH YAML frontmatter AND markdown content body. Format exactly as shown:
+CRITICAL INSTRUCTIONS:
+1. Scan the ENTIRE document carefully from top to bottom
+2. Extract EVERY job, role, project, consulting engagement, and significant experience
+3. Look for company names, job titles, dates, and descriptions throughout the document
+4. For EACH role/experience found, output a complete Markdown document with YAML frontmatter AND detailed content body
+5. Separate multiple extractions with "---NEXT_EXTRACTION---"
+6. Do NOT stop after finding one role - extract ALL of them
+
+CRITICAL: For EACH role/experience found, output a complete Markdown document with YAML frontmatter AND detailed content body. Separate multiple extractions with "---NEXT_EXTRACTION---".
+
+Format each extraction exactly as shown:
 
 ---
 id: unique-identifier-slugified
@@ -55,17 +66,22 @@ Detailed background about the role, company, and business context. Include what 
 - Team building and leadership results
 - Industry recognition or thought leadership
 
+---NEXT_EXTRACTION---
+
+[Repeat for each additional role/experience found]
+
 REQUIREMENTS:
-- Extract the MOST SIGNIFICANT and RECENT job/project from the text
+- Extract ALL jobs, projects, and significant experiences from the text
 - Use type: 'job' | 'project' | 'education' | 'cert' | 'bio'
-- Skills from: AI/ML, Program Management, Cybersecurity, Healthcare, Government, Cloud Computing, Team Leadership, Strategic Planning, Agile, Compliance, Data Engineering
-- Industry tags from: Healthcare, Government, Regulated Industries, AI Product, OT Security, Technical Leadership, Digital Transformation
+- Skills from: AI/ML, Program Management, Cybersecurity, Healthcare, Government, Cloud Computing, Team Leadership, Strategic Planning, Agile, Compliance, Data Engineering, IoT, Internet of Things
+- Industry tags from: Healthcare, Government, Regulated Industries, AI Product, OT Security, Technical Leadership, Digital Transformation, IoT
 - Include concrete numbers and metrics in ALL sections
 - Use past tense for completed roles, present for current
 - Strip personal information (emails, phones, addresses)
-- Content body must be substantial (300+ words minimum)
+- Content body must be substantial (200+ words minimum)
+- If you find IoT, Internet of Things, or connected device experience, make sure to extract it
 
-Output EXACTLY ONE complete Markdown document with both YAML frontmatter AND detailed content body.`;
+Output ALL experiences found, separated by "---NEXT_EXTRACTION---".`;
 
 async function extract() {
   console.log('🔍 Extracting structured data...');
@@ -95,36 +111,13 @@ async function extract() {
     console.log(`   🔍 Reading file content...`);
     const raw = await fs.readFile(path.join(IN, f), 'utf8');
 
-    // Find the "Full Professional Experience" section first
-    const experienceStart = raw.indexOf('Full Professional Experience');
-    let experienceSection = '';
+    // Instead of trying to parse individual sections, send the ENTIRE document
+    // to OpenAI and let it intelligently extract ALL experiences at once
+    console.log(`   📄 Document length: ${raw.length} characters`);
     
-    if (experienceStart !== -1) {
-      experienceSection = raw.substring(experienceStart);
-    } else {
-      // Fallback to full document if no experience section found
-      experienceSection = raw;
-    }
-    
-    // Split by company names followed by dates
-    // Pattern: Company Name followed by date (MM/YYYY-Present or MM/YYYY-MM/YYYY)
-    const jobSections = experienceSection.split(/\n(?=[A-Z][A-Za-z0-9\s&,.'-]+\s+\d{1,2}\/\d{4}[-–—])/);
-    
-    const blocks = jobSections
-      .map(section => section.trim())
-      .filter(section => {
-        // Must contain job title patterns and substantial content
-        return section.length > 100 && 
-               section.includes('**') && // Bold job titles
-               (section.includes('Director') || 
-                section.includes('Manager') || 
-                section.includes('Lead') ||
-                section.includes('Engineer') ||
-                section.includes('Consultant') ||
-                section.includes('Architect') ||
-                section.includes('Analyst') ||
-                section.includes('-')); // Bullet points with accomplishments
-      });
+    // For very large documents, we might need to chunk them, but for now
+    // let's process the entire document and let OpenAI extract everything
+    const blocks = [raw]; // Single block containing the entire document
 
     console.log(`📋 Found ${blocks.length} content blocks in ${f}`);
 
@@ -132,24 +125,43 @@ async function extract() {
     for (const block of blocks) {
       try {
         console.log(`   🤖 Calling OpenAI API for block ${blockIndex + 1}/${blocks.length}...`);
+        console.log(`   📝 Sending ${block.length} characters to OpenAI...`);
         process.stdout.write(''); // Force flush
         const response = await client.chat.completions.create({
           model: 'gpt-4o-mini',
           messages: [
             { role: 'system', content: SYSTEM_PROMPT },
-            { role: 'user', content: `Extract structured data from this resume section:\n\n${block}` }
+            { role: 'user', content: `This is a COMPLETE resume document. Please extract ALL jobs, roles, projects, and experiences found anywhere in this document. I expect multiple extractions separated by "---NEXT_EXTRACTION---". Look for:\n\n- ThinkOn (Cloud Provider)\n- Intercontinental Hotels Group (IHG)\n- LeaseQuery\n- Equifax\n- McKesson\n- American Cybersystems\n- IoT Subject Matter Expert role\n- Mayo Clinic consulting\n- Coca-Cola consulting\n- Lockheed Martin\n\nDocument:\n\n${block}` }
           ],
           temperature: 0.2
         });
 
-        const extractedMd = response.choices[0].message.content;
+        const extractedContent = response.choices[0].message.content;
         
-        if (extractedMd && extractedMd.includes('---')) {
-          const fileName = f.replace('.md', `.block-${blockIndex}.md`);
-          await fs.writeFile(path.join(OUT, fileName), extractedMd);
-          console.log(`💾 Extracted: ${fileName}`);
+        // Debug logging
+        console.log(`   📊 Response length: ${extractedContent.length} characters`);
+        const separatorCount = (extractedContent.match(/---NEXT_EXTRACTION---/g) || []).length;
+        console.log(`   🔍 Found ${separatorCount} extraction separators`);
+        
+        // Save response for debugging
+        await fs.writeFile(path.join(OUT, `debug-response-${f}-block-${blockIndex}.txt`), extractedContent);
+        console.log(`   💾 Saved debug response`);
+        
+        if (extractedContent && extractedContent.includes('---')) {
+          // Split multiple extractions
+          const extractions = extractedContent.split('---NEXT_EXTRACTION---');
+          
+          for (let i = 0; i < extractions.length; i++) {
+            const extraction = extractions[i].trim();
+            if (extraction && extraction.includes('---')) {
+              const fileName = f.replace('.md', `.block-${blockIndex}-${i}.md`);
+              await fs.writeFile(path.join(OUT, fileName), extraction);
+              console.log(`💾 Extracted: ${fileName}`);
+              totalBlocks++;
+            }
+          }
+          
           process.stdout.write(''); // Force flush
-          totalBlocks++;
         } else {
           console.log(`⚠️  Skipping block ${blockIndex} - no valid YAML front-matter`);
         }

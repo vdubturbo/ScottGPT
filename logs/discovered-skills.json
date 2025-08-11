@@ -1,0 +1,612 @@
+{
+  "skills": [
+    {
+      "skill": "Program Management",
+      "firstSeen": "2025-08-11T03:32:44.746Z",
+      "lastSeen": "2025-08-11T04:47:10.359Z",
+      "occurrences": 35,
+      "category": "Leadership",
+      "priority": "high",
+      "similar": [],
+      "contexts": [
+        {
+          "file": "1754883065541-Lovett Resume - 2023 Fed.block-0.md",
+          "content": "\n# Context\nIn this role as the CDC Program Director & Capture Manager at Strategic Solutions Interna..."
+        },
+        {
+          "file": "1754883065541-Lovett Resume - 2023 Fed.block-0.md",
+          "content": "\n# Context\nIn this role at Strategic Solutions International, I served as the CDC Program Director a..."
+        },
+        {
+          "file": "1754883318479-Lovett Resume - 2023 Fed.block-0.md",
+          "content": "\n# Context\nIn my role as CDC Program Director & Capture Manager at Strategic Solutions International..."
+        },
+        {
+          "file": "1754883065541-Lovett Resume - 2023 Fed.block-0.md",
+          "content": "\n# Context\nIn my role as the CDC Program Director & Capture Manager at Strategic Solutions Internati..."
+        },
+        {
+          "file": "1754883318479-Lovett Resume - 2023 Fed.block-0.md",
+          "content": "\n# Context\nIn my role as CDC Program Director & Capture Manager at Strategic Solutions International..."
+        },
+        {
+          "file": "1754883953455-Lovett Resume - 2023 Fed.block-0.md",
+          "content": "\n# Context\nIn my role as CDC Program Director & Capture Manager at Strategic Solutions International..."
+        },
+        {
+          "file": "1754883065541-Lovett Resume - 2023 Fed.block-0.md",
+          "content": "\n# Context\nIn my role as CDC Program Director & Capture Manager at Strategic Solutions International..."
+        },
+        {
+          "file": "1754883318479-Lovett Resume - 2023 Fed.block-0.md",
+          "content": "\n# Context\nIn this role at Strategic Solutions International, Scott Lovett served as the CDC Program..."
+        },
+        {
+          "file": "1754883953455-Lovett Resume - 2023 Fed.block-0.md",
+          "content": "\n# Context\nIn this role at Strategic Solutions International, I served as the CDC Program Director a..."
+        },
+        {
+          "file": "1754883065541-Lovett Resume - 2023 Fed.block-0.md",
+          "content": "\n# Context\nIn this role at Strategic Solutions International, Scott Lovett served as the CDC Program..."
+        },
+        {
+          "file": "1754883318479-Lovett Resume - 2023 Fed.block-0.md",
+          "content": "\n# Context\nIn this role at Strategic Solutions International, Scott Lovett served as the CDC Program..."
+        },
+        {
+          "file": "1754883953455-Lovett Resume - 2023 Fed.block-0.md",
+          "content": "\n# Context\nIn my role as CDC Program Director & Capture Manager at Strategic Solutions International..."
+        },
+        {
+          "file": "1754884494987-Master Resume Nov26.block-0.md",
+          "content": "\n# Context\nIn my role as Senior Director of the Delivery Support Office (DSO) at Binary Defense, I w..."
+        },
+        {
+          "file": "1754884494987-Master Resume Nov26.block-1.md",
+          "content": "\n# Context\nIn the role of Senior Director IT Strategy & Planning at Serta Simmons Bedding, I was res..."
+        },
+        {
+          "file": "1754884494987-Master Resume Nov26.block-2.md",
+          "content": "\n# Context\nCyberdyne Systems, LLC is a consultancy specializing in cybersecurity and compliance solu..."
+        },
+        {
+          "file": "1754884494987-Master Resume Nov26.block-3.md",
+          "content": "\n# Context\nIn the role of Sr. Director of Global PMO for OT Cybersecurity at McKesson Corporation, I..."
+        },
+        {
+          "file": "1754884494987-Master Resume Nov26.block-4.md",
+          "content": "\n# Context\nIn the role of Director of Global Health and Technology Programs at American CyberSystems..."
+        },
+        {
+          "file": "1754884494987-Master Resume Nov26.block-5.md",
+          "content": "\n# Context\nAs the Program Management Manager for Undersea Systems at Lockheed Martin, I was responsi..."
+        },
+        {
+          "file": "1754883065541-Lovett Resume - 2023 Fed.block-0.md",
+          "content": "\n# Context\nIn my role as the CDC Program Director & Capture Manager at Strategic Solutions Internati..."
+        },
+        {
+          "file": "1754883318479-Lovett Resume - 2023 Fed.block-0.md",
+          "content": "\n# Context\nIn my role as the CDC Program Director & Capture Manager at Strategic Solutions Internati..."
+        },
+        {
+          "file": "1754883953455-Lovett Resume - 2023 Fed.block-0.md",
+          "content": "\n# Context\nIn this role at Strategic Solutions International, I served as the CDC Program Director a..."
+        },
+        {
+          "file": "1754884494987-Master Resume Nov26.block-0.md",
+          "content": "\n# Context\nIn my role as Senior Director of the Delivery Support Office (DSO) at Binary Defense, a l..."
+        },
+        {
+          "file": "1754884494987-Master Resume Nov26.block-1.md",
+          "content": "\n# Context\nIn the role of Senior Director of IT Strategy & Planning at Serta Simmons Bedding, I was ..."
+        },
+        {
+          "file": "1754884494987-Master Resume Nov26.block-2.md",
+          "content": "\n# Context\nCyberdyne Systems, LLC is a consultancy specializing in cybersecurity and compliance solu..."
+        },
+        {
+          "file": "1754884494987-Master Resume Nov26.block-3.md",
+          "content": "\n# Context\nIn the role of Sr. Director of Global PMO for OT Cybersecurity at McKesson Corporation, I..."
+        },
+        {
+          "file": "1754884494987-Master Resume Nov26.block-4.md",
+          "content": "\n# Context\nIn the role of Director of Global Health and Technology Programs at American CyberSystems..."
+        },
+        {
+          "file": "1754884494987-Master Resume Nov26.block-5.md",
+          "content": "\n# Context\nIn the role of Program Management Manager for Undersea Systems at Lockheed Martin, I was ..."
+        },
+        {
+          "file": "Lovett Resume-SrPM-March21.block-0.md",
+          "content": "\n# Context\nIn my role as an Enterprise IT & Cybersecurity PMO Consultant at Intercontinental Hotels ..."
+        },
+        {
+          "file": "Scott Lovett - PMO 2023c .block-0.md",
+          "content": "\n# Context\nIn my role as Program Manager at ThinkOn, a leading cloud provider based in Toronto, I wa..."
+        },
+        {
+          "file": "Lovett Resume-Oct2020.block-0-0.md",
+          "content": "\n# Context\nIn this role at McKesson, a leading healthcare company, I was responsible for establishin..."
+        },
+        {
+          "file": "Lovett Resume-Oct2020.block-0-1.md",
+          "content": "\n# Context\nIn my role at American Cybersystems, I managed the PMO for federal programs, focusing on ..."
+        },
+        {
+          "file": "Lovett Resume-Oct2020.block-0-2.md",
+          "content": "\n# Context\nIn this role, I was responsible for leading IoT implementations and developing business c..."
+        },
+        {
+          "file": "Lovett Resume-Oct2020.block-0-3.md",
+          "content": "\n# Context\nIn this consulting role at The Mayo Clinic, I was responsible for overseeing the migratio..."
+        },
+        {
+          "file": "Lovett Resume-Oct2020.block-0-4.md",
+          "content": "\n# Context\nIn this role at The Coca-Cola Company, I was responsible for designing and implementing t..."
+        },
+        {
+          "file": "Lovett Resume-Oct2020.block-0-5.md",
+          "content": "\n# Context\nIn my role as a Program Manager at Lockheed Martin, I was responsible for managing softwa..."
+        }
+      ],
+      "suggestions": [
+        {
+          "type": "add",
+          "suggestion": "High priority skill - recommend adding to vocabulary",
+          "action": "approve",
+          "target": "Program Management"
+        }
+      ]
+    },
+    {
+      "skill": "Capture Management",
+      "firstSeen": "2025-08-11T03:32:44.747Z",
+      "lastSeen": "2025-08-11T03:57:46.401Z",
+      "occurrences": 12,
+      "category": "Leadership",
+      "priority": "high",
+      "similar": [],
+      "contexts": [
+        {
+          "file": "1754883065541-Lovett Resume - 2023 Fed.block-0.md",
+          "content": "\n# Context\nIn this role as the CDC Program Director & Capture Manager at Strategic Solutions Interna..."
+        },
+        {
+          "file": "1754883065541-Lovett Resume - 2023 Fed.block-0.md",
+          "content": "\n# Context\nIn this role at Strategic Solutions International, I served as the CDC Program Director a..."
+        },
+        {
+          "file": "1754883318479-Lovett Resume - 2023 Fed.block-0.md",
+          "content": "\n# Context\nIn my role as CDC Program Director & Capture Manager at Strategic Solutions International..."
+        },
+        {
+          "file": "1754883065541-Lovett Resume - 2023 Fed.block-0.md",
+          "content": "\n# Context\nIn my role as the CDC Program Director & Capture Manager at Strategic Solutions Internati..."
+        },
+        {
+          "file": "1754883318479-Lovett Resume - 2023 Fed.block-0.md",
+          "content": "\n# Context\nIn my role as CDC Program Director & Capture Manager at Strategic Solutions International..."
+        },
+        {
+          "file": "1754883953455-Lovett Resume - 2023 Fed.block-0.md",
+          "content": "\n# Context\nIn my role as CDC Program Director & Capture Manager at Strategic Solutions International..."
+        },
+        {
+          "file": "1754883065541-Lovett Resume - 2023 Fed.block-0.md",
+          "content": "\n# Context\nIn my role as CDC Program Director & Capture Manager at Strategic Solutions International..."
+        },
+        {
+          "file": "1754883318479-Lovett Resume - 2023 Fed.block-0.md",
+          "content": "\n# Context\nIn this role at Strategic Solutions International, Scott Lovett served as the CDC Program..."
+        },
+        {
+          "file": "1754883953455-Lovett Resume - 2023 Fed.block-0.md",
+          "content": "\n# Context\nIn this role at Strategic Solutions International, I served as the CDC Program Director a..."
+        },
+        {
+          "file": "1754883065541-Lovett Resume - 2023 Fed.block-0.md",
+          "content": "\n# Context\nIn this role at Strategic Solutions International, Scott Lovett served as the CDC Program..."
+        },
+        {
+          "file": "1754883318479-Lovett Resume - 2023 Fed.block-0.md",
+          "content": "\n# Context\nIn this role at Strategic Solutions International, Scott Lovett served as the CDC Program..."
+        },
+        {
+          "file": "1754883953455-Lovett Resume - 2023 Fed.block-0.md",
+          "content": "\n# Context\nIn this role at Strategic Solutions International, I served as the CDC Program Director a..."
+        }
+      ],
+      "suggestions": [
+        {
+          "type": "add",
+          "suggestion": "High priority skill - recommend adding to vocabulary",
+          "action": "approve",
+          "target": "Capture Management"
+        }
+      ]
+    },
+    {
+      "skill": "Strategic Planning",
+      "firstSeen": "2025-08-11T03:35:40.617Z",
+      "lastSeen": "2025-08-11T04:47:10.360Z",
+      "occurrences": 26,
+      "category": "Other",
+      "priority": "low",
+      "similar": [],
+      "contexts": [
+        {
+          "file": "1754883318479-Lovett Resume - 2023 Fed.block-0.md",
+          "content": "\n# Context\nIn my role as CDC Program Director & Capture Manager at Strategic Solutions International..."
+        },
+        {
+          "file": "1754883065541-Lovett Resume - 2023 Fed.block-0.md",
+          "content": "\n# Context\nIn my role as the CDC Program Director & Capture Manager at Strategic Solutions Internati..."
+        },
+        {
+          "file": "1754883953455-Lovett Resume - 2023 Fed.block-0.md",
+          "content": "\n# Context\nIn my role as CDC Program Director & Capture Manager at Strategic Solutions International..."
+        },
+        {
+          "file": "1754883065541-Lovett Resume - 2023 Fed.block-0.md",
+          "content": "\n# Context\nIn my role as CDC Program Director & Capture Manager at Strategic Solutions International..."
+        },
+        {
+          "file": "1754883953455-Lovett Resume - 2023 Fed.block-0.md",
+          "content": "\n# Context\nIn this role at Strategic Solutions International, I served as the CDC Program Director a..."
+        },
+        {
+          "file": "1754883318479-Lovett Resume - 2023 Fed.block-0.md",
+          "content": "\n# Context\nIn this role at Strategic Solutions International, Scott Lovett served as the CDC Program..."
+        },
+        {
+          "file": "1754883953455-Lovett Resume - 2023 Fed.block-0.md",
+          "content": "\n# Context\nIn my role as CDC Program Director & Capture Manager at Strategic Solutions International..."
+        },
+        {
+          "file": "1754884494987-Master Resume Nov26.block-0.md",
+          "content": "\n# Context\nIn my role as Senior Director of the Delivery Support Office (DSO) at Binary Defense, I w..."
+        },
+        {
+          "file": "1754884494987-Master Resume Nov26.block-1.md",
+          "content": "\n# Context\nIn the role of Senior Director IT Strategy & Planning at Serta Simmons Bedding, I was res..."
+        },
+        {
+          "file": "1754884494987-Master Resume Nov26.block-2.md",
+          "content": "\n# Context\nCyberdyne Systems, LLC is a consultancy specializing in cybersecurity and compliance solu..."
+        },
+        {
+          "file": "1754884494987-Master Resume Nov26.block-3.md",
+          "content": "\n# Context\nIn the role of Sr. Director of Global PMO for OT Cybersecurity at McKesson Corporation, I..."
+        },
+        {
+          "file": "1754884494987-Master Resume Nov26.block-4.md",
+          "content": "\n# Context\nIn the role of Director of Global Health and Technology Programs at American CyberSystems..."
+        },
+        {
+          "file": "1754884494987-Master Resume Nov26.block-5.md",
+          "content": "\n# Context\nAs the Program Management Manager for Undersea Systems at Lockheed Martin, I was responsi..."
+        },
+        {
+          "file": "1754883065541-Lovett Resume - 2023 Fed.block-0.md",
+          "content": "\n# Context\nIn my role as the CDC Program Director & Capture Manager at Strategic Solutions Internati..."
+        },
+        {
+          "file": "1754883318479-Lovett Resume - 2023 Fed.block-0.md",
+          "content": "\n# Context\nIn my role as the CDC Program Director & Capture Manager at Strategic Solutions Internati..."
+        },
+        {
+          "file": "1754883953455-Lovett Resume - 2023 Fed.block-0.md",
+          "content": "\n# Context\nIn this role at Strategic Solutions International, I served as the CDC Program Director a..."
+        },
+        {
+          "file": "1754884494987-Master Resume Nov26.block-0.md",
+          "content": "\n# Context\nIn my role as Senior Director of the Delivery Support Office (DSO) at Binary Defense, a l..."
+        },
+        {
+          "file": "1754884494987-Master Resume Nov26.block-1.md",
+          "content": "\n# Context\nIn the role of Senior Director of IT Strategy & Planning at Serta Simmons Bedding, I was ..."
+        },
+        {
+          "file": "1754884494987-Master Resume Nov26.block-2.md",
+          "content": "\n# Context\nCyberdyne Systems, LLC is a consultancy specializing in cybersecurity and compliance solu..."
+        },
+        {
+          "file": "1754884494987-Master Resume Nov26.block-3.md",
+          "content": "\n# Context\nIn the role of Sr. Director of Global PMO for OT Cybersecurity at McKesson Corporation, I..."
+        },
+        {
+          "file": "1754884494987-Master Resume Nov26.block-4.md",
+          "content": "\n# Context\nIn the role of Director of Global Health and Technology Programs at American CyberSystems..."
+        },
+        {
+          "file": "1754884494987-Master Resume Nov26.block-5.md",
+          "content": "\n# Context\nIn the role of Program Management Manager for Undersea Systems at Lockheed Martin, I was ..."
+        },
+        {
+          "file": "Lovett Resume-SrPM-March21.block-0.md",
+          "content": "\n# Context\nIn my role as an Enterprise IT & Cybersecurity PMO Consultant at Intercontinental Hotels ..."
+        },
+        {
+          "file": "Lovett Resume-Oct2020.block-0-1.md",
+          "content": "\n# Context\nIn my role at American Cybersystems, I managed the PMO for federal programs, focusing on ..."
+        },
+        {
+          "file": "Lovett Resume-Oct2020.block-0-2.md",
+          "content": "\n# Context\nIn this role, I was responsible for leading IoT implementations and developing business c..."
+        },
+        {
+          "file": "Lovett Resume-Oct2020.block-0-5.md",
+          "content": "\n# Context\nIn my role as a Program Manager at Lockheed Martin, I was responsible for managing softwa..."
+        }
+      ],
+      "suggestions": []
+    },
+    {
+      "skill": "Agile",
+      "firstSeen": "2025-08-11T03:56:13.129Z",
+      "lastSeen": "2025-08-11T04:47:10.358Z",
+      "occurrences": 8,
+      "category": "Methodology",
+      "priority": "medium",
+      "similar": [],
+      "contexts": [
+        {
+          "file": "1754884494987-Master Resume Nov26.block-0.md",
+          "content": "\n# Context\nIn my role as Senior Director of the Delivery Support Office (DSO) at Binary Defense, I w..."
+        },
+        {
+          "file": "1754884494987-Master Resume Nov26.block-3.md",
+          "content": "\n# Context\nIn the role of Sr. Director of Global PMO for OT Cybersecurity at McKesson Corporation, I..."
+        },
+        {
+          "file": "1754884494987-Master Resume Nov26.block-0.md",
+          "content": "\n# Context\nIn my role as Senior Director of the Delivery Support Office (DSO) at Binary Defense, a l..."
+        },
+        {
+          "file": "1754884494987-Master Resume Nov26.block-3.md",
+          "content": "\n# Context\nIn the role of Sr. Director of Global PMO for OT Cybersecurity at McKesson Corporation, I..."
+        },
+        {
+          "file": "Scott Lovett - PMO 2023c .block-0.md",
+          "content": "\n# Context\nIn my role as Program Manager at ThinkOn, a leading cloud provider based in Toronto, I wa..."
+        },
+        {
+          "file": "Lovett Resume-Oct2020.block-0-0.md",
+          "content": "\n# Context\nIn this role at McKesson, a leading healthcare company, I was responsible for establishin..."
+        },
+        {
+          "file": "Lovett Resume-Oct2020.block-0-3.md",
+          "content": "\n# Context\nIn this consulting role at The Mayo Clinic, I was responsible for overseeing the migratio..."
+        },
+        {
+          "file": "Lovett Resume-Oct2020.block-0-4.md",
+          "content": "\n# Context\nIn this role at The Coca-Cola Company, I was responsible for designing and implementing t..."
+        }
+      ],
+      "suggestions": [
+        {
+          "type": "standardize",
+          "suggestion": "Consider standardizing as: \"Agile Development\"",
+          "action": "replace",
+          "target": "Agile Development"
+        }
+      ]
+    },
+    {
+      "skill": "Cybersecurity",
+      "firstSeen": "2025-08-11T03:56:13.133Z",
+      "lastSeen": "2025-08-11T04:21:12.356Z",
+      "occurrences": 6,
+      "category": "Security",
+      "priority": "high",
+      "similar": [],
+      "contexts": [
+        {
+          "file": "1754884494987-Master Resume Nov26.block-2.md",
+          "content": "\n# Context\nCyberdyne Systems, LLC is a consultancy specializing in cybersecurity and compliance solu..."
+        },
+        {
+          "file": "1754884494987-Master Resume Nov26.block-3.md",
+          "content": "\n# Context\nIn the role of Sr. Director of Global PMO for OT Cybersecurity at McKesson Corporation, I..."
+        },
+        {
+          "file": "1754884494987-Master Resume Nov26.block-2.md",
+          "content": "\n# Context\nCyberdyne Systems, LLC is a consultancy specializing in cybersecurity and compliance solu..."
+        },
+        {
+          "file": "1754884494987-Master Resume Nov26.block-3.md",
+          "content": "\n# Context\nIn the role of Sr. Director of Global PMO for OT Cybersecurity at McKesson Corporation, I..."
+        },
+        {
+          "file": "Lovett Resume-SrPM-March21.block-0.md",
+          "content": "\n# Context\nIn my role as an Enterprise IT & Cybersecurity PMO Consultant at Intercontinental Hotels ..."
+        },
+        {
+          "file": "Scott Lovett - PMO 2023c .block-0.md",
+          "content": "\n# Context\nIn my role as Program Manager at ThinkOn, a leading cloud provider based in Toronto, I wa..."
+        }
+      ],
+      "suggestions": [
+        {
+          "type": "standardize",
+          "suggestion": "Consider standardizing as: \"Cybersecurity\"",
+          "action": "replace",
+          "target": "Cybersecurity"
+        },
+        {
+          "type": "add",
+          "suggestion": "High priority skill - recommend adding to vocabulary",
+          "action": "approve",
+          "target": "Cybersecurity"
+        }
+      ]
+    },
+    {
+      "skill": "Compliance",
+      "firstSeen": "2025-08-11T03:56:13.133Z",
+      "lastSeen": "2025-08-11T04:47:10.361Z",
+      "occurrences": 5,
+      "category": "Compliance",
+      "priority": "high",
+      "similar": [],
+      "contexts": [
+        {
+          "file": "1754884494987-Master Resume Nov26.block-2.md",
+          "content": "\n# Context\nCyberdyne Systems, LLC is a consultancy specializing in cybersecurity and compliance solu..."
+        },
+        {
+          "file": "1754884494987-Master Resume Nov26.block-2.md",
+          "content": "\n# Context\nCyberdyne Systems, LLC is a consultancy specializing in cybersecurity and compliance solu..."
+        },
+        {
+          "file": "Lovett Resume-SrPM-March21.block-0.md",
+          "content": "\n# Context\nIn my role as an Enterprise IT & Cybersecurity PMO Consultant at Intercontinental Hotels ..."
+        },
+        {
+          "file": "Lovett Resume-Oct2020.block-0-0.md",
+          "content": "\n# Context\nIn this role at McKesson, a leading healthcare company, I was responsible for establishin..."
+        },
+        {
+          "file": "Lovett Resume-Oct2020.block-0-6.md",
+          "content": "\n# Context\nIn this role at Lockheed Martin, I managed a manufacturing floor operation that supported..."
+        }
+      ],
+      "suggestions": [
+        {
+          "type": "standardize",
+          "suggestion": "Consider standardizing as: \"Regulatory Compliance\"",
+          "action": "replace",
+          "target": "Regulatory Compliance"
+        },
+        {
+          "type": "add",
+          "suggestion": "High priority skill - recommend adding to vocabulary",
+          "action": "approve",
+          "target": "Compliance"
+        }
+      ]
+    },
+    {
+      "skill": "Team Leadership",
+      "firstSeen": "2025-08-11T03:56:13.134Z",
+      "lastSeen": "2025-08-11T04:47:10.360Z",
+      "occurrences": 14,
+      "category": "Leadership",
+      "priority": "high",
+      "similar": [],
+      "contexts": [
+        {
+          "file": "1754884494987-Master Resume Nov26.block-2.md",
+          "content": "\n# Context\nCyberdyne Systems, LLC is a consultancy specializing in cybersecurity and compliance solu..."
+        },
+        {
+          "file": "1754884494987-Master Resume Nov26.block-3.md",
+          "content": "\n# Context\nIn the role of Sr. Director of Global PMO for OT Cybersecurity at McKesson Corporation, I..."
+        },
+        {
+          "file": "1754884494987-Master Resume Nov26.block-4.md",
+          "content": "\n# Context\nIn the role of Director of Global Health and Technology Programs at American CyberSystems..."
+        },
+        {
+          "file": "1754884494987-Master Resume Nov26.block-5.md",
+          "content": "\n# Context\nAs the Program Management Manager for Undersea Systems at Lockheed Martin, I was responsi..."
+        },
+        {
+          "file": "1754884494987-Master Resume Nov26.block-1.md",
+          "content": "\n# Context\nIn the role of Senior Director of IT Strategy & Planning at Serta Simmons Bedding, I was ..."
+        },
+        {
+          "file": "1754884494987-Master Resume Nov26.block-3.md",
+          "content": "\n# Context\nIn the role of Sr. Director of Global PMO for OT Cybersecurity at McKesson Corporation, I..."
+        },
+        {
+          "file": "1754884494987-Master Resume Nov26.block-4.md",
+          "content": "\n# Context\nIn the role of Director of Global Health and Technology Programs at American CyberSystems..."
+        },
+        {
+          "file": "1754884494987-Master Resume Nov26.block-5.md",
+          "content": "\n# Context\nIn the role of Program Management Manager for Undersea Systems at Lockheed Martin, I was ..."
+        },
+        {
+          "file": "Lovett Resume-Oct2020.block-0-1.md",
+          "content": "\n# Context\nIn my role at American Cybersystems, I managed the PMO for federal programs, focusing on ..."
+        },
+        {
+          "file": "Lovett Resume-Oct2020.block-0-2.md",
+          "content": "\n# Context\nIn this role, I was responsible for leading IoT implementations and developing business c..."
+        },
+        {
+          "file": "Lovett Resume-Oct2020.block-0-3.md",
+          "content": "\n# Context\nIn this consulting role at The Mayo Clinic, I was responsible for overseeing the migratio..."
+        },
+        {
+          "file": "Lovett Resume-Oct2020.block-0-4.md",
+          "content": "\n# Context\nIn this role at The Coca-Cola Company, I was responsible for designing and implementing t..."
+        },
+        {
+          "file": "Lovett Resume-Oct2020.block-0-5.md",
+          "content": "\n# Context\nIn my role as a Program Manager at Lockheed Martin, I was responsible for managing softwa..."
+        },
+        {
+          "file": "Lovett Resume-Oct2020.block-0-6.md",
+          "content": "\n# Context\nIn this role at Lockheed Martin, I managed a manufacturing floor operation that supported..."
+        }
+      ],
+      "suggestions": [
+        {
+          "type": "standardize",
+          "suggestion": "Consider standardizing as: \"Team Leadership\"",
+          "action": "replace",
+          "target": "Team Leadership"
+        },
+        {
+          "type": "add",
+          "suggestion": "High priority skill - recommend adding to vocabulary",
+          "action": "approve",
+          "target": "Team Leadership"
+        }
+      ]
+    },
+    {
+      "skill": "Process Improvement",
+      "firstSeen": "2025-08-11T04:47:10.360Z",
+      "lastSeen": "2025-08-11T04:47:10.360Z",
+      "occurrences": 1,
+      "category": "Operations",
+      "priority": "medium",
+      "similar": [],
+      "contexts": [
+        {
+          "file": "Lovett Resume-Oct2020.block-0-6.md",
+          "content": "\n# Context\nIn this role at Lockheed Martin, I managed a manufacturing floor operation that supported..."
+        }
+      ],
+      "suggestions": [
+        {
+          "type": "standardize",
+          "suggestion": "Consider standardizing as: \"Process Improvement\"",
+          "action": "replace",
+          "target": "Process Improvement"
+        }
+      ]
+    }
+  ],
+  "lastUpdated": "2025-08-11T04:47:10.361Z",
+  "summary": {
+    "total": 8,
+    "byPriority": {
+      "high": 5,
+      "low": 1,
+      "medium": 2
+    },
+    "byCategory": {
+      "Leadership": 3,
+      "Other": 1,
+      "Methodology": 1,
+      "Security": 1,
+      "Compliance": 1,
+      "Operations": 1
+    }
+  }
+}

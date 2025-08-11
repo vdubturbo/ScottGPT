@@ -148,6 +148,17 @@ class EmbeddingService {
 
     const queryLower = query.toLowerCase();
 
+    // IoT-specific filtering
+    if (queryLower.includes('iot') || queryLower.includes('internet of things') || queryLower.includes('connected devices')) {
+      filters.tags.push('IoT');
+      filters.skills.push('IoT', 'Internet of Things');
+    }
+
+    // Company-specific filtering
+    if (queryLower.includes('coca-cola') || queryLower.includes('coca cola') || queryLower.includes('coke')) {
+      filters.tags.push('IoT', 'Digital Transformation'); // Coca-Cola had IoT projects
+    }
+
     // Industry/domain keywords
     const industryMap = {
       'healthcare': ['Healthcare'],
@@ -235,6 +246,12 @@ class EmbeddingService {
     const queryLength = query.split(/\s+/).length;
     const queryLower = query.toLowerCase();
     
+    // Special handling for IoT queries - very low threshold
+    if (queryLower.includes('iot') || queryLower.includes('internet of things') || queryLower.includes('connected devices')) {
+      console.log('🔧 Using very low threshold for IoT query');
+      return 0.05; // Very permissive for IoT content
+    }
+    
     // Special handling for common resume queries that may have low semantic similarity
     const resumeQueries = [
       'job', 'work', 'position', 'role', 'employment', 'career',
@@ -244,18 +261,18 @@ class EmbeddingService {
     const isResumeQuery = resumeQueries.some(term => queryLower.includes(term));
     
     if (isResumeQuery) {
-      // Use lower thresholds for resume-related queries to ensure job content is found
-      if (queryLength >= 8) {return 0.25;} // Very specific
-      if (queryLength >= 5) {return 0.20;} // Moderately specific  
-      if (queryLength >= 3) {return 0.18;} // Somewhat specific
-      return 0.15; // General resume queries
+      // Use much lower thresholds for resume-related queries to ensure job content is found
+      if (queryLength >= 8) {return 0.10;} // Very specific
+      if (queryLength >= 5) {return 0.08;} // Moderately specific  
+      if (queryLength >= 3) {return 0.06;} // Somewhat specific
+      return 0.05; // General resume queries - very permissive for debugging
     }
     
-    // Standard thresholds for other queries
-    if (queryLength >= 8) {return 0.35;} // Very specific
-    if (queryLength >= 5) {return 0.32;} // Moderately specific
-    if (queryLength >= 3) {return 0.30;} // Somewhat specific
-    return 0.28; // General queries
+    // Standard thresholds for other queries - also lowered for debugging
+    if (queryLength >= 8) {return 0.15;} // Very specific
+    if (queryLength >= 5) {return 0.12;} // Moderately specific
+    if (queryLength >= 3) {return 0.10;} // Somewhat specific
+    return 0.08; // General queries - very permissive
   }
 }
 

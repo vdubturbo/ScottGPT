@@ -98,7 +98,7 @@ router.post('/', async (req, res) => {
 router.get('/health', async (req, res) => {
   try {
     // Test basic connectivity
-    const { db } = require('../config/database');
+    const { db } = await import('../config/database.js');
     const stats = await db.getStats();
     
     const health = {

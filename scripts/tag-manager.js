@@ -16,18 +16,33 @@ class TagManager {
       const config = JSON.parse(await fs.readFile(TAGS_CONFIG_PATH, 'utf8'));
       this.controlledVocabulary = config.controlled_vocabulary || [];
       this.synonyms = config.synonyms || {};
-      
-      // Load pending tags if they exist
-      try {
-        const pending = JSON.parse(await fs.readFile(PENDING_TAGS_PATH, 'utf8'));
-        this.pendingTags = pending.tags || [];
-      } catch (error) {
-        // File doesn't exist, start with empty pending list
-        this.pendingTags = [];
-      }
     } catch (error) {
-      console.error('Failed to load tag configuration:', error.message);
-      throw error;
+      if (error.code === 'ENOENT') {
+        console.warn('⚠️ tags.json not found, creating default configuration');
+        this.controlledVocabulary = [];
+        this.synonyms = {};
+        
+        // Create default config file
+        const defaultConfig = {
+          controlled_vocabulary: [],
+          synonyms: {},
+          industry_tags: []
+        };
+        await fs.mkdir('config', { recursive: true });
+        await fs.writeFile(TAGS_CONFIG_PATH, JSON.stringify(defaultConfig, null, 2));
+      } else {
+        console.error('Failed to load tag configuration:', error.message);
+        throw error;
+      }
+    }
+    
+    // Load pending tags if they exist
+    try {
+      const pending = JSON.parse(await fs.readFile(PENDING_TAGS_PATH, 'utf8'));
+      this.pendingTags = pending.tags || [];
+    } catch (error) {
+      // File doesn't exist, start with empty pending list
+      this.pendingTags = [];
     }
   }
 

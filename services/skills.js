@@ -1,7 +1,7 @@
 import fs from 'fs/promises';
 import path from 'path';
 
-const SKILLS_CONFIG_PATH = 'config/tags.json';
+const SKILLS_CONFIG_PATH = 'config/skills.json';
 const DISCOVERED_SKILLS_PATH = 'logs/discovered-skills.json';
 
 class SkillDiscoveryService {
@@ -17,9 +17,39 @@ class SkillDiscoveryService {
     if (this.initialized) return;
     
     try {
-      // Load existing configuration
-      const config = JSON.parse(await fs.readFile(SKILLS_CONFIG_PATH, 'utf8'));
-      this.controlledVocabulary = new Set(config.controlled_vocabulary || []);
+      // Load existing configuration with fallback
+      let config;
+      try {
+        config = JSON.parse(await fs.readFile(SKILLS_CONFIG_PATH, 'utf8'));
+      } catch (error) {
+        if (error.code === 'ENOENT') {
+          console.warn('⚠️ skills.json not found, creating default configuration');
+          config = {
+            controlled_vocabulary: {
+              technical: [],
+              business: [],
+              leadership: []
+            },
+            synonyms: {}
+          };
+          await fs.mkdir('config', { recursive: true });
+          await fs.writeFile(SKILLS_CONFIG_PATH, JSON.stringify(config, null, 2));
+        } else {
+          throw error;
+        }
+      }
+      
+      // Handle controlled_vocabulary as either object with categories or flat array
+      let allSkills = [];
+      if (config.controlled_vocabulary) {
+        if (Array.isArray(config.controlled_vocabulary)) {
+          allSkills = config.controlled_vocabulary;
+        } else if (typeof config.controlled_vocabulary === 'object') {
+          // Flatten categorized skills
+          allSkills = Object.values(config.controlled_vocabulary).flat();
+        }
+      }
+      this.controlledVocabulary = new Set(allSkills);
       this.synonyms = config.synonyms || {};
       
       // Load discovered skills if they exist

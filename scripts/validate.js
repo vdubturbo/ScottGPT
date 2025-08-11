@@ -7,16 +7,11 @@ import SkillDiscoveryService from '../services/skills.js';
 const IN = '.work/extracted';
 const OUT = '.work/validated';
 
-// Initialize managers
-const tagManager = new TagManager();
-await tagManager.loadConfiguration();
-
-const skillService = new SkillDiscoveryService();
-await skillService.initialize();
-
-// Load controlled vocabularies
-const skillsConfig = JSON.parse(await fs.readFile('config/skills.json', 'utf8'));
-const tagsConfig = JSON.parse(await fs.readFile('config/tags.json', 'utf8'));
+// Global variables for services (initialized in validate function)
+let tagManager;
+let skillService;
+let skillsConfig;
+let tagsConfig;
 
 const VALID_TYPES = ['job', 'project', 'education', 'cert', 'bio'];
 
@@ -39,10 +34,14 @@ async function normalizeSkills(skills, context = {}) {
   if (!Array.isArray(skills)) {return [];}
   
   const normalized = new Set();
+  
+  // Handle different config structures with safety checks
+  const controlledVocab = skillsConfig.controlled_vocabulary || {};
   const allSkills = [
-    ...skillsConfig.controlled_vocabulary.technical,
-    ...skillsConfig.controlled_vocabulary.leadership,
-    ...skillsConfig.controlled_vocabulary.domain
+    ...(controlledVocab.technical || []),
+    ...(controlledVocab.leadership || []),
+    ...(controlledVocab.business || []),
+    ...(controlledVocab.domain || [])
   ];
   
   for (const skill of skills) {
@@ -139,7 +138,78 @@ function validateDates(dateStart, dateEnd) {
 async function validate() {
   console.log('✅ Validating content...');
   
-  await fs.mkdir(OUT, { recursive: true });
+  // Ensure required directories exist
+  try {
+    await fs.mkdir('logs', { recursive: true });
+    await fs.mkdir('config', { recursive: true });
+    await fs.mkdir(OUT, { recursive: true });
+    await fs.mkdir(IN, { recursive: true });
+    console.log('✅ Required directories ensured');
+  } catch (error) {
+    console.error('❌ Failed to create required directories:', error.message);
+    throw new Error(`Directory creation failed: ${error.message}`);
+  }
+  
+  // Initialize services with error handling
+  try {
+    console.log('🔧 Initializing TagManager...');
+    tagManager = new TagManager();
+    await tagManager.loadConfiguration();
+    console.log('✅ TagManager initialized successfully');
+  } catch (error) {
+    console.error('❌ Failed to initialize TagManager:', error.message);
+    throw new Error(`TagManager initialization failed: ${error.message}`);
+  }
+  
+  try {
+    console.log('🔧 Initializing SkillDiscoveryService...');
+    skillService = new SkillDiscoveryService();
+    await skillService.initialize();
+    console.log('✅ SkillDiscoveryService initialized successfully');
+  } catch (error) {
+    console.error('❌ Failed to initialize SkillDiscoveryService:', error.message);
+    throw new Error(`SkillDiscoveryService initialization failed: ${error.message}`);
+  }
+  
+  // Load controlled vocabularies with error handling
+  try {
+    console.log('📋 Loading configuration files...');
+    
+    // Load skills config with fallback
+    try {
+      skillsConfig = JSON.parse(await fs.readFile('config/skills.json', 'utf8'));
+      console.log('📊 Skills config structure:', Object.keys(skillsConfig.controlled_vocabulary || {}));
+    } catch (skillsError) {
+      console.warn('⚠️ skills.json not found, creating default configuration');
+      skillsConfig = {
+        controlled_vocabulary: {
+          technical: [],
+          business: [],
+          leadership: []
+        },
+        synonyms: {}
+      };
+      await fs.writeFile('config/skills.json', JSON.stringify(skillsConfig, null, 2));
+    }
+    
+    // Load tags config with fallback  
+    try {
+      tagsConfig = JSON.parse(await fs.readFile('config/tags.json', 'utf8'));
+    } catch (tagsError) {
+      console.warn('⚠️ tags.json not found, creating default configuration');
+      tagsConfig = {
+        controlled_vocabulary: [],
+        synonyms: {},
+        industry_tags: []
+      };
+      await fs.writeFile('config/tags.json', JSON.stringify(tagsConfig, null, 2));
+    }
+    
+    console.log('✅ Configuration files loaded successfully');
+  } catch (error) {
+    console.error('❌ Failed to load configuration files:', error.message);
+    throw new Error(`Configuration loading failed: ${error.message}`);
+  }
   
   const files = (await fs.readdir(IN)).filter(f => f.endsWith('.md'));
   

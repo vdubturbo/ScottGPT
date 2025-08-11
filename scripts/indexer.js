@@ -1,13 +1,31 @@
-const fs = require("fs/promises");
-const path = require("path");
-const matter = require("gray-matter");
-const crypto = require("crypto");
-const dotenv = require("dotenv");
-const { CohereClient } = require("cohere-ai");
-const { db, supabase } = require("../config/database.js");
+import fs from 'fs/promises';
+import path from 'path';
+import matter from 'gray-matter';
+import crypto from 'crypto';
+import dotenv from 'dotenv';
+import { CohereClient } from 'cohere-ai';
+import { db, supabase } from '../config/database.js';
+
+// IMMEDIATE DEBUG - Show script startup
+console.log("🚀 INDEXER SCRIPT STARTING - File loaded");
+console.log("📍 Script location:", import.meta.url);
+console.log("📍 Working directory:", process.cwd());
+console.log("📍 Node version:", process.version);
 
 // Load environment variables
 dotenv.config();
+console.log("📋 Environment variables loaded");
+
+// REDUCED timeout for debugging - prevent infinite hanging
+const PROCESS_TIMEOUT = 2 * 60 * 1000; // 2 minutes for debugging
+setTimeout(() => {
+  console.error('❌ FORCED TIMEOUT - indexer taking too long (2+ minutes)');
+  console.error('   This was forced to prevent hanging during debugging');
+  console.error('   Check your network connection and API keys');
+  process.exit(1);
+}, PROCESS_TIMEOUT);
+console.log('⏰ DEBUG: Process timeout set to 2 minutes (reduced for debugging)');
+console.log('🔄 About to check environment variables...');
 
 // Debug environment variables
 console.log('🔍 Environment check in indexer:');
@@ -21,7 +39,22 @@ if (!process.env.COHERE_API_KEY) {
   process.exit(1);
 }
 
-const cohere = new CohereClient({ token: process.env.COHERE_API_KEY });
+console.log('🔄 About to initialize Cohere client...');
+
+// Initialize Cohere client with error handling
+let cohere;
+try {
+  console.log('🔄 Creating new CohereClient instance...');
+  cohere = new CohereClient({ token: process.env.COHERE_API_KEY });
+  console.log('✅ Cohere client initialized successfully');
+} catch (error) {
+  console.error('❌ Failed to initialize Cohere client:', error.message);
+  console.error('   Check if your COHERE_API_KEY is valid and your internet connection is working');
+  process.exit(1);
+}
+
+console.log('🔄 Cohere client ready, proceeding to function definitions...');
+console.log('🔄 Script fully loaded, ready to execute indexer() if called directly...');
 
 // Chunking configuration - optimized for fewer, better chunks
 const CHUNK_TOKENS = 400;  // Larger chunks (Cohere handles up to 512 tokens well)
@@ -37,6 +70,43 @@ function estimateTokens(text) {
 // Rate limiting helper with exponential backoff
 function sleep(ms) {
   return new Promise(resolve => setTimeout(resolve, ms));
+}
+
+// Test Cohere connection at startup
+async function testCohereConnection() {
+  try {
+    console.log("🦧 Testing Cohere API connection...");
+    const startTime = Date.now();
+    const testResponse = await cohere.embed({
+      texts: ["connection test"],
+      model: "embed-english-v3.0",
+      inputType: "search_document"
+    });
+    const duration = Date.now() - startTime;
+    
+    if (!testResponse || !testResponse.embeddings || testResponse.embeddings.length === 0) {
+      throw new Error("Invalid response from Cohere API");
+    }
+    
+    console.log(`✅ Cohere connection successful (${duration}ms response time)`);
+    console.log(`📊 Embedding dimension: ${testResponse.embeddings[0].length}`);
+    return true;
+  } catch (error) {
+    console.error("❌ Cohere connection test failed:", error.message);
+    
+    // Provide specific error guidance
+    if (error.status === 401) {
+      console.error('   ➡️ Invalid API key. Check your COHERE_API_KEY in .env file');
+    } else if (error.code === 'ENOTFOUND' || error.code === 'ECONNREFUSED') {
+      console.error('   ➡️ Network connectivity issue. Check your internet connection');
+    } else if (error.message.includes('rate') || error.status === 429) {
+      console.error('   ➡️ Rate limit exceeded. Wait a moment and try again');
+    } else if (error.message.includes('timeout')) {
+      console.error('   ➡️ Connection timeout. Check your network or try again');
+    }
+    
+    return false;
+  }
 }
 
 // Retry with exponential backoff
@@ -99,9 +169,11 @@ async function processEmbeddingBatch() {
   
   try {
     const texts = batch.map(item => item.text);
-    console.log(`🤖 Processing batch of ${texts.length} embeddings (${embeddingQueue.length} remaining in queue)...`);
+    console.log(`🔄 Processing embedding batch: ${texts.length} texts (${embeddingQueue.length} remaining)`);
+    console.log(`⏱️  Batch started at: ${new Date().toISOString()}`);
     
     const response = await retryWithBackoff(async () => {
+      console.log(`📡 Calling Cohere API with ${texts.length} texts...`);
       return await cohere.embed({
         texts: texts,
         model: "embed-english-v3.0",
@@ -109,23 +181,35 @@ async function processEmbeddingBatch() {
       });
     });
     
+    console.log(`✅ Batch completed successfully in ${Date.now() - Date.parse(new Date().toISOString())}ms`);
+    
     // Resolve all promises with their embeddings
     batch.forEach((item, index) => {
       item.resolve(response.embeddings[index]);
     });
   } catch (error) {
-    console.error("❌ Batch embedding error:");
+    const duration = Date.now() - Date.parse(new Date().toISOString());
+    console.error(`❌ Batch failed after ${duration}ms:`);
     console.error("   Message:", error.message);
     console.error("   Type:", error.constructor.name);
     if (error.code) console.error("   Code:", error.code);
     if (error.status) console.error("   Status:", error.status);
     if (error.statusCode) console.error("   Status Code:", error.statusCode);
     
-    // Check for specific error types
-    if (error.message && error.message.toLowerCase().includes('network')) {
-      console.error("❌ Network connectivity issue - check your internet connection");
+    // Check for specific error types and provide guidance
+    if (error.message && error.message.toLowerCase().includes('timeout')) {
+      console.error("🕐 Timeout error - this usually indicates:");
+      console.error("   - Slow internet connection");
+      console.error("   - Cohere API server issues");
+      console.error("   - Large batch size (current: " + texts.length + ")");
+    } else if (error.message && error.message.toLowerCase().includes('network')) {
+      console.error("🌐 Network connectivity issue - check your internet connection");
     } else if (error.message && error.message.toLowerCase().includes('fetch')) {
-      console.error("❌ Fetch failed - possible DNS or connectivity issue");
+      console.error("📡 Fetch failed - possible DNS or connectivity issue");
+    } else if (error.status === 429) {
+      console.error("⏳ Rate limit exceeded - will retry with longer delay");
+    } else if (error.status === 401) {
+      console.error("🔐 Authentication failed - check your COHERE_API_KEY");
     }
     
     // Reject all promises in the batch
@@ -141,13 +225,20 @@ async function processEmbeddingBatch() {
 }
 
 async function embedText(text) {
-  return new Promise((resolve, reject) => {
-    embeddingQueue.push({ text, resolve, reject });
-    // Start processing if not already running
-    if (!processingBatch) {
-      setTimeout(() => processEmbeddingBatch(), 500); // Allow 500ms for queue to build up
-    }
-  });
+  const TIMEOUT_MS = 30000; // 30 second timeout per embedding
+  
+  return Promise.race([
+    new Promise((resolve, reject) => {
+      embeddingQueue.push({ text, resolve, reject });
+      // Start processing if not already running
+      if (!processingBatch) {
+        setTimeout(() => processEmbeddingBatch(), 500); // Allow 500ms for queue to build up
+      }
+    }),
+    new Promise((_, reject) => 
+      setTimeout(() => reject(new Error('Embedding timeout after 30s - check your network connection')), TIMEOUT_MS)
+    )
+  ]);
 }
 
 async function generateSummary(content, title) {
@@ -340,10 +431,61 @@ async function processDirectory(dirPath) {
 
 async function indexer() {
   console.log("🔗 Starting indexing and embedding...");
+  console.log(`📊 Debug: Cohere API key length: ${process.env.COHERE_API_KEY?.length}`);
+  console.log(`📊 Debug: Database connection test...`);
+  
+  // Test Cohere connection first - this is critical
+  const cohereWorking = await testCohereConnection();
+  if (!cohereWorking) {
+    throw new Error("Cannot proceed without working Cohere connection. Check your API key and network.");
+  }
+  
+  // Ensure required directories exist
+  try {
+    const ROOT = "sources";
+    const directories = ["jobs", "projects", "education", "certs", "bio"];
+    
+    await fs.mkdir(ROOT, { recursive: true });
+    for (const dir of directories) {
+      await fs.mkdir(path.join(ROOT, dir), { recursive: true });
+    }
+    console.log("✅ Required directories ensured");
+  } catch (error) {
+    console.error("❌ Failed to create source directories:", error.message);
+    throw new Error(`Directory creation failed: ${error.message}`);
+  }
   
   // Check if Cohere API key is available
   if (!process.env.COHERE_API_KEY) {
     throw new Error("COHERE_API_KEY not found in environment variables");
+  }
+  
+  // Validate database connection
+  try {
+    console.log('🔍 Testing database connections...');
+    if (!db || !supabase) {
+      throw new Error("Database connections not available");
+    }
+    
+    // Test Supabase connection with a simple query
+    const { data: testData, error: testError } = await supabase
+      .from('sources')
+      .select('id')
+      .limit(1);
+    
+    if (testError) {
+      throw new Error(`Supabase connection failed: ${testError.message}`);
+    }
+    
+    console.log("✅ Database connections validated");
+  } catch (error) {
+    console.error("❌ Database validation failed:", error.message);
+    if (error.message.includes('Invalid API key')) {
+      console.error('   -> Check your SUPABASE_URL and SUPABASE_ANON_KEY in .env file');
+    } else if (error.message.includes('network') || error.message.includes('timeout')) {
+      console.error('   -> Network connectivity issue to Supabase');
+    }
+    throw new Error(`Database connection failed: ${error.message}`);
   }
   
   const ROOT = "sources";
@@ -368,8 +510,19 @@ async function indexer() {
   
   // Wait for any remaining embeddings to process
   console.log('🏁 Finishing remaining embeddings...');
-  while (embeddingQueue.length > 0 || processingBatch) {
+  let waitCount = 0;
+  const maxWaitTime = 240; // 2 minutes (240 * 500ms)
+  
+  while ((embeddingQueue.length > 0 || processingBatch) && waitCount < maxWaitTime) {
+    if (waitCount % 10 === 0) { // Log every 5 seconds
+      console.log(`⏳ Waiting for embeddings... Queue: ${embeddingQueue.length}, Processing: ${processingBatch}`);
+    }
     await sleep(500);
+    waitCount++;
+  }
+  
+  if (waitCount >= maxWaitTime) {
+    console.error('⚠️  Timeout waiting for embeddings to complete after 2 minutes');
   }
   
   console.log("📈 Final Statistics:");
@@ -380,13 +533,15 @@ async function indexer() {
   
   if (grandTotalChunks > 0) {
     console.log("✅ Indexing complete! Your ScottGPT knowledge base is ready.");
+    const avgChunksPerFile = grandTotalFiles > 0 ? (grandTotalChunks / grandTotalFiles).toFixed(1) : 0;
+    console.log(`📊 Average: ${avgChunksPerFile} chunks per file`);
   } else {
     console.log("⚠️  No chunks were created. Check your source files and try again.");
   }
 }
 
 // Run if called directly
-if (require.main === module) {
+if (import.meta.url === `file://${process.argv[1]}`) {
   indexer().catch(error => {
     console.error('❌ Indexer failed with error:');
     console.error('   Message:', error.message);
@@ -396,4 +551,4 @@ if (require.main === module) {
   });
 }
 
-module.exports = indexer;
+export default indexer;

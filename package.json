@@ -18,7 +18,7 @@
     "ingest:extract": "node scripts/extract.js",
     "ingest:validate": "node scripts/validate.js",
     "ingest:write": "node scripts/write.js",
-    "ingest:index": "node scripts/indexer.cjs",
+    "ingest:index": "node scripts/indexer.js",
     "import:manual": "node scripts/manual-import.js",
     "tags:report": "node scripts/tag-manager.js report",
     "tags:approve": "node scripts/tag-manager.js approve",

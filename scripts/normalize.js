@@ -85,6 +85,14 @@ async function normalize() {
           }
         }
       }
+      
+      // Move the original file to processed directory after successful conversion
+      const processedDir = 'processed';
+      await fs.mkdir(processedDir, { recursive: true });
+      const processedPath = path.join(processedDir, f);
+      await fs.rename(src, processedPath);
+      console.log(`📦 Moved to processed: ${f}`);
+      
       processed++;
     } catch (error) {
       console.error(`❌ Error processing ${f}:`, error.message);

@@ -1,102 +1,12 @@
 {
   "controlled_vocabulary": [
     "AI Product",
-    "Agile Project Management",
-    "Audit & Compliance",
-    "Cloud Security",
-    "Compliance Program",
-    "Cost Reduction",
-    "Critical Infrastructure",
-    "Customer Success",
+    "Cloud Computing",
     "Cybersecurity",
     "Digital Transformation",
-    "Gov Contracting",
     "Government",
     "Healthcare",
-    "Healthcare Technology",
-    "Innovation",
-    "Integration",
-    "Market Research",
-    "OT Security",
-    "Partnership",
-    "Performance Optimization",
-    "Platform Development",
-    "Process Improvement",
-    "Product Strategy",
-    "Proposal Automation",
-    "Regulated Industries",
-    "Regulatory Affairs",
-    "Research & Development",
-    "Revenue Growth",
-    "Risk Management",
-    "Risk Management & Compliance",
-    "Scaling",
-    "Security Framework",
-    "Strategic Initiative",
-    "Supply Chain",
-    "Team Building",
-    "Technical Leadership"
+    "Regulated Industries"
   ],
-  "synonyms": {
-    "AI Product": [
-      "AI Platform",
-      "Machine Learning Product",
-      "AI Solution"
-    ],
-    "Agile Project Management": [
-      "Agile PM",
-      "Scrum",
-      "Kanban",
-      "Agile Methodology"
-    ],
-    "Cloud Security": [
-      "Cloud Protection",
-      "Cloud Computing Security",
-      "Public Cloud Security"
-    ],
-    "Gov Contracting": [
-      "Government Contracts",
-      "Federal Contracting",
-      "Public Sector"
-    ],
-    "OT Security": [
-      "Operational Technology",
-      "Industrial Security",
-      "SCADA Security"
-    ],
-    "Healthcare Technology": [
-      "HealthTech",
-      "Medical Technology",
-      "Digital Health"
-    ],
-    "Technical Leadership": [
-      "Engineering Leadership",
-      "Technology Management",
-      "CTO"
-    ],
-    "Digital Transformation": [
-      "Digital Innovation",
-      "Technology Modernization",
-      "Digital Strategy"
-    ],
-    "Cybersecurity": [
-      "Information Security",
-      "Cyber Defense",
-      "Security Operations"
-    ],
-    "Government": [
-      "Public Sector",
-      "Federal",
-      "State Government"
-    ],
-    "Regulated Industries": [
-      "Compliance-Heavy Industries",
-      "Highly Regulated Sectors"
-    ],
-    "Risk Management & Compliance": [
-      "Risk & Compliance",
-      "GRC",
-      "Risk Assessment"
-    ]
-  }
+  "synonyms": {}
 }
