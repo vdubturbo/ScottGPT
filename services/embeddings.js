@@ -154,6 +154,12 @@ class EmbeddingService {
       filters.skills.push('IoT', 'Internet of Things');
     }
 
+    // OLDP and leadership program specific filtering
+    if (queryLower.includes('oldp') || queryLower.includes('operations leadership development') || queryLower.includes('leadership development program')) {
+      filters.skills.push('Team Leadership', 'Strategic Planning', 'Program Management');
+      filters.tags.push('Government', 'Regulated Industries');
+    }
+
     // Company-specific filtering
     if (queryLower.includes('coca-cola') || queryLower.includes('coca cola') || queryLower.includes('coke')) {
       filters.tags.push('IoT', 'Digital Transformation'); // Coca-Cola had IoT projects
@@ -245,34 +251,62 @@ class EmbeddingService {
   calculateSimilarityThreshold(query) {
     const queryLength = query.split(/\s+/).length;
     const queryLower = query.toLowerCase();
+    let threshold;
+    let queryType;
     
-    // Special handling for IoT queries - very low threshold
+    // Special handling for IoT queries - lowered threshold for better recall
     if (queryLower.includes('iot') || queryLower.includes('internet of things') || queryLower.includes('connected devices')) {
-      console.log('🔧 Using very low threshold for IoT query');
-      return 0.05; // Very permissive for IoT content
+      threshold = 0.25;
+      queryType = 'IoT';
+    }
+    // Special handling for OLDP and leadership queries
+    else if (queryLower.includes('oldp') || queryLower.includes('operations leadership') || queryLower.includes('leadership development')) {
+      threshold = 0.25;
+      queryType = 'OLDP/Leadership';
+    }
+    // Special handling for common resume queries
+    else {
+      const resumeQueries = [
+        'job', 'work', 'position', 'role', 'employment', 'career',
+        'experience', 'background', 'history', 'resume', 'cv'
+      ];
+      
+      const isResumeQuery = resumeQueries.some(term => queryLower.includes(term));
+      
+      if (isResumeQuery) {
+        if (queryLength >= 8) {
+          threshold = 0.35;
+          queryType = 'Resume (very specific)';
+        } else if (queryLength >= 5) {
+          threshold = 0.30;
+          queryType = 'Resume (moderately specific)';
+        } else if (queryLength >= 3) {
+          threshold = 0.25;
+          queryType = 'Resume (somewhat specific)';
+        } else {
+          threshold = 0.25;
+          queryType = 'Resume (general)';
+        }
+      } else {
+        // Standard thresholds for other queries - lowered for better recall
+        if (queryLength >= 8) {
+          threshold = 0.35;
+          queryType = 'General (very specific)';
+        } else if (queryLength >= 5) {
+          threshold = 0.30;
+          queryType = 'General (moderately specific)';
+        } else if (queryLength >= 3) {
+          threshold = 0.25;
+          queryType = 'General (somewhat specific)';
+        } else {
+          threshold = 0.20;
+          queryType = 'General (basic)';
+        }
+      }
     }
     
-    // Special handling for common resume queries that may have low semantic similarity
-    const resumeQueries = [
-      'job', 'work', 'position', 'role', 'employment', 'career',
-      'experience', 'background', 'history', 'resume', 'cv'
-    ];
-    
-    const isResumeQuery = resumeQueries.some(term => queryLower.includes(term));
-    
-    if (isResumeQuery) {
-      // Use much lower thresholds for resume-related queries to ensure job content is found
-      if (queryLength >= 8) {return 0.10;} // Very specific
-      if (queryLength >= 5) {return 0.08;} // Moderately specific  
-      if (queryLength >= 3) {return 0.06;} // Somewhat specific
-      return 0.05; // General resume queries - very permissive for debugging
-    }
-    
-    // Standard thresholds for other queries - also lowered for debugging
-    if (queryLength >= 8) {return 0.15;} // Very specific
-    if (queryLength >= 5) {return 0.12;} // Moderately specific
-    if (queryLength >= 3) {return 0.10;} // Somewhat specific
-    return 0.08; // General queries - very permissive
+    console.log(`🎯 Using similarity threshold: ${threshold} for query: "${query.substring(0, 50)}..."`);
+    return threshold;
   }
 }
 

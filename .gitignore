@@ -54,8 +54,20 @@ Thumbs.db
 .work/
 incoming/
 processed/
-sources/jobs/*.md
+archives/
+sources/
 logs/pending-tags.json
+
+# Ingestion pipeline files
+logs/*.log
+logs/progress-*.log
+logs/discovered-skills.json
+*.tmp.md
+debug-*.js
+test-*.js
+check-*.js
+analyze-*.js
+openai-response-debug.txt
 
 # Database backups
 *.sql.backup

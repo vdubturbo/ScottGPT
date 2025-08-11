@@ -55,15 +55,19 @@ class RetrievalService {
 
       console.log(`💾 Database returned ${searchResults.length} chunks`);
 
-      // If we got very few results or very low similarity scores, try a backup text search
-      if (searchResults.length < 3 || (searchResults.length > 0 && searchResults[0].similarity < 0.5)) {
-        console.log('🔄 Low similarity results, trying backup text search...');
+      // FIXED: Only use text search as a last resort when we have NO semantic results
+      // Text search should NOT override good semantic matches
+      if (searchResults.length === 0) {
+        console.log('🔄 No semantic results found, trying text search as fallback...');
         const textSearchResults = await this.performTextSearch(query, filters, maxResults);
         if (textSearchResults.length > 0) {
-          console.log(`📝 Text search found ${textSearchResults.length} additional results`);
-          // Merge and deduplicate results
-          const combinedResults = this.mergeSearchResults(searchResults, textSearchResults);
-          searchResults.splice(0, searchResults.length, ...combinedResults);
+          console.log(`📝 Text search found ${textSearchResults.length} results as backup`);
+          // Use text results but with lower confidence scores
+          searchResults = textSearchResults.map(result => ({
+            ...result,
+            similarity: result.similarity * 0.7, // Reduce confidence in text matches
+            search_method: 'text_fallback'
+          }));
         }
       }
 
@@ -317,13 +321,29 @@ class RetrievalService {
     const sources = new Map();
     
     chunks.forEach(chunk => {
-      if (chunk.source_id && chunk.source_title) {
-        sources.set(chunk.source_id, {
+      let sourceData;
+      
+      // Handle the actual data structure from database
+      if (chunk.sources && typeof chunk.sources === 'object') {
+        // Nested sources object (this is the actual structure)
+        sourceData = {
+          id: chunk.sources.id,
+          title: chunk.sources.title,
+          type: chunk.sources.type,
+          org: chunk.sources.org
+        };
+      } else {
+        // Fallback for flat structure (shouldn't happen but just in case)
+        sourceData = {
           id: chunk.source_id,
-          title: chunk.source_title,
+          title: chunk.source_title || chunk.title,
           type: chunk.source_type,
           org: chunk.source_org
-        });
+        };
+      }
+      
+      if (sourceData.id && sourceData.title) {
+        sources.set(sourceData.id, sourceData);
       }
     });
     
@@ -402,24 +422,28 @@ class RetrievalService {
       // Build text search conditions
       const searchTerms = [];
       
-      // Add specific keyword searches
+      // Add specific keyword searches with proper Supabase syntax
       if (queryLower.includes('iot') || queryLower.includes('internet of things')) {
-        searchTerms.push('content.ilike.%iot%', 'content.ilike.%internet of things%', 'skills.cs.{IoT}', 'tags.cs.{IoT}');
+        searchTerms.push('content.ilike.*iot*', 'content.ilike.*internet*', 'skills.cs.{IoT}', 'tags.cs.{IoT}');
       }
       
       if (queryLower.includes('coca-cola') || queryLower.includes('coca cola')) {
-        searchTerms.push('content.ilike.%coca-cola%', 'content.ilike.%coca cola%', 'sources.org.ilike.%coca%');
+        searchTerms.push('content.ilike.*coca*', 'sources.org.ilike.*coca*');
       }
       
       if (queryLower.includes('mckesson')) {
-        searchTerms.push('content.ilike.%mckesson%', 'sources.org.ilike.%mckesson%');
+        searchTerms.push('content.ilike.*mckesson*', 'sources.org.ilike.*mckesson*');
+      }
+      
+      if (queryLower.includes('oldp') || queryLower.includes('operations leadership') || queryLower.includes('leadership development')) {
+        searchTerms.push('content.ilike.*oldp*', 'content.ilike.*leadership*', 'title.ilike.*leadership*');
       }
       
       if (searchTerms.length === 0) {
         // Generic text search
         const words = query.split(/\s+/).filter(word => word.length > 2);
         words.forEach(word => {
-          searchTerms.push(`content.ilike.%${word}%`);
+          searchTerms.push(`content.ilike.*${word}*`);
         });
       }
       
@@ -440,13 +464,14 @@ class RetrievalService {
         return [];
       }
       
-      // Add artificial similarity scores for text matches
+      // Add lower similarity scores for text matches (they're less accurate than semantic)
       return (data || []).map(chunk => ({
         ...chunk,
-        similarity: 0.6, // Higher than the embedding results we've been seeing
+        similarity: 0.3, // Lower confidence for text matches
         recency_score: chunk.date_end ? 
           Math.max(0, 1.0 - (Date.now() - new Date(chunk.date_end).getTime()) / (365 * 24 * 60 * 60 * 1000 * 2)) : 0.5,
-        combined_score: 0.6
+        combined_score: 0.3,
+        search_method: 'text'
       }));
       
     } catch (error) {

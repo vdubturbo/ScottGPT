@@ -30,11 +30,11 @@ router.post('/', async (req, res) => {
 
     // Generate answer using RAG pipeline
     const result = await rag.answerQuestion(query, {
-      maxContextChunks: options?.maxContext || 8,
+      maxContextChunks: options?.maxContext || 12,
       includeContext: options?.includeContext || false,
       conversationHistory: conversationHistory || [],
-      temperature: options?.temperature || 0.3,
-      maxTokens: options?.maxTokens || 500
+      temperature: options?.temperature || 0.4,
+      maxTokens: options?.maxTokens || 1200
     });
     
     console.log(`📊 RAG result summary:`, { 

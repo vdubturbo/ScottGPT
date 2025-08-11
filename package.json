@@ -19,6 +19,7 @@
     "ingest:validate": "node scripts/validate.js",
     "ingest:write": "node scripts/write.js",
     "ingest:index": "node scripts/indexer.js",
+    "archive": "node scripts/archive-processed.js",
     "import:manual": "node scripts/manual-import.js",
     "tags:report": "node scripts/tag-manager.js report",
     "tags:approve": "node scripts/tag-manager.js approve",

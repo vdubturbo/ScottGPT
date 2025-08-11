@@ -2,11 +2,16 @@
   "controlled_vocabulary": [
     "AI Product",
     "Cloud Computing",
+    "Compliance",
     "Cybersecurity",
+    "Defense",
     "Digital Transformation",
     "Government",
     "Healthcare",
-    "Regulated Industries"
+    "Hospitality",
+    "IoT",
+    "Regulated Industries",
+    "Technical Leadership"
   ],
   "synonyms": {}
 }

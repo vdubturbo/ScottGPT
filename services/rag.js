@@ -1,4 +1,5 @@
 import RetrievalService from './retrieval.js';
+import QueryProcessor from './query-processor.js';
 import OpenAI from 'openai';
 
 class RAGService {
@@ -8,6 +9,7 @@ class RAGService {
     }
     
     this.retrieval = new RetrievalService();
+    this.queryProcessor = new QueryProcessor();
     this.openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
     this.model = 'gpt-4o-mini'; // Cost-effective model for production
   }
@@ -31,14 +33,32 @@ class RAGService {
       console.log(`🤖 Answering question: "${query}"`);
       const startTime = Date.now();
 
-      // Step 1: Retrieve relevant context
-      const contextResult = await this.retrieval.retrieveContext(query, {
+      // Step 1: Process and expand query
+      const processedQuery = await this.queryProcessor.expandAcronyms(query);
+
+      // Step 2: Retrieve relevant context
+      const contextResult = await this.retrieval.retrieveContext(processedQuery, {
         maxResults: maxContextChunks,
         includeMetadata: true,
         rerankResults: true
       });
 
       console.log(`⏱️  Context retrieved in ${Date.now() - startTime}ms`);
+
+      // Step 2: Build context for the LLM (moved up for debug logging)
+      const contextText = this.buildContextText(contextResult.chunks);
+
+      // Debug logging for context quality
+      console.log(`📊 Context quality check:`);
+      console.log(`   - Chunks found: ${contextResult.chunks.length}`);
+      console.log(`   - Avg similarity: ${contextResult.avgSimilarity}`);
+      console.log(`   - Sources: ${contextResult.sources?.map(s => s.title).join(', ') || 'none'}`);
+      console.log(`   - Context preview: ${contextText.substring(0, 200)}...`);
+
+      if (contextResult.chunks.length > 0) {
+        console.log(`   - Best chunk similarity: ${contextResult.chunks[0].similarity}`);
+        console.log(`   - Worst chunk similarity: ${contextResult.chunks[contextResult.chunks.length - 1].similarity}`);
+      }
 
       if (contextResult.chunks.length === 0) {
         return {
@@ -51,8 +71,6 @@ class RAGService {
         };
       }
 
-      // Step 2: Build context for the LLM
-      const contextText = this.buildContextText(contextResult.chunks);
       console.log(`📄 Built context: ${contextText.length} characters`);
 
       // Step 3: Generate system prompt
@@ -139,15 +157,17 @@ class RAGService {
     let prompt = `You are ScottGPT, an AI assistant that answers questions about Scott Lovett's professional experience and background. You have access to Scott's verified work history, projects, skills, and achievements.
 
 CRITICAL INSTRUCTIONS:
-• Answer questions using ONLY the information provided in the context below
-• Do NOT add details, dates, numbers, or specifics that aren't explicitly stated in the context
-• If you don't have enough information in the context, say so honestly
+• Answer questions primarily using the information provided in the context below
+• You may synthesize and connect information across different sources in the context
+• If the context provides relevant information but lacks some details, focus on what you can confidently share
+• Provide comprehensive, detailed responses when the context supports it
+• Provide detailed, substantive answers that fully address the question when sufficient context is available
+• Include specific examples, metrics, and outcomes when they appear in the context
 • Be conversational and engaging, as if you're Scott speaking about his experience
 • Use first person ("I worked on..." not "Scott worked on...")
 • Cite sources naturally like "During my time at [Company]" or "In the [Project] project"
-• Focus on what IS in the context rather than what might be implied
-• If asked for specific metrics or dates not in the context, acknowledge the limitation
-• Stick to facts from the provided context - do not extrapolate or assume details`;
+• Focus on what IS in the context and make meaningful connections between related information
+• If asked for specific metrics or dates not in the context, acknowledge the limitation while providing related information that is available`;
 
     // Add query-specific guidance
     const queryLower = query.toLowerCase();

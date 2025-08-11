@@ -128,3 +128,155 @@
 {"level":"info","message":"ScottGPT server started successfully","port":"3001","timestamp":"2025-08-11 01:13:26"}
 {"level":"info","message":"Environment validation complete - all required variables configured","timestamp":"2025-08-11 01:13:58"}
 {"level":"info","message":"ScottGPT server started successfully","port":"3001","timestamp":"2025-08-11 01:13:58"}
+{"count":7,"level":"info","message":"Retrieved approved tags","service":"API","timestamp":"2025-08-11 01:19:29"}
+{"count":5,"level":"info","message":"Retrieved pending tags","service":"API","timestamp":"2025-08-11 01:19:29"}
+{"count":7,"level":"info","message":"Retrieved approved tags","service":"API","timestamp":"2025-08-11 01:19:29"}
+{"count":5,"level":"info","message":"Retrieved pending tags","service":"API","timestamp":"2025-08-11 01:19:29"}
+{"approved":["IoT","Compliance","Technical Leadership","Hospitality","Defense"],"count":5,"ip":"127.0.0.1","level":"info","message":"Tags approved","service":"API","timestamp":"2025-08-11 01:19:33"}
+{"count":0,"level":"info","message":"Retrieved pending tags","service":"API","timestamp":"2025-08-11 01:19:33"}
+{"count":12,"level":"info","message":"Retrieved approved tags","service":"API","timestamp":"2025-08-11 01:19:33"}
+{"level":"info","message":"Environment validation complete - all required variables configured","timestamp":"2025-08-11 01:19:36"}
+{"level":"info","message":"ScottGPT server started successfully","port":"3001","timestamp":"2025-08-11 01:19:36"}
+{"count":12,"level":"info","message":"Retrieved approved tags","service":"API","timestamp":"2025-08-11 08:27:57"}
+{"count":0,"level":"info","message":"Retrieved pending tags","service":"API","timestamp":"2025-08-11 08:27:57"}
+{"count":12,"level":"info","message":"Retrieved approved tags","service":"API","timestamp":"2025-08-11 08:27:57"}
+{"count":0,"level":"info","message":"Retrieved pending tags","service":"API","timestamp":"2025-08-11 08:27:57"}
+{"count":0,"level":"info","message":"Retrieved pending tags","service":"API","timestamp":"2025-08-11 08:30:59"}
+{"count":12,"level":"info","message":"Retrieved approved tags","service":"API","timestamp":"2025-08-11 08:30:59"}
+{"count":0,"level":"info","message":"Retrieved pending tags","service":"API","timestamp":"2025-08-11 08:30:59"}
+{"count":12,"level":"info","message":"Retrieved approved tags","service":"API","timestamp":"2025-08-11 08:30:59"}
+{"level":"info","message":"Environment validation complete - all required variables configured","timestamp":"2025-08-11 10:20:22"}
+{"level":"info","message":"ScottGPT server started successfully","port":"3001","timestamp":"2025-08-11 10:20:23"}
+{"level":"info","message":"Environment validation complete - all required variables configured","timestamp":"2025-08-11 10:38:21"}
+{"level":"info","message":"ScottGPT server started successfully","port":"3001","timestamp":"2025-08-11 10:38:22"}
+{"level":"info","message":"Environment validation complete - all required variables configured","timestamp":"2025-08-11 15:05:25"}
+{"level":"info","message":"ScottGPT server started successfully","port":"3001","timestamp":"2025-08-11 15:05:26"}
+{"level":"info","message":"Environment validation complete - all required variables configured","timestamp":"2025-08-11 15:05:36"}
+{"level":"info","message":"Environment validation complete - all required variables configured","timestamp":"2025-08-11 15:05:38"}
+{"level":"info","message":"ScottGPT server started successfully","port":"3001","timestamp":"2025-08-11 15:05:39"}
+{"level":"info","message":"Environment validation complete - all required variables configured","timestamp":"2025-08-11 15:05:45"}
+{"level":"info","message":"ScottGPT server started successfully","port":"3001","timestamp":"2025-08-11 15:05:45"}
+{"level":"info","message":"Environment validation complete - all required variables configured","timestamp":"2025-08-11 15:06:45"}
+{"level":"info","message":"ScottGPT server started successfully","port":"3001","timestamp":"2025-08-11 15:06:45"}
+{"level":"info","message":"Environment validation complete - all required variables configured","timestamp":"2025-08-11 15:10:50"}
+{"level":"info","message":"ScottGPT server started successfully","port":"3001","timestamp":"2025-08-11 15:10:51"}
+{"level":"info","message":"Environment validation complete - all required variables configured","timestamp":"2025-08-11 15:13:28"}
+{"level":"info","message":"ScottGPT server started successfully","port":"3001","timestamp":"2025-08-11 15:13:28"}
+{"level":"info","message":"Environment validation complete - all required variables configured","timestamp":"2025-08-11 15:13:35"}
+{"level":"info","message":"ScottGPT server started successfully","port":"3001","timestamp":"2025-08-11 15:13:35"}
+{"level":"info","message":"Environment validation complete - all required variables configured","timestamp":"2025-08-11 15:14:22"}
+{"level":"info","message":"ScottGPT server started successfully","port":"3001","timestamp":"2025-08-11 15:14:23"}
+{"level":"info","message":"Environment validation complete - all required variables configured","timestamp":"2025-08-11 15:14:51"}
+{"level":"info","message":"ScottGPT server started successfully","port":"3001","timestamp":"2025-08-11 15:14:52"}
+{"level":"info","message":"Environment validation complete - all required variables configured","timestamp":"2025-08-11 15:16:15"}
+{"level":"info","message":"ScottGPT server started successfully","port":"3001","timestamp":"2025-08-11 15:16:15"}
+{"level":"info","message":"Environment validation complete - all required variables configured","timestamp":"2025-08-11 15:16:25"}
+{"level":"info","message":"ScottGPT server started successfully","port":"3001","timestamp":"2025-08-11 15:16:25"}
+{"level":"info","message":"Environment validation complete - all required variables configured","timestamp":"2025-08-11 15:16:41"}
+{"level":"info","message":"ScottGPT server started successfully","port":"3001","timestamp":"2025-08-11 15:16:42"}
+{"level":"info","message":"Environment validation complete - all required variables configured","timestamp":"2025-08-11 15:29:12"}
+{"level":"info","message":"ScottGPT server started successfully","port":"3001","timestamp":"2025-08-11 15:29:12"}
+{"level":"info","message":"Environment validation complete - all required variables configured","timestamp":"2025-08-11 15:33:13"}
+{"level":"info","message":"ScottGPT server started successfully","port":"3001","timestamp":"2025-08-11 15:33:14"}
+{"level":"info","message":"Environment validation complete - all required variables configured","timestamp":"2025-08-11 15:36:53"}
+{"level":"info","message":"ScottGPT server started successfully","port":"3001","timestamp":"2025-08-11 15:36:53"}
+{"level":"info","message":"Environment validation complete - all required variables configured","timestamp":"2025-08-11 15:37:26"}
+{"level":"info","message":"ScottGPT server started successfully","port":"3001","timestamp":"2025-08-11 15:37:26"}
+{"level":"info","message":"Environment validation complete - all required variables configured","timestamp":"2025-08-11 15:39:48"}
+{"level":"info","message":"ScottGPT server started successfully","port":"3001","timestamp":"2025-08-11 15:39:49"}
+{"level":"info","message":"Environment validation complete - all required variables configured","timestamp":"2025-08-11 15:39:52"}
+{"level":"info","message":"ScottGPT server started successfully","port":"3001","timestamp":"2025-08-11 15:39:52"}
+{"level":"info","message":"Environment validation complete - all required variables configured","timestamp":"2025-08-11 15:39:55"}
+{"level":"info","message":"ScottGPT server started successfully","port":"3001","timestamp":"2025-08-11 15:39:55"}
+{"level":"info","message":"Environment validation complete - all required variables configured","timestamp":"2025-08-11 15:46:50"}
+{"level":"info","message":"ScottGPT server started successfully","port":"3001","timestamp":"2025-08-11 15:46:51"}
+{"level":"info","message":"Environment validation complete - all required variables configured","timestamp":"2025-08-11 15:51:13"}
+{"level":"info","message":"ScottGPT server started successfully","port":"3001","timestamp":"2025-08-11 15:51:13"}
+{"level":"info","message":"Environment validation complete - all required variables configured","timestamp":"2025-08-11 18:17:02"}
+{"level":"info","message":"ScottGPT server started successfully","port":"3001","timestamp":"2025-08-11 18:17:02"}
+{"level":"info","message":"Environment validation complete - all required variables configured","timestamp":"2025-08-11 18:17:49"}
+{"level":"info","message":"ScottGPT server started successfully","port":"3001","timestamp":"2025-08-11 18:17:50"}
+{"level":"info","message":"Environment validation complete - all required variables configured","timestamp":"2025-08-11 18:18:13"}
+{"level":"info","message":"ScottGPT server started successfully","port":"3001","timestamp":"2025-08-11 18:18:13"}
+{"level":"info","message":"Environment validation complete - all required variables configured","timestamp":"2025-08-11 18:19:03"}
+{"level":"info","message":"ScottGPT server started successfully","port":"3001","timestamp":"2025-08-11 18:19:04"}
+{"level":"info","message":"Environment validation complete - all required variables configured","timestamp":"2025-08-11 18:19:49"}
+{"level":"info","message":"Environment validation complete - all required variables configured","timestamp":"2025-08-11 18:19:56"}
+{"level":"info","message":"ScottGPT server started successfully","port":"3001","timestamp":"2025-08-11 18:19:56"}
+{"level":"info","message":"Environment validation complete - all required variables configured","timestamp":"2025-08-11 18:22:44"}
+{"level":"info","message":"ScottGPT server started successfully","port":"3001","timestamp":"2025-08-11 18:22:45"}
+{"level":"info","message":"Environment validation complete - all required variables configured","timestamp":"2025-08-11 18:23:36"}
+{"level":"info","message":"ScottGPT server started successfully","port":"3001","timestamp":"2025-08-11 18:23:36"}
+{"level":"info","message":"Environment validation complete - all required variables configured","timestamp":"2025-08-11 18:29:12"}
+{"level":"info","message":"ScottGPT server started successfully","port":"3001","timestamp":"2025-08-11 18:29:12"}
+{"level":"info","message":"Environment validation complete - all required variables configured","timestamp":"2025-08-11 18:31:08"}
+{"level":"info","message":"ScottGPT server started successfully","port":"3001","timestamp":"2025-08-11 18:31:09"}
+{"level":"info","message":"Environment validation complete - all required variables configured","timestamp":"2025-08-11 18:31:26"}
+{"level":"info","message":"ScottGPT server started successfully","port":"3001","timestamp":"2025-08-11 18:31:26"}
+{"level":"info","message":"Environment validation complete - all required variables configured","timestamp":"2025-08-11 18:31:32"}
+{"level":"info","message":"ScottGPT server started successfully","port":"3001","timestamp":"2025-08-11 18:31:32"}
+{"level":"info","message":"Environment validation complete - all required variables configured","timestamp":"2025-08-11 18:37:22"}
+{"level":"info","message":"ScottGPT server started successfully","port":"3001","timestamp":"2025-08-11 18:37:22"}
+{"level":"info","message":"Environment validation complete - all required variables configured","timestamp":"2025-08-11 18:37:30"}
+{"level":"info","message":"ScottGPT server started successfully","port":"3001","timestamp":"2025-08-11 18:37:30"}
+{"level":"info","message":"Environment validation complete - all required variables configured","timestamp":"2025-08-11 18:37:35"}
+{"level":"info","message":"ScottGPT server started successfully","port":"3001","timestamp":"2025-08-11 18:37:35"}
+{"level":"info","message":"Environment validation complete - all required variables configured","timestamp":"2025-08-11 18:37:42"}
+{"level":"info","message":"ScottGPT server started successfully","port":"3001","timestamp":"2025-08-11 18:37:43"}
+{"level":"info","message":"Environment validation complete - all required variables configured","timestamp":"2025-08-11 18:52:43"}
+{"level":"info","message":"ScottGPT server started successfully","port":"3001","timestamp":"2025-08-11 18:52:43"}
+{"level":"info","message":"Environment validation complete - all required variables configured","timestamp":"2025-08-11 18:53:14"}
+{"level":"info","message":"ScottGPT server started successfully","port":"3001","timestamp":"2025-08-11 18:53:15"}
+{"level":"info","message":"Environment validation complete - all required variables configured","timestamp":"2025-08-11 18:53:32"}
+{"level":"info","message":"ScottGPT server started successfully","port":"3001","timestamp":"2025-08-11 18:53:32"}
+{"level":"info","message":"Environment validation complete - all required variables configured","timestamp":"2025-08-11 18:54:24"}
+{"level":"info","message":"ScottGPT server started successfully","port":"3001","timestamp":"2025-08-11 18:54:24"}
+{"level":"info","message":"Environment validation complete - all required variables configured","timestamp":"2025-08-11 18:54:33"}
+{"level":"info","message":"ScottGPT server started successfully","port":"3001","timestamp":"2025-08-11 18:54:33"}
+{"level":"info","message":"Environment validation complete - all required variables configured","timestamp":"2025-08-11 18:54:45"}
+{"level":"info","message":"ScottGPT server started successfully","port":"3001","timestamp":"2025-08-11 18:54:45"}
+{"level":"info","message":"Environment validation complete - all required variables configured","timestamp":"2025-08-11 18:54:49"}
+{"level":"info","message":"ScottGPT server started successfully","port":"3001","timestamp":"2025-08-11 18:54:49"}
+{"level":"info","message":"Environment validation complete - all required variables configured","timestamp":"2025-08-11 18:54:59"}
+{"level":"info","message":"ScottGPT server started successfully","port":"3001","timestamp":"2025-08-11 18:54:59"}
+{"level":"info","message":"Environment validation complete - all required variables configured","timestamp":"2025-08-11 18:55:08"}
+{"level":"info","message":"ScottGPT server started successfully","port":"3001","timestamp":"2025-08-11 18:55:08"}
+{"level":"info","message":"Environment validation complete - all required variables configured","timestamp":"2025-08-11 18:55:21"}
+{"level":"info","message":"ScottGPT server started successfully","port":"3001","timestamp":"2025-08-11 18:55:21"}
+{"level":"info","message":"Environment validation complete - all required variables configured","timestamp":"2025-08-11 18:55:29"}
+{"level":"info","message":"ScottGPT server started successfully","port":"3001","timestamp":"2025-08-11 18:55:29"}
+{"level":"info","message":"Environment validation complete - all required variables configured","timestamp":"2025-08-11 18:56:25"}
+{"level":"info","message":"ScottGPT server started successfully","port":"3001","timestamp":"2025-08-11 18:56:26"}
+{"level":"info","message":"Environment validation complete - all required variables configured","timestamp":"2025-08-11 18:56:36"}
+{"level":"info","message":"Environment validation complete - all required variables configured","timestamp":"2025-08-11 18:56:40"}
+{"level":"info","message":"ScottGPT server started successfully","port":"3001","timestamp":"2025-08-11 18:56:40"}
+{"level":"info","message":"Environment validation complete - all required variables configured","timestamp":"2025-08-11 18:57:19"}
+{"level":"info","message":"ScottGPT server started successfully","port":"3001","timestamp":"2025-08-11 18:57:19"}
+{"level":"info","message":"Environment validation complete - all required variables configured","timestamp":"2025-08-11 18:59:25"}
+{"level":"info","message":"ScottGPT server started successfully","port":"3001","timestamp":"2025-08-11 18:59:25"}
+{"level":"info","message":"Environment validation complete - all required variables configured","timestamp":"2025-08-11 18:59:41"}
+{"level":"info","message":"ScottGPT server started successfully","port":"3001","timestamp":"2025-08-11 18:59:42"}
+{"level":"info","message":"Environment validation complete - all required variables configured","timestamp":"2025-08-11 18:59:57"}
+{"level":"info","message":"ScottGPT server started successfully","port":"3001","timestamp":"2025-08-11 18:59:57"}
+{"level":"info","message":"Environment validation complete - all required variables configured","timestamp":"2025-08-11 19:00:33"}
+{"level":"info","message":"ScottGPT server started successfully","port":"3001","timestamp":"2025-08-11 19:00:33"}
+{"level":"info","message":"Environment validation complete - all required variables configured","timestamp":"2025-08-11 19:00:47"}
+{"level":"info","message":"ScottGPT server started successfully","port":"3001","timestamp":"2025-08-11 19:00:48"}
+{"level":"info","message":"Environment validation complete - all required variables configured","timestamp":"2025-08-11 19:03:39"}
+{"level":"info","message":"ScottGPT server started successfully","port":"3001","timestamp":"2025-08-11 19:03:40"}
+{"level":"info","message":"Environment validation complete - all required variables configured","timestamp":"2025-08-11 19:03:54"}
+{"level":"info","message":"ScottGPT server started successfully","port":"3001","timestamp":"2025-08-11 19:03:54"}
+{"level":"info","message":"Environment validation complete - all required variables configured","timestamp":"2025-08-11 19:04:18"}
+{"level":"info","message":"ScottGPT server started successfully","port":"3001","timestamp":"2025-08-11 19:04:18"}
+{"level":"info","message":"Environment validation complete - all required variables configured","timestamp":"2025-08-11 19:04:29"}
+{"level":"info","message":"ScottGPT server started successfully","port":"3001","timestamp":"2025-08-11 19:04:29"}
+{"level":"info","message":"Environment validation complete - all required variables configured","timestamp":"2025-08-11 19:05:03"}
+{"level":"info","message":"ScottGPT server started successfully","port":"3001","timestamp":"2025-08-11 19:05:03"}
+{"level":"info","message":"Environment validation complete - all required variables configured","timestamp":"2025-08-11 19:06:41"}
+{"level":"info","message":"ScottGPT server started successfully","port":"3001","timestamp":"2025-08-11 19:06:41"}
+{"level":"info","message":"Environment validation complete - all required variables configured","timestamp":"2025-08-11 19:12:21"}
+{"level":"info","message":"ScottGPT server started successfully","port":"3001","timestamp":"2025-08-11 19:12:21"}
+{"level":"info","message":"Environment validation complete - all required variables configured","timestamp":"2025-08-11 19:12:47"}
+{"level":"info","message":"ScottGPT server started successfully","port":"3001","timestamp":"2025-08-11 19:12:47"}
+{"level":"info","message":"Environment validation complete - all required variables configured","timestamp":"2025-08-11 19:12:59"}
+{"level":"info","message":"ScottGPT server started successfully","port":"3001","timestamp":"2025-08-11 19:13:00"}

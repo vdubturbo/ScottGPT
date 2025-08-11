@@ -3,8 +3,8 @@
     {
       "skill": "Program Management",
       "firstSeen": "2025-08-11T03:32:44.746Z",
-      "lastSeen": "2025-08-11T04:47:10.359Z",
-      "occurrences": 35,
+      "lastSeen": "2025-08-11T19:33:59.286Z",
+      "occurrences": 64,
       "category": "Leadership",
       "priority": "high",
       "similar": [],
@@ -148,6 +148,122 @@
         {
           "file": "Lovett Resume-Oct2020.block-0-5.md",
           "content": "\n# Context\nIn my role as a Program Manager at Lockheed Martin, I was responsible for managing softwa..."
+        },
+        {
+          "file": "Master Resume Nov26.block-0-0.md",
+          "content": "\n# Context\nBinary Defense is a cybersecurity firm focused on delivering advanced security solutions ..."
+        },
+        {
+          "file": "Master Resume Nov26.block-0-1.md",
+          "content": "\n# Context\nMcKesson Corporation is a leading healthcare services and information technology company...."
+        },
+        {
+          "file": "Master Resume Nov26.block-0-2.md",
+          "content": "\n# Context\nCyberdyne Systems is a consulting firm specializing in cybersecurity and compliance solut..."
+        },
+        {
+          "file": "Master Resume Nov26.block-0-3.md",
+          "content": "\n# Context\nThinkOn is a cloud provider specializing in data center solutions. The project involved l..."
+        },
+        {
+          "file": "Master Resume Nov26.block-0-4.md",
+          "content": "\n# Context\nIntercontinental Hotels Group (IHG) is a global hospitality company. The project involved..."
+        },
+        {
+          "file": "Master Resume Nov26.block-0-5.md",
+          "content": "\n# Context\nLeaseQuery is a software company specializing in lease accounting solutions. The project ..."
+        },
+        {
+          "file": "Master Resume Nov26.block-0-6.md",
+          "content": "\n# Context\nEquifax is a global data, analytics, and technology company. The project involved leading..."
+        },
+        {
+          "file": "Master Resume Nov26.block-0-7.md",
+          "content": "\n# Context\nAmerican CyberSystems, Inc. is a technology services company providing solutions to gover..."
+        },
+        {
+          "file": "Master Resume Nov26.block-0-8.md",
+          "content": "\n# Context\nLockheed Martin is a global aerospace and defense company. The Program Management Manager..."
+        },
+        {
+          "file": "Scott Lovettv5.block-0-0.md",
+          "content": "\n# Context\nIn this role at American Cybersystems, I was responsible for managing the PMO and deliver..."
+        },
+        {
+          "file": "Scott Lovettv5.block-0-1.md",
+          "content": "\n# Context\nIn this consulting role at Mayo Clinic, I was responsible for overseeing the execution of..."
+        },
+        {
+          "file": "Scott Lovettv5.block-0-2.md",
+          "content": "\n# Context\nIn this role, I served as the lead technologist and solutions architect for IoT implement..."
+        },
+        {
+          "file": "Scott Lovettv5.block-0-3.md",
+          "content": "\n# Context\nAs a Senior Program Office Consultant for Coca-Cola, I was responsible for the design and..."
+        },
+        {
+          "file": "Scott Lovettv5.block-0-4.md",
+          "content": "\n# Context\nIn my role as Program Manager at Lockheed Martin, I was responsible for managing several ..."
+        },
+        {
+          "file": "Scott Lovettv5.block-0-5.md",
+          "content": "\n# Context\nIn my role as Operations Manager at Lockheed Martin, I was responsible for overseeing the..."
+        },
+        {
+          "file": "OLDP.block-0-0.md",
+          "content": "\n# Context\nDuring my internship at Lockheed Martin, I worked in the physical integration department ..."
+        },
+        {
+          "file": "OLDP.block-0-1.md",
+          "content": "\n# Context\nThe Operations Leadership Development Program at Lockheed Martin was designed for high-po..."
+        },
+        {
+          "file": "OLDP.block-0-2.md",
+          "content": "\n# Context\nIn response to the events of September 11, Lockheed Martin was awarded the Strategic Airp..."
+        },
+        {
+          "file": "OLDP.block-0-3.md",
+          "content": "\n# Context\nIn my role as a Systems Engineer at Lockheed Martin, I worked on the Minuteman missile sy..."
+        },
+        {
+          "file": "OLDP.block-0-0.md",
+          "content": "\n# Context\nDuring my internship at Lockheed Martin, I was part of the physical integration departmen..."
+        },
+        {
+          "file": "OLDP.block-0-1.md",
+          "content": "\n# Context\nThe Operations Leadership Development Program (OLDP) at Lockheed Martin was designed for ..."
+        },
+        {
+          "file": "OLDP.block-0-2.md",
+          "content": "\n# Context\nIn response to the events of September 11, Lockheed Martin was awarded the Strategic Airp..."
+        },
+        {
+          "file": "OLDP.block-0-3.md",
+          "content": "\n# Context\nAt Lockheed Martin's Colorado Springs facility, I worked closely with the US Air Force to..."
+        },
+        {
+          "file": "AI Project Experience- extended.block-0-0.md",
+          "content": "\n# Context\nThe AI-Powered Travel Platform, known as middleseat, is designed to assist groups in find..."
+        },
+        {
+          "file": "AI Project Experience- extended.block-0-1.md",
+          "content": "\n# Context\nFed Fusion is an innovative government contractor marketplace that leverages AI to stream..."
+        },
+        {
+          "file": "AI Project Experience- extended.block-0-2.md",
+          "content": "\n# Context\nTrackTime is a sophisticated cloud-based platform designed for motorsports, focusing on r..."
+        },
+        {
+          "file": "AI Project Experience- extended.block-0-0.md",
+          "content": "\n# Context\nThe AI-Powered Travel Platform, known as middleseat, is a cutting-edge application design..."
+        },
+        {
+          "file": "AI Project Experience- extended.block-0-1.md",
+          "content": "\n# Context\nFed Fusion is an innovative platform designed to streamline federal procurement processes..."
+        },
+        {
+          "file": "AI Project Experience- extended.block-0-2.md",
+          "content": "\n# Context\nTrackTime is an enterprise-grade platform designed to enhance race management through rea..."
         }
       ],
       "suggestions": [
@@ -229,8 +345,8 @@
     {
       "skill": "Strategic Planning",
       "firstSeen": "2025-08-11T03:35:40.617Z",
-      "lastSeen": "2025-08-11T04:47:10.360Z",
-      "occurrences": 26,
+      "lastSeen": "2025-08-11T19:09:25.537Z",
+      "occurrences": 32,
       "category": "Other",
       "priority": "low",
       "similar": [],
@@ -338,6 +454,30 @@
         {
           "file": "Lovett Resume-Oct2020.block-0-5.md",
           "content": "\n# Context\nIn my role as a Program Manager at Lockheed Martin, I was responsible for managing softwa..."
+        },
+        {
+          "file": "Scott Lovettv5.block-0-0.md",
+          "content": "\n# Context\nIn this role at American Cybersystems, I was responsible for managing the PMO and deliver..."
+        },
+        {
+          "file": "Scott Lovettv5.block-0-2.md",
+          "content": "\n# Context\nIn this role, I served as the lead technologist and solutions architect for IoT implement..."
+        },
+        {
+          "file": "Scott Lovettv5.block-0-4.md",
+          "content": "\n# Context\nIn my role as Program Manager at Lockheed Martin, I was responsible for managing several ..."
+        },
+        {
+          "file": "Scott Lovettv5.block-0-5.md",
+          "content": "\n# Context\nIn my role as Operations Manager at Lockheed Martin, I was responsible for overseeing the..."
+        },
+        {
+          "file": "OLDP.block-0-1.md",
+          "content": "\n# Context\nThe Operations Leadership Development Program at Lockheed Martin was designed for high-po..."
+        },
+        {
+          "file": "OLDP.block-0-1.md",
+          "content": "\n# Context\nThe Operations Leadership Development Program (OLDP) at Lockheed Martin was designed for ..."
         }
       ],
       "suggestions": []
@@ -345,8 +485,8 @@
     {
       "skill": "Agile",
       "firstSeen": "2025-08-11T03:56:13.129Z",
-      "lastSeen": "2025-08-11T04:47:10.358Z",
-      "occurrences": 8,
+      "lastSeen": "2025-08-11T12:30:27.490Z",
+      "occurrences": 10,
       "category": "Methodology",
       "priority": "medium",
       "similar": [],
@@ -382,6 +522,14 @@
         {
           "file": "Lovett Resume-Oct2020.block-0-4.md",
           "content": "\n# Context\nIn this role at The Coca-Cola Company, I was responsible for designing and implementing t..."
+        },
+        {
+          "file": "Scott Lovettv5.block-0-1.md",
+          "content": "\n# Context\nIn this consulting role at Mayo Clinic, I was responsible for overseeing the execution of..."
+        },
+        {
+          "file": "Scott Lovettv5.block-0-3.md",
+          "content": "\n# Context\nAs a Senior Program Office Consultant for Coca-Cola, I was responsible for the design and..."
         }
       ],
       "suggestions": [
@@ -396,8 +544,8 @@
     {
       "skill": "Cybersecurity",
       "firstSeen": "2025-08-11T03:56:13.133Z",
-      "lastSeen": "2025-08-11T04:21:12.356Z",
-      "occurrences": 6,
+      "lastSeen": "2025-08-11T05:18:25.342Z",
+      "occurrences": 15,
       "category": "Security",
       "priority": "high",
       "similar": [],
@@ -425,6 +573,42 @@
         {
           "file": "Scott Lovett - PMO 2023c .block-0.md",
           "content": "\n# Context\nIn my role as Program Manager at ThinkOn, a leading cloud provider based in Toronto, I wa..."
+        },
+        {
+          "file": "Master Resume Nov26.block-0-0.md",
+          "content": "\n# Context\nBinary Defense is a cybersecurity firm focused on delivering advanced security solutions ..."
+        },
+        {
+          "file": "Master Resume Nov26.block-0-1.md",
+          "content": "\n# Context\nMcKesson Corporation is a leading healthcare services and information technology company...."
+        },
+        {
+          "file": "Master Resume Nov26.block-0-2.md",
+          "content": "\n# Context\nCyberdyne Systems is a consulting firm specializing in cybersecurity and compliance solut..."
+        },
+        {
+          "file": "Master Resume Nov26.block-0-3.md",
+          "content": "\n# Context\nThinkOn is a cloud provider specializing in data center solutions. The project involved l..."
+        },
+        {
+          "file": "Master Resume Nov26.block-0-4.md",
+          "content": "\n# Context\nIntercontinental Hotels Group (IHG) is a global hospitality company. The project involved..."
+        },
+        {
+          "file": "Master Resume Nov26.block-0-5.md",
+          "content": "\n# Context\nLeaseQuery is a software company specializing in lease accounting solutions. The project ..."
+        },
+        {
+          "file": "Master Resume Nov26.block-0-6.md",
+          "content": "\n# Context\nEquifax is a global data, analytics, and technology company. The project involved leading..."
+        },
+        {
+          "file": "Master Resume Nov26.block-0-7.md",
+          "content": "\n# Context\nAmerican CyberSystems, Inc. is a technology services company providing solutions to gover..."
+        },
+        {
+          "file": "Master Resume Nov26.block-0-8.md",
+          "content": "\n# Context\nLockheed Martin is a global aerospace and defense company. The Program Management Manager..."
         }
       ],
       "suggestions": [
@@ -445,8 +629,8 @@
     {
       "skill": "Compliance",
       "firstSeen": "2025-08-11T03:56:13.133Z",
-      "lastSeen": "2025-08-11T04:47:10.361Z",
-      "occurrences": 5,
+      "lastSeen": "2025-08-11T19:09:25.538Z",
+      "occurrences": 10,
       "category": "Compliance",
       "priority": "high",
       "similar": [],
@@ -470,6 +654,26 @@
         {
           "file": "Lovett Resume-Oct2020.block-0-6.md",
           "content": "\n# Context\nIn this role at Lockheed Martin, I managed a manufacturing floor operation that supported..."
+        },
+        {
+          "file": "Master Resume Nov26.block-0-2.md",
+          "content": "\n# Context\nCyberdyne Systems is a consulting firm specializing in cybersecurity and compliance solut..."
+        },
+        {
+          "file": "Master Resume Nov26.block-0-7.md",
+          "content": "\n# Context\nAmerican CyberSystems, Inc. is a technology services company providing solutions to gover..."
+        },
+        {
+          "file": "Master Resume Nov26.block-0-8.md",
+          "content": "\n# Context\nLockheed Martin is a global aerospace and defense company. The Program Management Manager..."
+        },
+        {
+          "file": "OLDP.block-0-2.md",
+          "content": "\n# Context\nIn response to the events of September 11, Lockheed Martin was awarded the Strategic Airp..."
+        },
+        {
+          "file": "OLDP.block-0-2.md",
+          "content": "\n# Context\nIn response to the events of September 11, Lockheed Martin was awarded the Strategic Airp..."
         }
       ],
       "suggestions": [
@@ -490,8 +694,8 @@
     {
       "skill": "Team Leadership",
       "firstSeen": "2025-08-11T03:56:13.134Z",
-      "lastSeen": "2025-08-11T04:47:10.360Z",
-      "occurrences": 14,
+      "lastSeen": "2025-08-11T19:09:25.540Z",
+      "occurrences": 27,
       "category": "Leadership",
       "priority": "high",
       "similar": [],
@@ -551,6 +755,58 @@
         {
           "file": "Lovett Resume-Oct2020.block-0-6.md",
           "content": "\n# Context\nIn this role at Lockheed Martin, I managed a manufacturing floor operation that supported..."
+        },
+        {
+          "file": "Scott Lovettv5.block-0-0.md",
+          "content": "\n# Context\nIn this role at American Cybersystems, I was responsible for managing the PMO and deliver..."
+        },
+        {
+          "file": "Scott Lovettv5.block-0-1.md",
+          "content": "\n# Context\nIn this consulting role at Mayo Clinic, I was responsible for overseeing the execution of..."
+        },
+        {
+          "file": "Scott Lovettv5.block-0-2.md",
+          "content": "\n# Context\nIn this role, I served as the lead technologist and solutions architect for IoT implement..."
+        },
+        {
+          "file": "Scott Lovettv5.block-0-3.md",
+          "content": "\n# Context\nAs a Senior Program Office Consultant for Coca-Cola, I was responsible for the design and..."
+        },
+        {
+          "file": "Scott Lovettv5.block-0-4.md",
+          "content": "\n# Context\nIn my role as Program Manager at Lockheed Martin, I was responsible for managing several ..."
+        },
+        {
+          "file": "Scott Lovettv5.block-0-5.md",
+          "content": "\n# Context\nIn my role as Operations Manager at Lockheed Martin, I was responsible for overseeing the..."
+        },
+        {
+          "file": "OLDP.block-0-0.md",
+          "content": "\n# Context\nDuring my internship at Lockheed Martin, I worked in the physical integration department ..."
+        },
+        {
+          "file": "OLDP.block-0-1.md",
+          "content": "\n# Context\nThe Operations Leadership Development Program at Lockheed Martin was designed for high-po..."
+        },
+        {
+          "file": "OLDP.block-0-2.md",
+          "content": "\n# Context\nIn response to the events of September 11, Lockheed Martin was awarded the Strategic Airp..."
+        },
+        {
+          "file": "OLDP.block-0-0.md",
+          "content": "\n# Context\nDuring my internship at Lockheed Martin, I was part of the physical integration departmen..."
+        },
+        {
+          "file": "OLDP.block-0-1.md",
+          "content": "\n# Context\nThe Operations Leadership Development Program (OLDP) at Lockheed Martin was designed for ..."
+        },
+        {
+          "file": "OLDP.block-0-2.md",
+          "content": "\n# Context\nIn response to the events of September 11, Lockheed Martin was awarded the Strategic Airp..."
+        },
+        {
+          "file": "OLDP.block-0-3.md",
+          "content": "\n# Context\nAt Lockheed Martin's Colorado Springs facility, I worked closely with the US Air Force to..."
         }
       ],
       "suggestions": [
@@ -590,23 +846,166 @@
           "target": "Process Improvement"
         }
       ]
+    },
+    {
+      "skill": "Risk Management & Compliance",
+      "firstSeen": "2025-08-11T05:18:25.331Z",
+      "lastSeen": "2025-08-11T05:18:25.339Z",
+      "occurrences": 5,
+      "category": "Leadership",
+      "priority": "high",
+      "similar": [],
+      "contexts": [
+        {
+          "file": "Master Resume Nov26.block-0-0.md",
+          "content": "\n# Context\nBinary Defense is a cybersecurity firm focused on delivering advanced security solutions ..."
+        },
+        {
+          "file": "Master Resume Nov26.block-0-1.md",
+          "content": "\n# Context\nMcKesson Corporation is a leading healthcare services and information technology company...."
+        },
+        {
+          "file": "Master Resume Nov26.block-0-4.md",
+          "content": "\n# Context\nIntercontinental Hotels Group (IHG) is a global hospitality company. The project involved..."
+        },
+        {
+          "file": "Master Resume Nov26.block-0-5.md",
+          "content": "\n# Context\nLeaseQuery is a software company specializing in lease accounting solutions. The project ..."
+        },
+        {
+          "file": "Master Resume Nov26.block-0-6.md",
+          "content": "\n# Context\nEquifax is a global data, analytics, and technology company. The project involved leading..."
+        }
+      ],
+      "suggestions": [
+        {
+          "type": "standardize",
+          "suggestion": "Consider standardizing as: \"Risk Management\"",
+          "action": "replace",
+          "target": "Risk Management"
+        },
+        {
+          "type": "add",
+          "suggestion": "High priority skill - recommend adding to vocabulary",
+          "action": "approve",
+          "target": "Risk Management & Compliance"
+        }
+      ]
+    },
+    {
+      "skill": "Cloud Computing",
+      "firstSeen": "2025-08-11T05:18:25.336Z",
+      "lastSeen": "2025-08-11T19:33:59.286Z",
+      "occurrences": 4,
+      "category": "Technology",
+      "priority": "medium",
+      "similar": [],
+      "contexts": [
+        {
+          "file": "Master Resume Nov26.block-0-3.md",
+          "content": "\n# Context\nThinkOn is a cloud provider specializing in data center solutions. The project involved l..."
+        },
+        {
+          "file": "AI Project Experience- extended.block-0-0.md",
+          "content": "\n# Context\nThe AI-Powered Travel Platform, known as middleseat, is a cutting-edge application design..."
+        },
+        {
+          "file": "AI Project Experience- extended.block-0-1.md",
+          "content": "\n# Context\nFed Fusion is an innovative platform designed to streamline federal procurement processes..."
+        },
+        {
+          "file": "AI Project Experience- extended.block-0-2.md",
+          "content": "\n# Context\nTrackTime is an enterprise-grade platform designed to enhance race management through rea..."
+        }
+      ],
+      "suggestions": []
+    },
+    {
+      "skill": "Data Engineering",
+      "firstSeen": "2025-08-11T18:58:46.565Z",
+      "lastSeen": "2025-08-11T19:09:25.540Z",
+      "occurrences": 2,
+      "category": "Technology",
+      "priority": "medium",
+      "similar": [],
+      "contexts": [
+        {
+          "file": "OLDP.block-0-3.md",
+          "content": "\n# Context\nIn my role as a Systems Engineer at Lockheed Martin, I worked on the Minuteman missile sy..."
+        },
+        {
+          "file": "OLDP.block-0-3.md",
+          "content": "\n# Context\nAt Lockheed Martin's Colorado Springs facility, I worked closely with the US Air Force to..."
+        }
+      ],
+      "suggestions": []
+    },
+    {
+      "skill": "AI/ML",
+      "firstSeen": "2025-08-11T19:25:57.621Z",
+      "lastSeen": "2025-08-11T19:33:59.285Z",
+      "occurrences": 6,
+      "category": "Technology",
+      "priority": "high",
+      "similar": [],
+      "contexts": [
+        {
+          "file": "AI Project Experience- extended.block-0-0.md",
+          "content": "\n# Context\nThe AI-Powered Travel Platform, known as middleseat, is designed to assist groups in find..."
+        },
+        {
+          "file": "AI Project Experience- extended.block-0-1.md",
+          "content": "\n# Context\nFed Fusion is an innovative government contractor marketplace that leverages AI to stream..."
+        },
+        {
+          "file": "AI Project Experience- extended.block-0-2.md",
+          "content": "\n# Context\nTrackTime is a sophisticated cloud-based platform designed for motorsports, focusing on r..."
+        },
+        {
+          "file": "AI Project Experience- extended.block-0-0.md",
+          "content": "\n# Context\nThe AI-Powered Travel Platform, known as middleseat, is a cutting-edge application design..."
+        },
+        {
+          "file": "AI Project Experience- extended.block-0-1.md",
+          "content": "\n# Context\nFed Fusion is an innovative platform designed to streamline federal procurement processes..."
+        },
+        {
+          "file": "AI Project Experience- extended.block-0-2.md",
+          "content": "\n# Context\nTrackTime is an enterprise-grade platform designed to enhance race management through rea..."
+        }
+      ],
+      "suggestions": [
+        {
+          "type": "standardize",
+          "suggestion": "Consider standardizing as: \"AI/ML\"",
+          "action": "replace",
+          "target": "AI/ML"
+        },
+        {
+          "type": "add",
+          "suggestion": "High priority skill - recommend adding to vocabulary",
+          "action": "approve",
+          "target": "AI/ML"
+        }
+      ]
     }
   ],
-  "lastUpdated": "2025-08-11T04:47:10.361Z",
+  "lastUpdated": "2025-08-11T19:33:59.286Z",
   "summary": {
-    "total": 8,
+    "total": 12,
     "byPriority": {
-      "high": 5,
+      "high": 7,
       "low": 1,
-      "medium": 2
+      "medium": 4
     },
     "byCategory": {
-      "Leadership": 3,
+      "Leadership": 4,
       "Other": 1,
       "Methodology": 1,
       "Security": 1,
       "Compliance": 1,
-      "Operations": 1
+      "Operations": 1,
+      "Technology": 3
     }
   }
 }

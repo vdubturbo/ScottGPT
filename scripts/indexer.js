@@ -152,93 +152,30 @@ function chunkText(text, header) {
   return chunks;
 }
 
-// Batch embeddings with proper rate limiting
-const embeddingQueue = [];
-let processingBatch = false;
-
+// Simple rate limiting for embeddings
 // Rate limiting: 2000 requests/minute = ~33 requests/second
-// But Cohere likely has burst limits, so we'll be conservative
-const BATCH_SIZE = 50; // Reduced from 96 to be safer
-const BATCH_DELAY_MS = 2000; // 2 seconds between batches = 30 batches/min = 1500 embeddings/min (under 2000 limit)
-
-async function processEmbeddingBatch() {
-  if (processingBatch || embeddingQueue.length === 0) return;
-  
-  processingBatch = true;
-  const batch = embeddingQueue.splice(0, Math.min(BATCH_SIZE, embeddingQueue.length));
-  
-  try {
-    const texts = batch.map(item => item.text);
-    console.log(`🔄 Processing embedding batch: ${texts.length} texts (${embeddingQueue.length} remaining)`);
-    console.log(`⏱️  Batch started at: ${new Date().toISOString()}`);
-    
-    const response = await retryWithBackoff(async () => {
-      console.log(`📡 Calling Cohere API with ${texts.length} texts...`);
-      return await cohere.embed({
-        texts: texts,
-        model: "embed-english-v3.0",
-        inputType: "search_document"
-      });
-    });
-    
-    console.log(`✅ Batch completed successfully in ${Date.now() - Date.parse(new Date().toISOString())}ms`);
-    
-    // Resolve all promises with their embeddings
-    batch.forEach((item, index) => {
-      item.resolve(response.embeddings[index]);
-    });
-  } catch (error) {
-    const duration = Date.now() - Date.parse(new Date().toISOString());
-    console.error(`❌ Batch failed after ${duration}ms:`);
-    console.error("   Message:", error.message);
-    console.error("   Type:", error.constructor.name);
-    if (error.code) console.error("   Code:", error.code);
-    if (error.status) console.error("   Status:", error.status);
-    if (error.statusCode) console.error("   Status Code:", error.statusCode);
-    
-    // Check for specific error types and provide guidance
-    if (error.message && error.message.toLowerCase().includes('timeout')) {
-      console.error("🕐 Timeout error - this usually indicates:");
-      console.error("   - Slow internet connection");
-      console.error("   - Cohere API server issues");
-      console.error("   - Large batch size (current: " + texts.length + ")");
-    } else if (error.message && error.message.toLowerCase().includes('network')) {
-      console.error("🌐 Network connectivity issue - check your internet connection");
-    } else if (error.message && error.message.toLowerCase().includes('fetch')) {
-      console.error("📡 Fetch failed - possible DNS or connectivity issue");
-    } else if (error.status === 429) {
-      console.error("⏳ Rate limit exceeded - will retry with longer delay");
-    } else if (error.status === 401) {
-      console.error("🔐 Authentication failed - check your COHERE_API_KEY");
-    }
-    
-    // Reject all promises in the batch
-    batch.forEach(item => item.reject(error));
-  } finally {
-    processingBatch = false;
-    // Process next batch if available
-    if (embeddingQueue.length > 0) {
-      await sleep(BATCH_DELAY_MS); // Consistent delay between batches
-      processEmbeddingBatch();
-    }
-  }
-}
+// Using 1 second delay to be conservative and avoid hitting limits
 
 async function embedText(text) {
-  const TIMEOUT_MS = 30000; // 30 second timeout per embedding
+  console.log(`🔄 [DEBUG] Starting embedding for text (${text.length} chars)`);
   
-  return Promise.race([
-    new Promise((resolve, reject) => {
-      embeddingQueue.push({ text, resolve, reject });
-      // Start processing if not already running
-      if (!processingBatch) {
-        setTimeout(() => processEmbeddingBatch(), 500); // Allow 500ms for queue to build up
-      }
-    }),
-    new Promise((_, reject) => 
-      setTimeout(() => reject(new Error('Embedding timeout after 30s - check your network connection')), TIMEOUT_MS)
-    )
-  ]);
+  try {
+    const response = await cohere.embed({
+      texts: [text],
+      model: "embed-english-v3.0",
+      inputType: "search_document"
+    });
+    
+    console.log(`✅ [DEBUG] Embedding successful, dimension: ${response.embeddings[0].length}`);
+    
+    // Add a small delay to respect rate limits
+    await sleep(1000); // 1 second between calls
+    
+    return response.embeddings[0];
+  } catch (error) {
+    console.error(`❌ [DEBUG] Embedding failed:`, error.message);
+    throw error;
+  }
 }
 
 async function generateSummary(content, title) {
@@ -304,10 +241,20 @@ async function processFile(filePath, sourceDir) {
   const fileName = path.basename(filePath);
   console.log(`🔗 Processing: ${fileName}`);
   
+  // Debug statement 1
+  console.log(`🔄 [DEBUG] Starting processFile for: ${fileName}`);
+  console.log(`🔄 [DEBUG] Current time: ${new Date().toISOString()}`);
+  
   try {
     const raw = await fs.readFile(filePath, "utf8");
+    
+    // Debug statement 2
+    console.log(`🔄 [DEBUG] File read successfully, size: ${raw.length} characters`);
     const fileHash = crypto.createHash("sha1").update(raw).digest("hex");
     const { data, content } = matter(raw);
+    
+    // Debug statement 3
+    console.log(`🔄 [DEBUG] YAML parsed, data keys: ${Object.keys(data).join(', ')}`);
     
     // Check if we've already processed this exact content
     const existingChunks = await supabase
@@ -325,6 +272,9 @@ async function processFile(filePath, sourceDir) {
     const sourceId = await upsertSource(data);
     console.log(`📋 Source ID: ${sourceId}`);
     
+    // Debug statement 4
+    console.log(`🔄 [DEBUG] Source upserted with ID: ${sourceId}`);
+    
     // Generate content summary
     const contentSummary = await generateSummary(content, data.title);
     
@@ -334,6 +284,9 @@ async function processFile(filePath, sourceDir) {
     // Chunk the content
     const chunks = chunkText(content, header);
     console.log(`📦 Created ${chunks.length} chunks`);
+    
+    // Debug statement 5
+    console.log(`🔄 [DEBUG] Starting chunk processing, ${chunks.length} chunks to process`);
     
     if (chunks.length === 0) {
       console.log(`⚠️  No chunks created for ${fileName} - content too short`);
@@ -352,9 +305,18 @@ async function processFile(filePath, sourceDir) {
     for (let i = 0; i < chunks.length; i++) {
       const chunk = chunks[i];
       
+      // Debug statement 6
+      console.log(`🔄 [DEBUG] Processing chunk ${i + 1}/${chunks.length} at ${new Date().toISOString()}`);
+      
       try {
+        // Debug statement 7
+        console.log(`🔄 [DEBUG] About to call embedText for chunk ${i + 1}`);
+        
         // Generate embedding
         const embedding = await embedText(chunk);
+        
+        // Debug statement 8
+        console.log(`🔄 [DEBUG] embedText completed for chunk ${i + 1}, embedding length: ${embedding?.length}`);
         const tokenCount = estimateTokens(chunk);
         
         // Insert chunk
@@ -371,6 +333,9 @@ async function processFile(filePath, sourceDir) {
           embedding: embedding,
           file_hash: fileHash
         });
+        
+        // Debug statement 9
+        console.log(`🔄 [DEBUG] Chunk ${i + 1} inserted to database successfully`);
         
         console.log(`✅ Chunk ${i + 1}/${chunks.length} - ${tokenCount} tokens`);
         processedChunks++;
@@ -508,22 +473,7 @@ async function indexer() {
     grandTotalErrors += stats.errorCount;
   }
   
-  // Wait for any remaining embeddings to process
-  console.log('🏁 Finishing remaining embeddings...');
-  let waitCount = 0;
-  const maxWaitTime = 240; // 2 minutes (240 * 500ms)
-  
-  while ((embeddingQueue.length > 0 || processingBatch) && waitCount < maxWaitTime) {
-    if (waitCount % 10 === 0) { // Log every 5 seconds
-      console.log(`⏳ Waiting for embeddings... Queue: ${embeddingQueue.length}, Processing: ${processingBatch}`);
-    }
-    await sleep(500);
-    waitCount++;
-  }
-  
-  if (waitCount >= maxWaitTime) {
-    console.error('⚠️  Timeout waiting for embeddings to complete after 2 minutes');
-  }
+  console.log('✅ [DEBUG] All chunks processed, indexing complete');
   
   console.log("📈 Final Statistics:");
   console.log(`   Files processed: ${grandTotalFiles}`);
@@ -535,6 +485,15 @@ async function indexer() {
     console.log("✅ Indexing complete! Your ScottGPT knowledge base is ready.");
     const avgChunksPerFile = grandTotalFiles > 0 ? (grandTotalChunks / grandTotalFiles).toFixed(1) : 0;
     console.log(`📊 Average: ${avgChunksPerFile} chunks per file`);
+    
+    // Archive processed files to keep sources/ directory lean
+    console.log('\n📁 Archiving processed files...');
+    try {
+      const { default: archiveProcessedFiles } = await import('./archive-processed.js');
+      await archiveProcessedFiles();
+    } catch (error) {
+      console.error('⚠️ Archive failed (non-critical):', error.message);
+    }
   } else {
     console.log("⚠️  No chunks were created. Check your source files and try again.");
   }
