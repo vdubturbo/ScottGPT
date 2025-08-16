@@ -280,3 +280,24 @@
 {"level":"info","message":"ScottGPT server started successfully","port":"3001","timestamp":"2025-08-11 19:12:47"}
 {"level":"info","message":"Environment validation complete - all required variables configured","timestamp":"2025-08-11 19:12:59"}
 {"level":"info","message":"ScottGPT server started successfully","port":"3001","timestamp":"2025-08-11 19:13:00"}
+{"count":12,"level":"info","message":"Retrieved approved tags","service":"API","timestamp":"2025-08-11 19:21:00"}
+{"count":0,"level":"info","message":"Retrieved pending tags","service":"API","timestamp":"2025-08-11 19:21:00"}
+{"count":12,"level":"info","message":"Retrieved approved tags","service":"API","timestamp":"2025-08-11 19:21:00"}
+{"count":0,"level":"info","message":"Retrieved pending tags","service":"API","timestamp":"2025-08-11 19:21:00"}
+{"level":"info","message":"Environment validation complete - all required variables configured","timestamp":"2025-08-16 18:12:47"}
+{"date":"Sat Aug 16 2025 18:12:48 GMT-0400 (Eastern Daylight Time)","error":{"address":"::","code":"EADDRINUSE","errno":-48,"port":3001,"syscall":"listen"},"exception":true,"level":"error","message":"uncaughtException: listen EADDRINUSE: address already in use :::3001\nError: listen EADDRINUSE: address already in use :::3001\n    at Server.setupListenHandle [as _listen2] (node:net:1939:16)\n    at listenInCluster (node:net:1996:12)\n    at Server.listen (node:net:2101:7)\n    at app.listen (/Users/scottlovett/ScottGPT/node_modules/express/lib/application.js:635:24)\n    at startServer (file:///Users/scottlovett/ScottGPT/server.js:121:7)","os":{"loadavg":[2.626953125,2.47802734375,2.3310546875],"uptime":543108},"process":{"argv":["/Users/scottlovett/.nvm/versions/node/v24.1.0/bin/node","/Users/scottlovett/ScottGPT/server.js"],"cwd":"/Users/scottlovett/ScottGPT","execPath":"/Users/scottlovett/.nvm/versions/node/v24.1.0/bin/node","gid":20,"memoryUsage":{"arrayBuffers":113962,"external":3866998,"heapTotal":60620800,"heapUsed":25888376,"rss":104972288},"pid":70732,"uid":501,"version":"v24.1.0"},"stack":"Error: listen EADDRINUSE: address already in use :::3001\n    at Server.setupListenHandle [as _listen2] (node:net:1939:16)\n    at listenInCluster (node:net:1996:12)\n    at Server.listen (node:net:2101:7)\n    at app.listen (/Users/scottlovett/ScottGPT/node_modules/express/lib/application.js:635:24)\n    at startServer (file:///Users/scottlovett/ScottGPT/server.js:121:7)","timestamp":"2025-08-16 18:12:48","trace":[{"column":16,"file":"node:net","function":"Server.setupListenHandle [as _listen2]","line":1939,"method":"setupListenHandle [as _listen2]","native":false},{"column":12,"file":"node:net","function":"listenInCluster","line":1996,"method":null,"native":false},{"column":7,"file":"node:net","function":"Server.listen","line":2101,"method":"listen","native":false},{"column":24,"file":"/Users/scottlovett/ScottGPT/node_modules/express/lib/application.js","function":"app.listen","line":635,"method":"listen","native":false},{"column":7,"file":"file:///Users/scottlovett/ScottGPT/server.js","function":"startServer","line":121,"method":null,"native":false}]}
+{"level":"info","message":"Environment validation complete - all required variables configured","timestamp":"2025-08-16 18:13:14"}
+{"level":"info","message":"ScottGPT server started successfully","port":"3001","timestamp":"2025-08-16 18:13:14"}
+{"count":0,"level":"info","message":"Retrieved pending tags","service":"API","timestamp":"2025-08-16 18:13:34"}
+{"count":12,"level":"info","message":"Retrieved approved tags","service":"API","timestamp":"2025-08-16 18:13:34"}
+{"count":0,"level":"info","message":"Retrieved pending tags","service":"API","timestamp":"2025-08-16 18:13:34"}
+{"count":12,"level":"info","message":"Retrieved approved tags","service":"API","timestamp":"2025-08-16 18:13:34"}
+{"fileCount":1,"files":[{"name":"IntSubs.docx","size":21786}],"ip":"127.0.0.1","level":"info","message":"Files uploaded successfully","service":"API","timestamp":"2025-08-16 18:14:01"}
+{"count":0,"level":"info","message":"Retrieved pending tags","service":"API","timestamp":"2025-08-16 18:17:48"}
+{"count":12,"level":"info","message":"Retrieved approved tags","service":"API","timestamp":"2025-08-16 18:17:48"}
+{"count":0,"level":"info","message":"Retrieved pending tags","service":"API","timestamp":"2025-08-16 18:17:48"}
+{"count":12,"level":"info","message":"Retrieved approved tags","service":"API","timestamp":"2025-08-16 18:17:48"}
+{"count":0,"level":"info","message":"Retrieved pending tags","service":"API","timestamp":"2025-08-16 18:38:33"}
+{"count":12,"level":"info","message":"Retrieved approved tags","service":"API","timestamp":"2025-08-16 18:38:33"}
+{"count":0,"level":"info","message":"Retrieved pending tags","service":"API","timestamp":"2025-08-16 18:38:33"}
+{"count":12,"level":"info","message":"Retrieved approved tags","service":"API","timestamp":"2025-08-16 18:38:33"}

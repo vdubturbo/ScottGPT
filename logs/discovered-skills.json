@@ -3,8 +3,8 @@
     {
       "skill": "Program Management",
       "firstSeen": "2025-08-11T03:32:44.746Z",
-      "lastSeen": "2025-08-11T19:33:59.286Z",
-      "occurrences": 64,
+      "lastSeen": "2025-08-16T22:14:21.375Z",
+      "occurrences": 66,
       "category": "Leadership",
       "priority": "high",
       "similar": [],
@@ -264,6 +264,14 @@
         {
           "file": "AI Project Experience- extended.block-0-2.md",
           "content": "\n# Context\nTrackTime is an enterprise-grade platform designed to enhance race management through rea..."
+        },
+        {
+          "file": "1755382441978-IntSubs.block-0-0.md",
+          "content": "\n# Context\nIn this role at Lockheed Martin MS2 Undersea Systems, I was responsible for managing a te..."
+        },
+        {
+          "file": "1755382441978-IntSubs.block-0-1.md",
+          "content": "\n# Context\nIn my role as Program Management Manager at Lockheed Martin, I was responsible for overse..."
         }
       ],
       "suggestions": [
@@ -345,8 +353,8 @@
     {
       "skill": "Strategic Planning",
       "firstSeen": "2025-08-11T03:35:40.617Z",
-      "lastSeen": "2025-08-11T19:09:25.537Z",
-      "occurrences": 32,
+      "lastSeen": "2025-08-16T22:14:21.376Z",
+      "occurrences": 33,
       "category": "Other",
       "priority": "low",
       "similar": [],
@@ -478,6 +486,10 @@
         {
           "file": "OLDP.block-0-1.md",
           "content": "\n# Context\nThe Operations Leadership Development Program (OLDP) at Lockheed Martin was designed for ..."
+        },
+        {
+          "file": "1755382441978-IntSubs.block-0-1.md",
+          "content": "\n# Context\nIn my role as Program Management Manager at Lockheed Martin, I was responsible for overse..."
         }
       ],
       "suggestions": []
@@ -629,8 +641,8 @@
     {
       "skill": "Compliance",
       "firstSeen": "2025-08-11T03:56:13.133Z",
-      "lastSeen": "2025-08-11T19:09:25.538Z",
-      "occurrences": 10,
+      "lastSeen": "2025-08-16T22:14:21.376Z",
+      "occurrences": 12,
       "category": "Compliance",
       "priority": "high",
       "similar": [],
@@ -674,6 +686,14 @@
         {
           "file": "OLDP.block-0-2.md",
           "content": "\n# Context\nIn response to the events of September 11, Lockheed Martin was awarded the Strategic Airp..."
+        },
+        {
+          "file": "1755382441978-IntSubs.block-0-0.md",
+          "content": "\n# Context\nIn this role at Lockheed Martin MS2 Undersea Systems, I was responsible for managing a te..."
+        },
+        {
+          "file": "1755382441978-IntSubs.block-0-1.md",
+          "content": "\n# Context\nIn my role as Program Management Manager at Lockheed Martin, I was responsible for overse..."
         }
       ],
       "suggestions": [
@@ -694,8 +714,8 @@
     {
       "skill": "Team Leadership",
       "firstSeen": "2025-08-11T03:56:13.134Z",
-      "lastSeen": "2025-08-11T19:09:25.540Z",
-      "occurrences": 27,
+      "lastSeen": "2025-08-16T22:14:21.373Z",
+      "occurrences": 28,
       "category": "Leadership",
       "priority": "high",
       "similar": [],
@@ -807,6 +827,10 @@
         {
           "file": "OLDP.block-0-3.md",
           "content": "\n# Context\nAt Lockheed Martin's Colorado Springs facility, I worked closely with the US Air Force to..."
+        },
+        {
+          "file": "1755382441978-IntSubs.block-0-0.md",
+          "content": "\n# Context\nIn this role at Lockheed Martin MS2 Undersea Systems, I was responsible for managing a te..."
         }
       ],
       "suggestions": [
@@ -990,7 +1014,7 @@
       ]
     }
   ],
-  "lastUpdated": "2025-08-11T19:33:59.286Z",
+  "lastUpdated": "2025-08-16T22:14:21.376Z",
   "summary": {
     "total": 12,
     "byPriority": {
