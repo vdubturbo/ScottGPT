@@ -7,8 +7,8 @@ import express from 'express';
 import rateLimit from 'express-rate-limit';
 import winston from 'winston';
 import { supabase } from '../config/database.js';
-import DuplicateDetectionService from '../services/duplicate-detection.js';
-import SmartMergeService from '../services/smart-merge.js';
+import { DuplicateDetectionService } from '../services/duplicate-detection.js';
+import { SmartMergeService } from '../services/smart-merge.js';
 
 const router = express.Router();
 
@@ -143,9 +143,9 @@ router.get('/detect', detectDuplicatesLimit, async (req, res) => {
     // Group results if requested
     let responseData = detectionResult;
     if (groupBy === 'confidence') {
-      responseData = this.groupByConfidence(detectionResult);
+      responseData = groupByConfidence(detectionResult);
     } else if (groupBy === 'type') {
-      responseData = this.groupByType(detectionResult);
+      responseData = groupByType(detectionResult);
     }
 
     res.json({
@@ -188,7 +188,7 @@ router.get('/summary', detectDuplicatesLimit, async (req, res) => {
     if (error) throw error;
 
     // Quick duplicate detection using simplified algorithm
-    const quickDuplicates = await this.quickDuplicateCheck(jobs);
+    const quickDuplicates = await quickDuplicateCheck(jobs);
 
     res.json({
       success: true,

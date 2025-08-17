@@ -7,8 +7,8 @@ import express from 'express';
 import rateLimit from 'express-rate-limit';
 import winston from 'winston';
 import { supabase } from '../config/database.js';
-import DataValidationService from '../services/data-validation.js';
-import DataProcessingService from '../utils/data-processing.js';
+import { DataValidationService } from '../services/data-validation.js';
+import { DataProcessingService } from '../utils/data-processing.js';
 import EmbeddingService from '../services/embeddings.js';
 import duplicateManagementRoutes from './duplicate-management.js';
 

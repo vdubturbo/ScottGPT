@@ -8,9 +8,10 @@ import rateLimit from 'express-rate-limit';
 import winston from 'winston';
 import { v4 as uuidv4 } from 'uuid';
 import { supabase } from '../config/database.js';
-import BulkOperationsService from '../services/bulk-operations.js';
-import SmartEnhancementService from '../services/smart-enhancement.js';
-import AdvancedValidationService from '../services/advanced-validation.js';
+import { BulkOperationsService } from '../services/bulk-operations.js';
+import { SmartEnhancementService } from '../services/smart-enhancement.js';
+import { AdvancedValidationService } from '../services/advanced-validation.js';
+import { DataQualityAnalysisService } from '../services/data-quality-analysis.js';
 import EmbeddingService from '../services/embeddings.js';
 
 const router = express.Router();
@@ -19,6 +20,7 @@ const router = express.Router();
 const bulkOpsService = new BulkOperationsService();
 const enhancementService = new SmartEnhancementService();
 const advancedValidationService = new AdvancedValidationService();
+const qualityAnalysisService = new DataQualityAnalysisService();
 const embeddingService = new EmbeddingService();
 
 // Setup logging
@@ -878,6 +880,244 @@ router.get('/data-quality', enhancementLimiter, async (req, res) => {
     });
   }
 });
+
+/**
+ * GET /api/user/quality-report
+ * Generate comprehensive data health and quality analysis report
+ */
+router.get('/quality-report', enhancementLimiter, async (req, res) => {
+  try {
+    const {
+      includeRecommendations = 'true',
+      includeEnhancements = 'true',
+      detailedAnalysis = 'true',
+      generateActionPlan = 'true'
+    } = req.query;
+
+    const options = {
+      includeRecommendations: includeRecommendations === 'true',
+      includeEnhancements: includeEnhancements === 'true',
+      detailedAnalysis: detailedAnalysis === 'true',
+      generateActionPlan: generateActionPlan === 'true'
+    };
+
+    logger.info('Comprehensive quality report requested', { 
+      options,
+      ip: req.ip 
+    });
+
+    const healthReport = await qualityAnalysisService.generateDataHealthReport(options);
+
+    res.json({
+      success: true,
+      data: healthReport,
+      timestamp: new Date().toISOString()
+    });
+
+  } catch (error) {
+    logger.error('Error generating comprehensive quality report', { error: error.message });
+    
+    res.status(500).json({
+      error: 'Failed to generate quality report',
+      message: error.message
+    });
+  }
+});
+
+/**
+ * GET /api/user/quality-score
+ * Get quick quality score and basic health metrics
+ */
+router.get('/quality-score', enhancementLimiter, async (req, res) => {
+  try {
+    logger.info('Quick quality score requested', { ip: req.ip });
+
+    // Generate a lightweight version of the health report
+    const healthReport = await qualityAnalysisService.generateDataHealthReport({
+      includeRecommendations: false,
+      includeEnhancements: false,
+      detailedAnalysis: false,
+      generateActionPlan: false
+    });
+
+    // Extract key metrics for quick overview
+    const quickScore = {
+      overallScore: healthReport.overallHealth.score,
+      grade: healthReport.overallHealth.grade,
+      status: healthReport.overallHealth.status,
+      breakdown: healthReport.overallHealth.breakdown,
+      criticalIssues: healthReport.issues.critical.length,
+      warnings: healthReport.issues.warnings.length,
+      dataStats: {
+        totalJobs: healthReport.metadata.totalJobs,
+        totalChunks: healthReport.metadata.totalChunks,
+        validJobs: healthReport.analysis.core.validJobs,
+        averageQualityScore: Math.round(healthReport.analysis.core.averageQualityScore * 100) / 100
+      },
+      topIssues: [
+        ...healthReport.issues.critical.slice(0, 3),
+        ...healthReport.issues.warnings.slice(0, 2)
+      ]
+    };
+
+    res.json({
+      success: true,
+      data: quickScore,
+      timestamp: new Date().toISOString()
+    });
+
+  } catch (error) {
+    logger.error('Error generating quality score', { error: error.message });
+    
+    res.status(500).json({
+      error: 'Failed to generate quality score',
+      message: error.message
+    });
+  }
+});
+
+/**
+ * POST /api/user/quality-improvement-plan
+ * Generate a customized improvement plan based on current data quality
+ */
+router.post('/quality-improvement-plan', enhancementLimiter, async (req, res) => {
+  try {
+    const { 
+      timeframe = '4 weeks',
+      priority = 'balanced',
+      focusAreas = ['all']
+    } = req.body;
+
+    logger.info('Quality improvement plan requested', { 
+      timeframe,
+      priority,
+      focusAreas,
+      ip: req.ip 
+    });
+
+    // Generate comprehensive report for analysis
+    const healthReport = await qualityAnalysisService.generateDataHealthReport({
+      includeRecommendations: true,
+      includeEnhancements: true,
+      detailedAnalysis: true,
+      generateActionPlan: true
+    });
+
+    // Customize the action plan based on request parameters
+    const customizedPlan = {
+      currentState: {
+        score: healthReport.overallHealth.score,
+        grade: healthReport.overallHealth.grade,
+        mainIssues: healthReport.issues.critical.concat(healthReport.issues.warnings)
+      },
+      targetState: {
+        targetScore: Math.min(healthReport.overallHealth.score + 0.2, 1.0),
+        timeframe,
+        estimatedEffort: estimateEffortLevel(healthReport.recommendations)
+      },
+      actionPlan: healthReport.actionPlan,
+      recommendations: filterRecommendationsByPriority(healthReport.recommendations, priority),
+      milestones: generateMilestones(healthReport.actionPlan, timeframe),
+      resources: {
+        estimatedTime: healthReport.actionPlan?.overview?.estimatedImprovementTime || 'Unknown',
+        toolsNeeded: ['Data validation', 'Content enhancement', 'AI suggestions'],
+        skillsRequired: ['Data entry', 'Content writing', 'Basic editing']
+      }
+    };
+
+    res.json({
+      success: true,
+      data: customizedPlan,
+      timestamp: new Date().toISOString()
+    });
+
+  } catch (error) {
+    logger.error('Error generating improvement plan', { error: error.message });
+    
+    res.status(500).json({
+      error: 'Failed to generate improvement plan',
+      message: error.message
+    });
+  }
+});
+
+// ============================================================================
+// HELPER FUNCTIONS
+// ============================================================================
+
+/**
+ * Estimate effort level based on recommendations
+ */
+function estimateEffortLevel(recommendations) {
+  if (!recommendations || recommendations.length === 0) return 'low';
+  
+  const criticalCount = recommendations.filter(r => r.priority === 'critical').length;
+  const highCount = recommendations.filter(r => r.priority === 'high').length;
+  
+  if (criticalCount > 0 || highCount > 3) return 'high';
+  if (highCount > 0 || recommendations.length > 5) return 'medium';
+  return 'low';
+}
+
+/**
+ * Filter recommendations by priority level
+ */
+function filterRecommendationsByPriority(recommendations, priority) {
+  if (!recommendations) return [];
+  
+  switch (priority) {
+    case 'critical':
+      return recommendations.filter(r => r.priority === 'critical');
+    case 'high':
+      return recommendations.filter(r => ['critical', 'high'].includes(r.priority));
+    case 'balanced':
+      return recommendations; // Return all
+    case 'quick':
+      return recommendations.filter(r => r.effort === 'low' || r.effort === 'medium');
+    default:
+      return recommendations;
+  }
+}
+
+/**
+ * Generate milestones based on action plan and timeframe
+ */
+function generateMilestones(actionPlan, timeframe) {
+  if (!actionPlan || !actionPlan.phases) return [];
+  
+  const milestones = [];
+  let cumulativeTime = 0;
+  
+  actionPlan.phases.forEach((phase, index) => {
+    const phaseTimeWeeks = parseTimeframe(phase.timeframe);
+    cumulativeTime += phaseTimeWeeks;
+    
+    milestones.push({
+      phase: phase.phase,
+      title: phase.title,
+      targetWeek: cumulativeTime,
+      priority: phase.priority,
+      expectedImprovement: phase.expectedScoreImprovement,
+      keyActions: phase.recommendations.map(r => r.title)
+    });
+  });
+  
+  return milestones;
+}
+
+/**
+ * Parse timeframe string to weeks
+ */
+function parseTimeframe(timeframe) {
+  if (timeframe.includes('week')) {
+    const weeks = timeframe.match(/(\d+)/);
+    return weeks ? parseInt(weeks[1]) : 1;
+  } else if (timeframe.includes('month')) {
+    const months = timeframe.match(/(\d+)/);
+    return months ? parseInt(months[1]) * 4 : 4;
+  }
+  return 1;
+}
 
 // ============================================================================
 // ERROR HANDLING MIDDLEWARE

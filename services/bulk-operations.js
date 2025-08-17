@@ -6,7 +6,7 @@
 
 import winston from 'winston';
 import { supabase } from '../config/database.js';
-import DataProcessingService from '../utils/data-processing.js';
+import { DataProcessingService } from '../utils/data-processing.js';
 import EmbeddingService from './embeddings.js';
 
 export class BulkOperationsService {

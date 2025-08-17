@@ -5,8 +5,8 @@
  */
 
 import winston from 'winston';
-import DataValidationService from './data-validation.js';
-import DataProcessingService from '../utils/data-processing.js';
+import { DataValidationService } from './data-validation.js';
+import { DataProcessingService } from '../utils/data-processing.js';
 
 export class AdvancedValidationService extends DataValidationService {
   constructor() {
@@ -761,6 +761,95 @@ export class AdvancedValidationService extends DataValidationService {
     const end2 = job2.date_end ? new Date(job2.date_end) : new Date();
 
     return start1 < end2 && start2 < end1;
+  }
+
+  /**
+   * Validate timeline for comprehensive analysis
+   * @param {Array} jobs - Array of jobs
+   * @returns {Object} Timeline validation results
+   */
+  validateTimeline(jobs) {
+    const sortedJobs = jobs
+      .filter(job => job.date_start)
+      .sort((a, b) => new Date(a.date_start) - new Date(b.date_start));
+
+    const gaps = [];
+    const overlaps = [];
+    
+    for (let i = 0; i < sortedJobs.length - 1; i++) {
+      const currentJob = sortedJobs[i];
+      const nextJob = sortedJobs[i + 1];
+      
+      const currentEnd = currentJob.date_end ? new Date(currentJob.date_end) : new Date();
+      const nextStart = new Date(nextJob.date_start);
+      
+      // Check for gaps
+      const gapMs = nextStart - currentEnd;
+      const gapMonths = gapMs / (1000 * 60 * 60 * 24 * 30);
+      
+      if (gapMonths > 1) {
+        gaps.push({
+          start: currentEnd.toISOString().split('T')[0],
+          end: nextStart.toISOString().split('T')[0],
+          duration: Math.round(gapMonths),
+          beforeJob: currentJob,
+          afterJob: nextJob
+        });
+      }
+      
+      // Check for overlaps
+      if (this.datePeriodsOverlap(currentJob, nextJob)) {
+        overlaps.push({
+          job1: currentJob,
+          job2: nextJob,
+          severity: 'medium'
+        });
+      }
+    }
+
+    return {
+      gaps,
+      overlaps,
+      totalGaps: gaps.length,
+      totalOverlaps: overlaps.length,
+      isValid: gaps.length === 0 && overlaps.length === 0
+    };
+  }
+
+  /**
+   * Identify timeline gaps
+   * @param {Array} jobs - Array of jobs
+   * @returns {Array} Array of gap objects
+   */
+  identifyTimelineGaps(jobs) {
+    const timeline = this.validateTimeline(jobs);
+    return timeline.gaps.map(gap => ({
+      ...gap,
+      severity: gap.duration > 12 ? 'high' : gap.duration > 6 ? 'medium' : 'low',
+      suggestions: this.generateGapSuggestions(gap)
+    }));
+  }
+
+  /**
+   * Generate suggestions for timeline gaps
+   * @param {Object} gap - Gap object
+   * @returns {Array} Array of suggestion strings
+   */
+  generateGapSuggestions(gap) {
+    const suggestions = [];
+    
+    if (gap.duration > 12) {
+      suggestions.push('Consider adding education, training, or certification programs');
+      suggestions.push('Include freelance or consulting work during this period');
+      suggestions.push('Add volunteer work or personal projects');
+    } else if (gap.duration > 6) {
+      suggestions.push('Check if this was a planned break or sabbatical');
+      suggestions.push('Include any part-time or contract work');
+    } else {
+      suggestions.push('This may be normal transition time between positions');
+    }
+    
+    return suggestions;
   }
 }
 

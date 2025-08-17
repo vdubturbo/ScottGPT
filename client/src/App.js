@@ -2,8 +2,9 @@ import React, { useState } from 'react';
 import axios from 'axios';
 import './App.css';
 
-// Lazy load TagManager to avoid blocking the app
+// Lazy load components to avoid blocking the app
 const TagManager = React.lazy(() => import('./TagManager'));
+const UserDataManager = React.lazy(() => import('./components/UserDataManager'));
 
 function App() {
   const [message, setMessage] = useState('');
@@ -228,7 +229,13 @@ function App() {
             className={`tab-button ${activeTab === 'admin' ? 'active' : ''}`}
             onClick={() => setActiveTab('admin')}
           >
-            ⚙️ Data Management
+            ⚙️ Admin
+          </button>
+          <button 
+            className={`tab-button ${activeTab === 'data' ? 'active' : ''}`}
+            onClick={() => setActiveTab('data')}
+          >
+            📊 Data Management
           </button>
           <button 
             className={`tab-button ${activeTab === 'tags' ? 'active' : ''}`}
@@ -459,6 +466,12 @@ function App() {
               )}
             </div>
           </div>
+        )}
+
+        {activeTab === 'data' && (
+          <React.Suspense fallback={<div>Loading Data Management...</div>}>
+            <UserDataManager />
+          </React.Suspense>
         )}
 
         {activeTab === 'tags' && (

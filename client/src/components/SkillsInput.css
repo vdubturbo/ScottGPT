@@ -1,0 +1,229 @@
+/* SkillsInput Styles */
+
+.skills-input-container {
+  position: relative;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+}
+
+.skills-input {
+  position: relative;
+  border: 2px solid #e1e5e9;
+  border-radius: 6px;
+  background: white;
+  transition: border-color 0.2s;
+  min-height: 44px;
+}
+
+.skills-input:focus-within {
+  border-color: #3498db;
+}
+
+.skills-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  padding: 8px 12px;
+  align-items: center;
+}
+
+.skill-tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: #e8f4f8;
+  color: #2c3e50;
+  padding: 4px 8px;
+  border-radius: 4px;
+  font-size: 13px;
+  font-weight: 500;
+  border: 1px solid #bee5eb;
+  animation: fadeIn 0.2s ease-in;
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: scale(0.8);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+.remove-skill {
+  background: none;
+  border: none;
+  color: #6c757d;
+  font-size: 14px;
+  cursor: pointer;
+  padding: 0;
+  width: 16px;
+  height: 16px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 2px;
+  transition: all 0.2s;
+}
+
+.remove-skill:hover {
+  background: rgba(0, 0, 0, 0.1);
+  color: #dc3545;
+}
+
+.skill-input {
+  border: none;
+  outline: none;
+  background: transparent;
+  font-size: 14px;
+  padding: 2px 4px;
+  min-width: 120px;
+  flex: 1;
+  font-family: inherit;
+}
+
+.skill-input::placeholder {
+  color: #adb5bd;
+}
+
+/* Suggestions Dropdown */
+.suggestions-dropdown {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  right: 0;
+  background: white;
+  border: 2px solid #e1e5e9;
+  border-top: none;
+  border-radius: 0 0 6px 6px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  max-height: 200px;
+  overflow-y: auto;
+  z-index: 100;
+}
+
+.suggestion-item {
+  display: block;
+  width: 100%;
+  padding: 8px 12px;
+  border: none;
+  background: none;
+  text-align: left;
+  font-size: 14px;
+  cursor: pointer;
+  transition: background-color 0.1s;
+  color: #2c3e50;
+}
+
+.suggestion-item:hover,
+.suggestion-item.selected {
+  background: #f8f9fa;
+}
+
+.suggestion-item.selected {
+  background: #e8f4f8;
+  color: #2980b9;
+}
+
+/* Help Text */
+.skills-help {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-top: 6px;
+  font-size: 12px;
+  color: #6c757d;
+}
+
+.help-text {
+  flex: 1;
+}
+
+.skill-count {
+  font-weight: 500;
+  color: #495057;
+}
+
+/* Error State */
+.skills-input-container.error .skills-input {
+  border-color: #e74c3c;
+}
+
+.skills-input-container.error .skills-input:focus-within {
+  border-color: #e74c3c;
+  box-shadow: 0 0 0 2px rgba(231, 76, 60, 0.2);
+}
+
+/* Empty State */
+.skills-input.empty {
+  border-style: dashed;
+  border-color: #bdc3c7;
+}
+
+.skills-input.empty:focus-within {
+  border-style: solid;
+  border-color: #3498db;
+}
+
+/* Focus Ring for Accessibility */
+.skill-tag:focus,
+.remove-skill:focus,
+.suggestion-item:focus {
+  outline: 2px solid #3498db;
+  outline-offset: 1px;
+}
+
+/* High Contrast Mode Support */
+@media (prefers-contrast: high) {
+  .skill-tag {
+    background: #000;
+    color: #fff;
+    border-color: #fff;
+  }
+  
+  .suggestion-item.selected {
+    background: #000;
+    color: #fff;
+  }
+}
+
+/* Reduced Motion Support */
+@media (prefers-reduced-motion: reduce) {
+  .skill-tag {
+    animation: none;
+  }
+  
+  .remove-skill,
+  .suggestion-item {
+    transition: none;
+  }
+}
+
+/* Responsive Design */
+@media (max-width: 480px) {
+  .skills-tags {
+    padding: 6px 8px;
+    gap: 4px;
+  }
+  
+  .skill-tag {
+    font-size: 12px;
+    padding: 3px 6px;
+  }
+  
+  .skill-input {
+    min-width: 100px;
+    font-size: 13px;
+  }
+  
+  .skills-help {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 4px;
+  }
+  
+  .help-text {
+    font-size: 11px;
+  }
+}

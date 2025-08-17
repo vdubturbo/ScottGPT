@@ -73,6 +73,8 @@ async function startServer() {
   const tagsRoutes = await import('./routes/tags.js');
   const userDataRoutes = await import('./routes/user-data.js');
   const advancedUserDataRoutes = await import('./routes/advanced-user-data.js');
+  const dataExportRoutes = await import('./routes/data-export.js');
+  const resumeGenerationRoutes = await import('./routes/resume-generation.js');
 
   // API Routes with specific rate limiting
   app.use('/api/chat', chatLimit, chatRoutes.default);
@@ -81,6 +83,8 @@ async function startServer() {
   app.use('/api/tags', generalLimit, tagsRoutes.default);
   app.use('/api/user', dataLimit, userDataRoutes.default);
   app.use('/api/user', dataLimit, advancedUserDataRoutes.default);
+  app.use('/api/user/export', dataLimit, dataExportRoutes.default);
+  app.use('/api/user/generate', dataLimit, resumeGenerationRoutes.default);
 
   // Health check endpoint
   app.get('/api/health', (req, res) => {

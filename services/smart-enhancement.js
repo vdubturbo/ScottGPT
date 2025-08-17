@@ -6,8 +6,8 @@
 import winston from 'winston';
 import OpenAI from 'openai';
 import { supabase } from '../config/database.js';
-import AdvancedValidationService from './advanced-validation.js';
-import DataProcessingService from '../utils/data-processing.js';
+import { AdvancedValidationService } from './advanced-validation.js';
+import { DataProcessingService } from '../utils/data-processing.js';
 
 export class SmartEnhancementService {
   constructor() {
@@ -125,7 +125,7 @@ export class SmartEnhancementService {
       
       // Enhance gaps with suggestions
       const enhancedGaps = await Promise.all(
-        gapAnalysis.gaps.map(async (gap) => {
+        gapAnalysis.map(async (gap) => {
           const suggestions = await this.generateGapSuggestions(gap, jobs);
           return { ...gap, suggestions };
         })

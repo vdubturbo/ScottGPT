@@ -1,0 +1,147 @@
+/* DuplicateAlert Styles */
+
+.duplicate-alert {
+  background: linear-gradient(135deg, #fff3cd 0%, #ffeeba 100%);
+  border: 2px solid #ffc107;
+  border-radius: 8px;
+  padding: 16px 20px;
+  margin-bottom: 20px;
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  box-shadow: 0 2px 8px rgba(255, 193, 7, 0.2);
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+}
+
+.alert-icon {
+  font-size: 20px;
+  flex-shrink: 0;
+  margin-top: 2px;
+}
+
+.alert-content {
+  flex: 1;
+}
+
+.alert-title {
+  font-weight: 600;
+  color: #856404;
+  font-size: 16px;
+  margin-bottom: 4px;
+}
+
+.alert-message {
+  color: #856404;
+  font-size: 14px;
+  line-height: 1.4;
+  margin-bottom: 8px;
+}
+
+.high-confidence {
+  font-weight: 500;
+  color: #dc3545;
+}
+
+.time-savings {
+  color: #28a745;
+  font-weight: 500;
+}
+
+.alert-recommendations {
+  margin-top: 8px;
+}
+
+.recommendation {
+  color: #6c757d;
+  font-size: 13px;
+  margin-bottom: 4px;
+  padding-left: 8px;
+  border-left: 2px solid #ffc107;
+}
+
+.recommendation:last-child {
+  margin-bottom: 0;
+}
+
+.alert-actions {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
+.btn-view-duplicates {
+  background: #ffc107;
+  color: #212529;
+  border: none;
+  padding: 6px 12px;
+  border-radius: 4px;
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.btn-view-duplicates:hover {
+  background: #e0a800;
+  transform: translateY(-1px);
+}
+
+.btn-dismiss {
+  background: none;
+  border: none;
+  color: #856404;
+  font-size: 18px;
+  cursor: pointer;
+  padding: 4px;
+  width: 24px;
+  height: 24px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 4px;
+  transition: all 0.2s;
+}
+
+.btn-dismiss:hover {
+  background: rgba(133, 100, 4, 0.1);
+  color: #495057;
+}
+
+/* Responsive Design */
+@media (max-width: 768px) {
+  .duplicate-alert {
+    padding: 12px 16px;
+    flex-direction: column;
+    gap: 12px;
+  }
+
+  .alert-actions {
+    align-self: stretch;
+    justify-content: space-between;
+  }
+
+  .btn-view-duplicates {
+    flex: 1;
+    text-align: center;
+  }
+}
+
+@media (max-width: 480px) {
+  .duplicate-alert {
+    padding: 10px 12px;
+  }
+
+  .alert-title {
+    font-size: 15px;
+  }
+
+  .alert-message {
+    font-size: 13px;
+  }
+
+  .btn-view-duplicates {
+    padding: 8px 12px;
+    font-size: 12px;
+  }
+}

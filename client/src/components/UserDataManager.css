@@ -1,0 +1,129 @@
+/* UserDataManager Styles */
+
+.user-data-manager {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 20px;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+}
+
+.manager-header {
+  text-align: center;
+  margin-bottom: 32px;
+  padding-bottom: 20px;
+  border-bottom: 2px solid #e1e5e9;
+}
+
+.manager-header h2 {
+  margin: 0 0 8px 0;
+  color: #2c3e50;
+  font-size: 32px;
+  font-weight: 600;
+}
+
+.manager-header p {
+  margin: 0;
+  color: #7f8c8d;
+  font-size: 16px;
+  line-height: 1.5;
+}
+
+.manager-nav {
+  display: flex;
+  justify-content: center;
+  gap: 12px;
+  margin-bottom: 32px;
+  flex-wrap: wrap;
+}
+
+.manager-nav button {
+  background: white;
+  border: 2px solid #e1e5e9;
+  padding: 12px 24px;
+  border-radius: 8px;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: #495057;
+}
+
+.manager-nav button:hover {
+  border-color: #3498db;
+  color: #2c3e50;
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(52, 152, 219, 0.15);
+}
+
+.manager-nav button.active {
+  background: #3498db;
+  border-color: #3498db;
+  color: white;
+  box-shadow: 0 4px 12px rgba(52, 152, 219, 0.25);
+}
+
+.manager-nav button.nav-action {
+  background: #f8f9fa;
+  border-color: #dee2e6;
+}
+
+.manager-nav button.nav-action:hover {
+  background: #e9ecef;
+  border-color: #adb5bd;
+}
+
+.manager-content {
+  min-height: 400px;
+}
+
+/* Responsive Design */
+@media (max-width: 768px) {
+  .user-data-manager {
+    padding: 16px;
+  }
+
+  .manager-header {
+    margin-bottom: 24px;
+    padding-bottom: 16px;
+  }
+
+  .manager-header h2 {
+    font-size: 28px;
+  }
+
+  .manager-header p {
+    font-size: 14px;
+  }
+
+  .manager-nav {
+    flex-direction: column;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .manager-nav button {
+    width: 100%;
+    max-width: 300px;
+    justify-content: center;
+    padding: 14px 20px;
+  }
+}
+
+@media (max-width: 480px) {
+  .user-data-manager {
+    padding: 12px;
+  }
+
+  .manager-header h2 {
+    font-size: 24px;
+  }
+
+  .manager-nav button {
+    max-width: none;
+    font-size: 13px;
+    padding: 12px 16px;
+  }
+}
