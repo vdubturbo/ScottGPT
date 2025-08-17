@@ -1,0 +1,2 @@
+{"timestamp":"2025-08-17T15:55:02.100Z","searchMethod":"javascript","avgQueryTime":794.4,"totalQueries":0,"testResults":{"times":[735,746,988,779,724],"resultCounts":[10,10,10,10,10],"avgTime":794.4,"minTime":724,"maxTime":988}}
+{"timestamp":"2025-08-17T16:08:44.446Z","searchMethod":"javascript","avgQueryTime":758.6,"totalQueries":0,"testResults":{"times":[747,774,810,686,776],"resultCounts":[10,10,10,10,10],"avgTime":758.6,"minTime":686,"maxTime":810}}

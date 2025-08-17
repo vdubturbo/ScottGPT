@@ -5,6 +5,7 @@ import crypto from 'crypto';
 import dotenv from 'dotenv';
 import { CohereClient } from 'cohere-ai';
 import { db, supabase } from '../config/database.js';
+import { validateEmbedding } from '../utils/embedding-utils.js';
 
 // IMMEDIATE DEBUG - Show script startup
 console.log("🚀 INDEXER SCRIPT STARTING - File loaded");
@@ -372,13 +373,21 @@ async function processFile(filePath, sourceDir) {
         }
         
         // Generate embedding with retry logic
-        const embedding = await retryWithBackoff(async () => {
+        const rawEmbedding = await retryWithBackoff(async () => {
           return await embedText(chunk);
         }, 3, 2000);
         
+        // Validate embedding before storage
+        const validation = validateEmbedding(rawEmbedding);
+        if (!validation.isValid) {
+          console.error(`❌ Invalid embedding generated for chunk ${i + 1}:`, validation.errors.join(', '));
+          progressStats.errors++;
+          continue; // Skip this chunk
+        }
+        
         const tokenCount = estimateTokens(chunk);
         
-        // Insert chunk
+        // Insert chunk (database.js will handle consistent storage formatting)
         await db.insertChunk({
           source_id: sourceId,
           title: `${data.title} - Part ${i + 1}`,
@@ -389,7 +398,7 @@ async function processFile(filePath, sourceDir) {
           date_start: data.date_start,
           date_end: data.date_end,
           token_count: tokenCount,
-          embedding: embedding,
+          embedding: rawEmbedding, // Pass raw array - db.insertChunk will handle formatting
           file_hash: fileHash
         });
         

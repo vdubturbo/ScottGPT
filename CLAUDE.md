@@ -31,7 +31,11 @@ npm test
 npm run lint
 
 # Process new documents
-node scripts/indexer.js   # Note: Has 2-minute debug timeout
+node scripts/indexer.js   # Optimized with dynamic timeouts
+
+# Database performance optimization
+node migrate-to-pgvector.js    # Enable pgvector for 10-100x faster queries
+node monitor-db-performance.js # Check current performance and optimization status
 ```
 
 ## Architecture Overview
@@ -55,6 +59,8 @@ node scripts/indexer.js   # Note: Has 2-minute debug timeout
 │   ├── retrieval.js      # Consolidated retrieval service (semantic + text fallback)
 │   ├── embeddings.js     # Cohere integration (FIXED)
 │   └── simple-retrieval.js # Deprecated - consolidated into retrieval.js
+├── utils/                 # Shared utilities
+│   └── embedding-utils.js # Embedding validation, storage, and processing utilities
 ├── config/                # Configuration files
 │   └── database.js       # Supabase config (FIXED)
 ├── scripts/
@@ -73,16 +79,21 @@ node scripts/indexer.js   # Note: Has 2-minute debug timeout
 
 ## Recent Fixes (Aug 2025)
 
-1. **Consolidated Retrieval Services**: Merged dual retrieval systems into single robust service
+1. **Embedding Storage Consistency**: Standardized embedding storage and retrieval pipeline
+   - Implemented comprehensive embedding validation and utilities
+   - Eliminated redundant defensive parsing throughout codebase
+   - Added future-proofing for pgvector migration compatibility
+   - Performance optimizations for batch embedding operations
+2. **Consolidated Retrieval Services**: Merged dual retrieval systems into single robust service
    - Removed artificial similarity score manipulation
    - Semantic search prioritized over text search
    - Text search only as true fallback when semantic returns zero results
    - Enhanced reranking with multiple quality signals
-2. **Similarity-First Retrieval**: Now calculates similarity for 1000 chunks before filtering
-3. **Soft Filtering**: Filters are preferences with small boosts (0.02), not hard requirements
-4. **Text Search Fix**: Only triggers when NO semantic results, uses lower confidence (0.3)
-5. **Threshold Optimization**: Lowered from 0.35-0.45 to 0.25-0.35 for better recall
-6. **Indexer Timeout Fix**: Removed artificial 2-minute timeout, added dynamic timeouts
+3. **Similarity-First Retrieval**: Now calculates similarity for 1000 chunks before filtering
+4. **Soft Filtering**: Filters are preferences with small boosts (0.02), not hard requirements
+5. **Text Search Fix**: Only triggers when NO semantic results, uses lower confidence (0.3)
+6. **Threshold Optimization**: Lowered from 0.35-0.45 to 0.25-0.35 for better recall
+7. **Indexer Timeout Fix**: Removed artificial 2-minute timeout, added dynamic timeouts
 
 ## RAG Pipeline Flow
 
@@ -96,6 +107,10 @@ node scripts/indexer.js   # Note: Has 2-minute debug timeout
 
 ## Known Issues
 
+- **Database Performance**: Currently using 1000-record workaround due to missing pgvector optimization
+  - **Impact**: Similarity queries take 200-500ms instead of 5-10ms
+  - **Cause**: Embeddings stored as TEXT, not native vectors; no vector indexes
+  - **Solution**: Run `node migrate-to-pgvector.js` to enable pgvector optimization
 - **Text Search Syntax**: Some complex OR queries have syntax issues (non-critical)
 
 ## Testing Queries
