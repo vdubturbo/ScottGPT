@@ -465,3 +465,53 @@
 {"count":12,"level":"info","message":"Retrieved approved tags","service":"API","timestamp":"2025-08-17 15:29:02"}
 {"count":0,"level":"info","message":"Retrieved pending tags","service":"API","timestamp":"2025-08-17 15:29:02"}
 {"count":12,"level":"info","message":"Retrieved approved tags","service":"API","timestamp":"2025-08-17 15:29:02"}
+{"level":"info","message":"Environment validation handled by centralized configuration","timestamp":"2025-08-17 15:31:38"}
+{"level":"info","message":"ScottGPT server started successfully","port":3001,"timestamp":"2025-08-17 15:31:38"}
+{"level":"info","message":"Environment validation handled by centralized configuration","timestamp":"2025-08-17 15:32:56"}
+{"level":"info","message":"ScottGPT server started successfully","port":3001,"timestamp":"2025-08-17 15:32:56"}
+{"level":"info","message":"Environment validation handled by centralized configuration","timestamp":"2025-08-17 15:34:23"}
+{"level":"info","message":"ScottGPT server started successfully","port":3001,"timestamp":"2025-08-17 15:34:23"}
+{"level":"info","message":"Environment validation handled by centralized configuration","timestamp":"2025-08-17 15:35:24"}
+{"level":"info","message":"ScottGPT server started successfully","port":3001,"timestamp":"2025-08-17 15:35:24"}
+{"level":"info","message":"Environment validation handled by centralized configuration","timestamp":"2025-08-17 15:36:20"}
+{"level":"info","message":"ScottGPT server started successfully","port":3001,"timestamp":"2025-08-17 15:36:20"}
+{"level":"info","message":"Environment validation handled by centralized configuration","timestamp":"2025-08-17 15:37:35"}
+{"level":"info","message":"ScottGPT server started successfully","port":3001,"timestamp":"2025-08-17 15:37:36"}
+{"level":"info","message":"Environment validation handled by centralized configuration","timestamp":"2025-08-17 15:37:57"}
+{"level":"info","message":"ScottGPT server started successfully","port":3001,"timestamp":"2025-08-17 15:37:57"}
+{"level":"info","message":"Environment validation handled by centralized configuration","timestamp":"2025-08-17 15:45:53"}
+{"level":"info","message":"ScottGPT server started successfully","port":3001,"timestamp":"2025-08-17 15:45:53"}
+{"level":"info","message":"Environment validation handled by centralized configuration","timestamp":"2025-08-17 15:47:28"}
+{"level":"info","message":"ScottGPT server started successfully","port":3001,"timestamp":"2025-08-17 15:47:29"}
+{"level":"info","message":"Environment validation handled by centralized configuration","timestamp":"2025-08-17 15:49:31"}
+{"level":"info","message":"ScottGPT server started successfully","port":3001,"timestamp":"2025-08-17 15:49:31"}
+{"level":"info","message":"Environment validation handled by centralized configuration","timestamp":"2025-08-17 15:51:07"}
+{"level":"info","message":"ScottGPT server started successfully","port":3001,"timestamp":"2025-08-17 15:51:07"}
+{"level":"info","message":"Environment validation handled by centralized configuration","timestamp":"2025-08-17 15:52:11"}
+{"level":"info","message":"ScottGPT server started successfully","port":3001,"timestamp":"2025-08-17 15:52:11"}
+{"level":"info","message":"Environment validation handled by centralized configuration","timestamp":"2025-08-17 15:52:15"}
+{"level":"info","message":"ScottGPT server started successfully","port":3001,"timestamp":"2025-08-17 15:52:16"}
+{"level":"info","message":"Environment validation handled by centralized configuration","timestamp":"2025-08-17 15:52:20"}
+{"level":"info","message":"ScottGPT server started successfully","port":3001,"timestamp":"2025-08-17 15:52:20"}
+{"level":"info","message":"Environment validation handled by centralized configuration","timestamp":"2025-08-17 15:53:01"}
+{"level":"info","message":"ScottGPT server started successfully","port":3001,"timestamp":"2025-08-17 15:53:01"}
+{"level":"info","message":"Environment validation handled by centralized configuration","timestamp":"2025-08-17 15:53:34"}
+{"level":"info","message":"ScottGPT server started successfully","port":3001,"timestamp":"2025-08-17 15:53:34"}
+{"level":"info","message":"Environment validation handled by centralized configuration","timestamp":"2025-08-17 15:54:27"}
+{"level":"info","message":"ScottGPT server started successfully","port":3001,"timestamp":"2025-08-17 15:54:28"}
+{"level":"info","message":"Environment validation handled by centralized configuration","timestamp":"2025-08-17 16:19:02"}
+{"level":"info","message":"ScottGPT server started successfully","port":3001,"timestamp":"2025-08-17 16:19:03"}
+{"level":"info","message":"Environment validation handled by centralized configuration","timestamp":"2025-08-17 16:21:21"}
+{"level":"info","message":"ScottGPT server started successfully","port":3001,"timestamp":"2025-08-17 16:21:21"}
+{"level":"info","message":"Environment validation handled by centralized configuration","timestamp":"2025-08-17 16:22:52"}
+{"level":"info","message":"ScottGPT server started successfully","port":3001,"timestamp":"2025-08-17 16:22:53"}
+{"level":"info","message":"Environment validation handled by centralized configuration","timestamp":"2025-08-17 16:23:01"}
+{"level":"info","message":"Environment validation handled by centralized configuration","timestamp":"2025-08-17 16:23:12"}
+{"level":"info","message":"Environment validation handled by centralized configuration","timestamp":"2025-08-17 16:23:57"}
+{"level":"info","message":"ScottGPT server started successfully","port":3001,"timestamp":"2025-08-17 16:23:57"}
+{"level":"info","message":"Environment validation handled by centralized configuration","timestamp":"2025-08-17 16:25:04"}
+{"level":"info","message":"ScottGPT server started successfully","port":3001,"timestamp":"2025-08-17 16:25:04"}
+{"level":"info","message":"Environment validation handled by centralized configuration","timestamp":"2025-08-17 16:26:14"}
+{"level":"info","message":"ScottGPT server started successfully","port":3001,"timestamp":"2025-08-17 16:26:14"}
+{"level":"info","message":"Environment validation handled by centralized configuration","timestamp":"2025-08-17 16:27:26"}
+{"level":"info","message":"ScottGPT server started successfully","port":3001,"timestamp":"2025-08-17 16:27:26"}
