@@ -361,3 +361,5 @@
 {"level":"info","message":"ScottGPT server started successfully","port":"3001","timestamp":"2025-08-17 12:34:00"}
 {"level":"info","message":"Environment validation complete - all required variables configured","timestamp":"2025-08-17 12:34:08"}
 {"level":"info","message":"ScottGPT server started successfully","port":"3001","timestamp":"2025-08-17 12:34:09"}
+{"level":"info","message":"Environment validation complete - all required variables configured","timestamp":"2025-08-17 12:45:16"}
+{"level":"info","message":"ScottGPT server started successfully","port":"3001","timestamp":"2025-08-17 12:45:17"}

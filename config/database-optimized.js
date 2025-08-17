@@ -6,6 +6,11 @@ import {
   calculateCosineSimilarity,
   validateEmbedding 
 } from '../utils/embedding-utils.js';
+import { 
+  calculateSemanticScore, 
+  logScoringBreakdown,
+  DEFAULT_SCORING_CONFIG 
+} from './scoring-config.js';
 
 // Load environment variables
 dotenv.config();
@@ -164,21 +169,27 @@ class OptimizedDatabase {
 
       console.log(`⚡ pgvector search: ${queryTime}ms, ${data.length} results`);
       
-      // Convert to format expected by application
-      const results = data.map(chunk => ({
-        ...chunk,
-        // Add computed fields for compatibility
-        recency_score: chunk.date_end ? 
-          Math.max(0, 1.0 - (Date.now() - new Date(chunk.date_end).getTime()) / (365 * 24 * 60 * 60 * 1000 * 2)) : 0.5,
-        combined_score: chunk.similarity,
-        sources: {
-          id: chunk.source_id,
-          type: chunk.source_type,
-          title: chunk.source_title,
-          org: chunk.source_org,
-          location: chunk.source_location
-        }
-      }));
+      // Convert to format expected by application with proper scoring
+      const searchContext = { skills, tags };
+      const results = data.map(chunk => {
+        // Calculate proper semantic score using transparent algorithm
+        const scoring = calculateSemanticScore(chunk, searchContext);
+        
+        return {
+          ...chunk,
+          // Use calculated scores instead of artificial ones
+          recency_score: scoring.components.recency.raw,
+          combined_score: scoring.final_score,
+          scoring: scoring, // Include full scoring breakdown for debugging
+          sources: {
+            id: chunk.source_id,
+            type: chunk.source_type,
+            title: chunk.source_title,
+            org: chunk.source_org,
+            location: chunk.source_location
+          }
+        };
+      });
 
       return results.slice(0, limit);
 
@@ -228,7 +239,8 @@ class OptimizedDatabase {
       return [];
     }
 
-    // Calculate similarity for all chunks (JavaScript approach)
+    // Calculate similarity for all chunks (JavaScript approach) with proper scoring
+    const searchContext = { skills, tags };
     const resultsWithSimilarity = data
       .map(chunk => {
         let similarity = 0;
@@ -238,27 +250,19 @@ class OptimizedDatabase {
           similarity = calculateCosineSimilarity(queryEmbedding, chunk.embedding);
         }
         
-        const recencyScore = chunk.date_end ? 
-          Math.max(0, 1.0 - (Date.now() - new Date(chunk.date_end).getTime()) / (365 * 24 * 60 * 60 * 1000 * 2)) : 0.5;
+        // Create chunk with similarity for scoring calculation
+        const chunkWithSimilarity = { ...chunk, similarity };
         
-        let filterBoost = 0;
-        if (skills.length > 0 && chunk.skills) {
-          const matchingSkills = skills.filter(skill => chunk.skills.includes(skill)).length;
-          filterBoost += matchingSkills * 0.02;
-        }
-        if (tags.length > 0 && chunk.tags) {
-          const matchingTags = tags.filter(tag => chunk.tags.includes(tag)).length;
-          filterBoost += matchingTags * 0.02;
-        }
-        
-        const combinedScore = (similarity * 0.8) + (recencyScore * 0.1) + (filterBoost * 0.1);
+        // Calculate proper semantic score using transparent algorithm
+        const scoring = calculateSemanticScore(chunkWithSimilarity, searchContext);
         
         return {
           ...chunk,
           similarity,
-          recency_score: recencyScore,
-          filter_boost: filterBoost,
-          combined_score: combinedScore
+          recency_score: scoring.components.recency.raw,
+          filter_boost: scoring.components.metadata.raw,
+          combined_score: scoring.final_score,
+          scoring: scoring // Include full scoring breakdown for debugging
         };
       });
 
@@ -296,6 +300,9 @@ class OptimizedDatabase {
     this.recordPerformanceMetric('javascript', queryTime);
 
     console.log(`🔄 JavaScript search: ${queryTime}ms, ${finalResults.length} results`);
+    
+    // Log scoring breakdown for debugging
+    logScoringBreakdown(finalResults);
 
     return finalResults;
   }

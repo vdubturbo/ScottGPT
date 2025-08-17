@@ -1,5 +1,10 @@
 import { db } from '../config/database.js';
 import EmbeddingService from './embeddings.js';
+import { 
+  calculateTextScore, 
+  logScoringBreakdown,
+  DEFAULT_SCORING_CONFIG 
+} from '../config/scoring-config.js';
 
 class RetrievalService {
   constructor() {
@@ -123,55 +128,60 @@ class RetrievalService {
   }
 
   /**
-   * Rerank chunks using multiple signals
-   * @param {Array} chunks - Raw search results
+   * Rerank chunks using transparent scoring algorithm
+   * @param {Array} chunks - Raw search results  
    * @param {string} query - Original query
    * @param {Object} filters - Extracted filters
-   * @returns {Array} - Reranked chunks
+   * @returns {Array} - Reranked chunks with proper scoring
    */
   rerankChunks(chunks, query, filters) {
-    const queryWords = query.toLowerCase().split(/\s+/);
+    console.log('🔄 Reranking chunks with transparent scoring algorithm...');
     
-    return chunks
-      .map(chunk => {
-        let score = chunk.similarity;
-        
-        // Recency boost (already included in DB query, but we can enhance it)
-        score += chunk.recency_score * 0.1;
-        
-        // Exact keyword matches boost
-        const contentLower = chunk.content.toLowerCase();
-        const keywordMatches = queryWords.filter(word => 
-          word.length > 2 && contentLower.includes(word)
-        ).length;
-        score += (keywordMatches / queryWords.length) * 0.05;
-        
-        // Skills/tags alignment boost
-        const skillMatches = filters.skills.filter(skill => 
-          chunk.skills && chunk.skills.includes(skill)
-        ).length;
-        const tagMatches = filters.tags.filter(tag => 
-          chunk.tags && chunk.tags.includes(tag)
-        ).length;
-        score += (skillMatches + tagMatches) * 0.03;
-        
-        // Source type boost for certain queries
-        if (query.toLowerCase().includes('project') && chunk.source_type === 'project') {
-          score += 0.02;
-        } else if (query.toLowerCase().includes('job') && chunk.source_type === 'job') {
-          score += 0.02;
+    const searchContext = { 
+      query, 
+      skills: filters.skills || [], 
+      tags: filters.tags || [] 
+    };
+    
+    const rankedChunks = chunks.map(chunk => {
+      // Use proper scoring based on search method
+      let scoring;
+      
+      if (chunk.search_method === 'text') {
+        // For text search results, recalculate with query context
+        scoring = calculateTextScore(chunk, searchContext);
+      } else {
+        // For semantic search results, use existing scoring or recalculate if needed
+        if (chunk.scoring) {
+          scoring = chunk.scoring; // Use existing scoring from database query
+        } else {
+          // Fallback: create basic semantic scoring
+          scoring = {
+            final_score: chunk.similarity || chunk.combined_score || 0,
+            components: {
+              similarity: { raw: chunk.similarity || 0, weighted: chunk.similarity || 0, weight: 1.0 },
+              recency: { raw: chunk.recency_score || 0.5, weighted: 0, weight: 0 },
+              metadata: { raw: 0, weighted: 0, weight: 0 }
+            },
+            quality_band: { label: 'Legacy scoring' },
+            search_method: 'semantic',
+            meets_threshold: true
+          };
         }
-        
-        // Title relevance boost
-        if (chunk.source_title) {
-          const titleLower = chunk.source_title.toLowerCase();
-          const titleMatches = queryWords.filter(word => titleLower.includes(word)).length;
-          score += (titleMatches / queryWords.length) * 0.02;
-        }
-
-        return { ...chunk, rerank_score: score };
-      })
-      .sort((a, b) => b.rerank_score - a.rerank_score);
+      }
+      
+      return { 
+        ...chunk, 
+        rerank_score: scoring.final_score,
+        scoring: scoring // Ensure scoring is available for logging
+      };
+    })
+    .sort((a, b) => b.rerank_score - a.rerank_score);
+    
+    // Log scoring breakdown for top results
+    logScoringBreakdown(rankedChunks);
+    
+    return rankedChunks;
   }
 
   /**
@@ -468,15 +478,22 @@ class RetrievalService {
         return [];
       }
       
-      // Add lower similarity scores for text matches (they're less accurate than semantic)
-      return (data || []).map(chunk => ({
-        ...chunk,
-        similarity: 0.3, // Lower confidence for text matches
-        recency_score: chunk.date_end ? 
-          Math.max(0, 1.0 - (Date.now() - new Date(chunk.date_end).getTime()) / (365 * 24 * 60 * 60 * 1000 * 2)) : 0.5,
-        combined_score: 0.3,
-        search_method: 'text'
-      }));
+      // Calculate proper text search scores instead of artificial similarity
+      const searchContext = { query, skills: filters.skills || [], tags: filters.tags || [] };
+      
+      return (data || []).map(chunk => {
+        // Calculate transparent text relevance score
+        const scoring = calculateTextScore(chunk, searchContext);
+        
+        return {
+          ...chunk,
+          similarity: scoring.final_score, // Use calculated relevance, not artificial score
+          recency_score: scoring.components.recency.raw,
+          combined_score: scoring.final_score,
+          scoring: scoring, // Include full scoring breakdown for debugging
+          search_method: 'text'
+        };
+      });
       
     } catch (error) {
       console.error('Text search error:', error);

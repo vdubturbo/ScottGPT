@@ -114,11 +114,22 @@ class SimpleRetrievalService {
         return [];
       }
 
-      // Add artificial similarity scores
+      // DEPRECATED: This service uses artificial similarity scores
+      // Use RetrievalService instead for transparent scoring
+      console.warn('⚠️ SimpleRetrievalService uses deprecated artificial scoring');
+      console.warn('   Consider migrating to RetrievalService for transparent, configurable scoring');
+      
       return (data || []).map(chunk => ({
         ...chunk,
-        similarity: 0.8, // High score for text matches
-        search_method: 'text'
+        similarity: 0.8, // ARTIFICIAL: High score for text matches (deprecated)
+        search_method: 'text_deprecated',
+        scoring: {
+          final_score: 0.8,
+          components: { artificial: { raw: 0.8, weighted: 0.8, weight: 1.0 } },
+          quality_band: { label: 'Artificial scoring (deprecated)' },
+          search_method: 'text_deprecated',
+          meets_threshold: true
+        }
       }));
 
     } catch (error) {
