@@ -6,9 +6,11 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 An Interactive AI-powered resume that lets users ask questions about professional experience and get personalized responses using RAG (Retrieval-Augmented Generation).
 
-## Current Status (Aug 16, 2025)
+## Current Status (Aug 17, 2025)
 
 ✅ **System Operational** - All major RAG pipeline issues have been resolved. The system correctly retrieves and presents information without hallucination or time period mixing.
+
+✅ **Test Suite Complete** - Converted 19+ debug scripts to comprehensive test suite with unit, integration, performance, and end-to-end tests.
 
 ## Development Commands
 
@@ -24,11 +26,19 @@ cd client && npm start  # Frontend React app (port 3000)
 # Build for production
 npm run build
 
-# Run tests
-npm test
+# Testing
+npm test                 # Run all tests
+npm run test:unit        # Unit tests only (services isolation)
+npm run test:integration # Integration tests (RAG pipeline)
+npm run test:performance # Performance tests (database, API)
+npm run test:e2e         # End-to-end tests (chat API)
+npm run test:coverage    # Generate coverage report
+npm run test:watch       # Watch mode for development
+npm run test:ci          # CI-optimized run
 
 # Lint code
 npm run lint
+npm run lint:fix         # Auto-fix linting issues
 
 # Process new documents
 node scripts/indexer.js   # Optimized with dynamic timeouts
@@ -64,12 +74,21 @@ node monitor-db-performance.js # Check current performance and optimization stat
 ├── config/                # Configuration files
 │   └── database.js       # Supabase config (FIXED)
 ├── scripts/
-│   └── indexer.js        # Document processing pipeline
-├── archives/             # Source content (gitignored)
-│   ├── jobs/            # 70+ job entries
-│   ├── projects/        # Project descriptions
-│   └── bio/             # Professional summary
-├── sources/              # Empty (content in archives)
+│   ├── indexer.js              # Document processing pipeline
+│   └── cleanup-debug-scripts.js # Debug script management utility
+├── tests/                      # Comprehensive test suite
+│   ├── unit/                  # Unit tests (embeddings, retrieval, database)
+│   ├── integration/           # Integration tests (RAG pipeline)
+│   ├── performance/           # Performance tests (database, API)
+│   ├── e2e/                   # End-to-end tests (chat API)
+│   ├── utilities/             # Test utilities and mocking
+│   └── fixtures/              # Test data and mock responses
+├── archive-debug-scripts/      # Archived debug scripts (19 files)
+├── archives/                   # Source content (gitignored)
+│   ├── jobs/                  # 70+ job entries
+│   ├── projects/              # Project descriptions
+│   └── bio/                   # Professional summary
+├── sources/                    # Empty (content in archives)
 └── client/               # React frontend
     ├── src/
     │   ├── App.js        # Main test interface
@@ -79,6 +98,7 @@ node monitor-db-performance.js # Check current performance and optimization stat
 
 ## Recent Fixes (Aug 2025)
 
+### Core System Improvements
 1. **Embedding Storage Consistency**: Standardized embedding storage and retrieval pipeline
    - Implemented comprehensive embedding validation and utilities
    - Eliminated redundant defensive parsing throughout codebase
@@ -94,6 +114,16 @@ node monitor-db-performance.js # Check current performance and optimization stat
 5. **Text Search Fix**: Only triggers when NO semantic results, uses lower confidence (0.3)
 6. **Threshold Optimization**: Lowered from 0.35-0.45 to 0.25-0.35 for better recall
 7. **Indexer Timeout Fix**: Removed artificial 2-minute timeout, added dynamic timeouts
+
+### Test Suite Implementation (Aug 17, 2025)
+8. **Converted Debug Scripts to Test Suite**: Replaced 19+ ad-hoc debug scripts with maintainable tests
+   - **Unit Tests**: Individual service testing (embeddings, retrieval, database)
+   - **Integration Tests**: Complete RAG pipeline workflows
+   - **Performance Tests**: Database and API performance monitoring
+   - **End-to-End Tests**: Chat API functionality testing
+   - **Coverage Requirements**: 70% branches, 80% functions/lines/statements
+   - **CI/CD Integration**: Automated testing with GitHub Actions
+   - **Performance Baselines**: Monitoring for optimization opportunities
 
 ## RAG Pipeline Flow
 
@@ -113,7 +143,27 @@ node monitor-db-performance.js # Check current performance and optimization stat
   - **Solution**: Run `node migrate-to-pgvector.js` to enable pgvector optimization
 - **Text Search Syntax**: Some complex OR queries have syntax issues (non-critical)
 
-## Testing Queries
+## Testing
+
+### Automated Test Suite
+
+```bash
+# Run all tests
+npm test
+
+# Run specific test categories
+npm run test:unit        # Service-level testing
+npm run test:integration # RAG pipeline testing
+npm run test:performance # Performance monitoring
+npm run test:e2e         # Complete API testing
+
+# Development workflows
+npm run test:watch       # Watch mode for development
+npm run test:coverage    # Generate coverage report
+npm run test:debug       # Debug specific tests
+```
+
+### Manual Testing Queries
 
 ```bash
 # OLDP Experience (should return Lockheed Martin 2001-2005)
@@ -125,7 +175,19 @@ curl -X POST http://localhost:3001/api/chat \
 curl -X POST http://localhost:3001/api/chat \
   -H "Content-Type: application/json" \
   -d '{"message": "What IoT work did Scott do?"}'
+
+# AI/ML Experience (should return machine learning projects)
+curl -X POST http://localhost:3001/api/chat \
+  -H "Content-Type: application/json" \
+  -d '{"message": "What AI/ML experience does Scott have?"}'
 ```
+
+### Test Coverage & Performance
+
+- **Coverage Thresholds**: 70% branches, 80% functions/lines/statements
+- **Performance Baselines**: Database < 1s, API < 5s, Embeddings < 2s
+- **Test Documentation**: See `tests/README.md` for detailed usage
+- **Archived Debug Scripts**: 19 scripts archived in `archive-debug-scripts/`
 
 ## Environment Variables
 
