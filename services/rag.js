@@ -1,17 +1,16 @@
 import RetrievalService from './retrieval.js';
 import QueryProcessor from './query-processor.js';
 import OpenAI from 'openai';
+import CONFIG from '../config/app-config.js';
 
 class RAGService {
   constructor() {
-    if (!process.env.OPENAI_API_KEY) {
-      throw new Error('OPENAI_API_KEY not found in environment variables');
-    }
-    
+    // Configuration validation handled by centralized config
     this.retrieval = new RetrievalService();
     this.queryProcessor = new QueryProcessor();
-    this.openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
-    this.model = 'gpt-4o-mini'; // Cost-effective model for production
+    this.openai = new OpenAI({ apiKey: CONFIG.ai.openai.apiKey });
+    this.model = CONFIG.ai.openai.model;
+    this.config = CONFIG.ai.openai;
   }
 
   /**

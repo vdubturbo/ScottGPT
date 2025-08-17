@@ -2,10 +2,10 @@ import fs from 'fs/promises';
 import path from 'path';
 import matter from 'gray-matter';
 import crypto from 'crypto';
-import dotenv from 'dotenv';
 import { CohereClient } from 'cohere-ai';
 import { db, supabase } from '../config/database.js';
 import { validateEmbedding } from '../utils/embedding-utils.js';
+import CONFIG from '../config/app-config.js';
 
 // IMMEDIATE DEBUG - Show script startup
 console.log("🚀 INDEXER SCRIPT STARTING - File loaded");
@@ -13,14 +13,13 @@ console.log("📍 Script location:", import.meta.url);
 console.log("📍 Working directory:", process.cwd());
 console.log("📍 Node version:", process.version);
 
-// Load environment variables
-dotenv.config();
-console.log("📋 Environment variables loaded");
+// Use centralized configuration instead of environment loading
+console.log("📋 Using centralized configuration");
 
-// Dynamic timeout configuration
-const BASE_TIMEOUT = 30 * 1000; // 30 seconds base
-const TIMEOUT_PER_FILE = 10 * 1000; // 10 seconds per file
-const TIMEOUT_PER_CHUNK = 5 * 1000; // 5 seconds per chunk for embedding
+// Dynamic timeout configuration from centralized config
+const BASE_TIMEOUT = CONFIG.content.fileProcessing.timeout.base;
+const TIMEOUT_PER_FILE = CONFIG.content.fileProcessing.timeout.perFile;
+const TIMEOUT_PER_CHUNK = CONFIG.content.fileProcessing.timeout.perChunk;
 let processStartTime = Date.now();
 let totalFilesCount = 0;
 let totalChunksCount = 0;
@@ -89,27 +88,21 @@ function clearProcessTimeout() {
   }
 }
 
-console.log('🔄 About to check environment variables...');
+console.log('🔄 Checking centralized configuration...');
 
-// Debug environment variables
-console.log('🔍 Environment check in indexer:');
-console.log('- COHERE_API_KEY exists:', !!process.env.COHERE_API_KEY);
-console.log('- COHERE_API_KEY length:', process.env.COHERE_API_KEY?.length || 0);
+// Debug configuration instead of raw environment variables
+console.log('🔍 Configuration check in indexer:');
+console.log('- Cohere API configured:', !!CONFIG.ai.cohere.apiKey);
+console.log('- Cohere model:', CONFIG.ai.cohere.model);
 console.log('- Working directory:', process.cwd());
-
-if (!process.env.COHERE_API_KEY) {
-  console.error('❌ COHERE_API_KEY not found in indexer environment');
-  console.error('Available env vars:', Object.keys(process.env).filter(k => k.includes('API')));
-  process.exit(1);
-}
 
 console.log('🔄 About to initialize Cohere client...');
 
-// Initialize Cohere client with error handling
+// Initialize Cohere client with centralized configuration
 let cohere;
 try {
   console.log('🔄 Creating new CohereClient instance...');
-  cohere = new CohereClient({ token: process.env.COHERE_API_KEY });
+  cohere = new CohereClient({ token: CONFIG.ai.cohere.apiKey });
   console.log('✅ Cohere client initialized successfully');
 } catch (error) {
   console.error('❌ Failed to initialize Cohere client:', error.message);
@@ -120,15 +113,15 @@ try {
 console.log('🔄 Cohere client ready, proceeding to function definitions...');
 console.log('🔄 Script fully loaded, ready to execute indexer() if called directly...');
 
-// Chunking configuration - optimized for fewer, better chunks
-const CHUNK_TOKENS = 400;  // Larger chunks (Cohere handles up to 512 tokens well)
-const OVERLAP_TOKENS = 100; // Overlap between chunks
-const MIN_CHUNK_LENGTH = 100; // Minimum characters for a valid chunk
+// Chunking configuration from centralized config
+const CHUNK_TOKENS = CONFIG.content.chunking.chunkTokens;
+const OVERLAP_TOKENS = CONFIG.content.chunking.overlapTokens;
+const MIN_CHUNK_LENGTH = CONFIG.content.chunking.minChunkLength;
 
-// Simple word-based tokenization (rough approximation)
+// Simple word-based tokenization using centralized config
 function estimateTokens(text) {
-  // Rough estimate: 1 token ≈ 0.75 words for English text
-  return Math.ceil(text.split(/\s+/).length / 0.75);
+  // Use centralized tokenization configuration
+  return Math.ceil(text.split(/\s+/).length / CONFIG.content.chunking.tokenization.wordsPerToken);
 }
 
 // Rate limiting helper with exponential backoff
@@ -143,8 +136,8 @@ async function testCohereConnection() {
     const startTime = Date.now();
     const testResponse = await cohere.embed({
       texts: ["connection test"],
-      model: "embed-english-v3.0",
-      inputType: "search_document"
+      model: CONFIG.ai.cohere.model,
+      inputType: CONFIG.ai.cohere.inputType.document
     });
     const duration = Date.now() - startTime;
     
@@ -226,8 +219,8 @@ async function embedText(text) {
   try {
     const response = await cohere.embed({
       texts: [text],
-      model: "embed-english-v3.0",
-      inputType: "search_document"
+      model: CONFIG.ai.cohere.model,
+      inputType: CONFIG.ai.cohere.inputType.document
     });
     
     const duration = Date.now() - startTime;
@@ -237,8 +230,8 @@ async function embedText(text) {
       console.log(`⚠️  Slow embedding: ${duration}ms for ${text.length} chars`);
     }
     
-    // Add a small delay to respect rate limits
-    await sleep(1000); // 1 second between calls
+    // Add a small delay to respect rate limits from config
+    await sleep(CONFIG.ai.cohere.rateLimiting.delayBetweenRequests);
     
     return response.embeddings[0];
   } catch (error) {
@@ -510,10 +503,8 @@ async function indexer() {
     throw new Error(`Directory creation failed: ${error.message}`);
   }
   
-  // Check if Cohere API key is available
-  if (!process.env.COHERE_API_KEY) {
-    throw new Error("COHERE_API_KEY not found in environment variables");
-  }
+  // API key validation is handled by centralized config
+  console.log('✅ Cohere API key validated by centralized configuration');
   
   // Validate database connection
   try {

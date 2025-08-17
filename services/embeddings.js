@@ -1,13 +1,12 @@
 import { CohereClient } from 'cohere-ai';
+import CONFIG from '../config/app-config.js';
 
 class EmbeddingService {
   constructor() {
-    if (!process.env.COHERE_API_KEY) {
-      throw new Error('COHERE_API_KEY not found in environment variables');
-    }
-    
-    this.cohere = new CohereClient({ token: process.env.COHERE_API_KEY });
-    this.model = 'embed-english-v3.0';
+    // Configuration validation handled by centralized config
+    this.cohere = new CohereClient({ token: CONFIG.ai.cohere.apiKey });
+    this.model = CONFIG.ai.cohere.model;
+    this.config = CONFIG.ai.cohere;
   }
 
   /**
@@ -16,7 +15,7 @@ class EmbeddingService {
    * @param {string} inputType - 'search_query' or 'search_document'
    * @returns {Promise<number[]>} - Embedding vector
    */
-  async embedText(text, inputType = 'search_query') {
+  async embedText(text, inputType = null) {
     try {
       if (!text || typeof text !== 'string' || text.trim().length === 0) {
         throw new Error('Text input is required and must be a non-empty string');
@@ -25,7 +24,7 @@ class EmbeddingService {
       const response = await this.cohere.embed({
         texts: [text.trim()],
         model: this.model,
-        inputType: inputType
+        inputType: inputType || this.config.inputType.query
       });
 
       if (!response.embeddings || response.embeddings.length === 0) {
@@ -55,7 +54,7 @@ class EmbeddingService {
    * @param {string} inputType - 'search_query' or 'search_document'
    * @returns {Promise<number[][]>} - Array of embedding vectors
    */
-  async embedTexts(texts, inputType = 'search_document') {
+  async embedTexts(texts, inputType = null) {
     try {
       if (!Array.isArray(texts) || texts.length === 0) {
         throw new Error('Texts input must be a non-empty array');
@@ -71,7 +70,7 @@ class EmbeddingService {
       }
 
       // Cohere API has limits on batch size, so we'll process in chunks if needed
-      const batchSize = 96; // Cohere's typical batch limit
+      const batchSize = this.config.batchSize;
       const allEmbeddings = [];
 
       for (let i = 0; i < validTexts.length; i += batchSize) {
@@ -80,7 +79,7 @@ class EmbeddingService {
         const response = await this.cohere.embed({
           texts: batch,
           model: this.model,
-          inputType: inputType
+          inputType: inputType || this.config.inputType.document
         });
 
         if (!response.embeddings) {

@@ -1,5 +1,6 @@
 import express from 'express';
 import RAGService from '../services/rag.js';
+import CONFIG from '../config/app-config.js';
 
 const router = express.Router();
 
@@ -20,12 +21,14 @@ router.post('/', async (req, res) => {
       return res.status(400).json({ error: 'Message cannot be empty' });
     }
 
-    if (query.length > 1000) {
-      return res.status(400).json({ error: 'Message is too long. Please keep it under 1000 characters.' });
+    if (query.length > CONFIG.server.requestLimits.messageMaxLength) {
+      return res.status(400).json({ 
+        error: `Message is too long. Please keep it under ${CONFIG.server.requestLimits.messageMaxLength} characters.` 
+      });
     }
 
     console.log(`💬 Chat request: "${query}"`);
-    console.log(`🔧 Environment check - COHERE_API_KEY: ${process.env.COHERE_API_KEY ? 'Set' : 'Missing'}`);
+    console.log(`🔧 Configuration: Cohere API configured: ${!!CONFIG.ai.cohere.apiKey}`);
     const startTime = Date.now();
 
     // Generate answer using RAG pipeline
@@ -33,8 +36,8 @@ router.post('/', async (req, res) => {
       maxContextChunks: options?.maxContext || 12,
       includeContext: options?.includeContext || false,
       conversationHistory: conversationHistory || [],
-      temperature: options?.temperature || 0.4,
-      maxTokens: options?.maxTokens || 1200
+      temperature: options?.temperature || CONFIG.ai.openai.temperature.default,
+      maxTokens: options?.maxTokens || CONFIG.ai.openai.maxTokens.default
     });
     
     console.log(`📊 RAG result summary:`, { 
@@ -137,7 +140,7 @@ router.post('/test', async (req, res) => {
     const result = await rag.answerQuestion(testQuery, {
       maxContextChunks: 5,
       includeContext: true,
-      temperature: 0.2
+      temperature: CONFIG.ai.openai.temperature.precise
     });
 
     res.json({

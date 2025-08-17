@@ -5,52 +5,19 @@ import rateLimit from 'express-rate-limit';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import { logger } from './utils/logger.js';
-import dotenv from 'dotenv';
-
-dotenv.config();
+import CONFIG from './config/app-config.js';
 
 // ES module __dirname equivalent
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-// Validate required environment variables
-const requiredEnvVars = [
-  'OPENAI_API_KEY',
-  'SUPABASE_URL',
-  'SUPABASE_SERVICE_ROLE_KEY',
-  'COHERE_API_KEY'
-];
-
-const missingEnvVars = requiredEnvVars.filter(varName => !process.env[varName]);
-
-if (missingEnvVars.length > 0) {
-  logger.error('Missing required environment variables', { missingVars: missingEnvVars });
-  console.error('❌ Missing required environment variables:');
-  missingEnvVars.forEach(varName => {
-    console.error(`   - ${varName}`);
-  });
-  console.error('\n📝 Please create a .env file with all required variables.');
-  console.error('   You can copy .env.example to .env and fill in the values.\n');
-  process.exit(1);
-}
-
-// Validate environment variable formats
-if (process.env.SUPABASE_URL && !process.env.SUPABASE_URL.startsWith('https://')) {
-  logger.error('Invalid SUPABASE_URL format', { url: process.env.SUPABASE_URL });
-  console.error('❌ SUPABASE_URL must start with https://');
-  process.exit(1);
-}
-
-if (process.env.OPENAI_API_KEY && !process.env.OPENAI_API_KEY.startsWith('sk-')) {
-  logger.warn('OPENAI_API_KEY format warning', { keyPrefix: process.env.OPENAI_API_KEY.substring(0, 3) });
-  console.warn('⚠️  Warning: OPENAI_API_KEY should typically start with "sk-"');
-}
-
-logger.info('Environment validation complete - all required variables configured');
-console.log('✅ All required environment variables are configured');
+// Environment validation is handled by centralized configuration
+logger.info('Environment validation handled by centralized configuration');
+console.log('✅ Environment validation handled by centralized configuration');
+console.log(`🚀 Starting ScottGPT server in ${CONFIG.environment.NODE_ENV} mode`);
 
 const app = express();
-const PORT = process.env.PORT || 3001;
+const PORT = CONFIG.server.port;
 
 // Enable trust proxy for rate limiting with proxy
 app.set('trust proxy', 1);
@@ -64,15 +31,30 @@ const createRateLimit = (windowMs, max, message) => rateLimit({
   legacyHeaders: false
 });
 
-// Different rate limits for different endpoint types
-const generalLimit = createRateLimit(15 * 60 * 1000, 100, 'Too many requests, please try again later'); // 100 requests per 15 minutes
-const chatLimit = createRateLimit(1 * 60 * 1000, 30, 'Too many chat requests, please try again in a minute'); // 30 requests per minute
-const uploadLimit = createRateLimit(1 * 60 * 1000, 10, 'Too many upload requests, please try again later'); // 10 requests per minute
-const dataLimit = createRateLimit(1 * 60 * 1000, 20, 'Too many data requests, please try again later'); // 20 requests per minute
+// Rate limits from centralized configuration
+const generalLimit = createRateLimit(
+  CONFIG.rateLimiting.general.windowMs, 
+  CONFIG.rateLimiting.general.maxRequests, 
+  CONFIG.rateLimiting.general.message
+);
+const chatLimit = createRateLimit(
+  CONFIG.rateLimiting.chat.windowMs, 
+  CONFIG.rateLimiting.chat.maxRequests, 
+  CONFIG.rateLimiting.chat.message
+);
+const uploadLimit = createRateLimit(
+  CONFIG.rateLimiting.upload.windowMs, 
+  CONFIG.rateLimiting.upload.maxRequests, 
+  CONFIG.rateLimiting.upload.message
+);
+const dataLimit = createRateLimit(1 * 60 * 1000, 20, 'Too many data requests, please try again later'); // TODO: Move to config
 
 // Middleware
 app.use(helmet());
-app.use(cors());
+app.use(cors({
+  origin: CONFIG.server.cors.origin,
+  credentials: CONFIG.server.cors.credentials
+}));
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true }));
 
