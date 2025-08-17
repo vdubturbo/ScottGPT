@@ -45,30 +45,34 @@ class RetrievalService {
       const similarityThreshold = minSimilarity || this.embeddings.calculateSimilarityThreshold(query);
       console.log(`📊 Similarity threshold: ${similarityThreshold}`);
 
-      // Step 5: Search database
-      const searchResults = await db.searchChunks(queryEmbedding, {
+      // Step 5: Search database using semantic search (primary method)
+      let searchResults = await db.searchChunks(queryEmbedding, {
         skills: filters.skills,
         tags: filters.tags,
         threshold: similarityThreshold,
         limit: Math.max(maxResults * 2, 20) // Get more results for reranking
       });
 
-      console.log(`💾 Database returned ${searchResults.length} chunks`);
+      console.log(`💾 Semantic search returned ${searchResults.length} chunks`);
 
-      // FIXED: Only use text search as a last resort when we have NO semantic results
-      // Text search should NOT override good semantic matches
+      // Step 5b: Only use text search as a true fallback when semantic search returns NO results
+      // This ensures we always prioritize semantic understanding over keyword matching
       if (searchResults.length === 0) {
         console.log('🔄 No semantic results found, trying text search as fallback...');
         const textSearchResults = await this.performTextSearch(query, filters, maxResults);
         if (textSearchResults.length > 0) {
-          console.log(`📝 Text search found ${textSearchResults.length} results as backup`);
-          // Use text results but with lower confidence scores
-          searchResults = textSearchResults.map(result => ({
-            ...result,
-            similarity: result.similarity * 0.7, // Reduce confidence in text matches
-            search_method: 'text_fallback'
-          }));
+          console.log(`📝 Text search found ${textSearchResults.length} results as fallback`);
+          searchResults = textSearchResults; // Replace empty semantic results with text results
         }
+      }
+      
+      // Step 5c: Validate and clean all results
+      searchResults = this.validateSearchResults(searchResults);
+      
+      if (searchResults.length > 0) {
+        const avgSimilarity = searchResults.reduce((sum, r) => sum + r.similarity, 0) / searchResults.length;
+        const searchMethod = searchResults[0].search_method || 'semantic';
+        console.log(`📊 Using ${searchMethod} search: ${searchResults.length} results, avg similarity: ${avgSimilarity.toFixed(3)}`);
       }
 
       if (searchResults.length === 0) {
@@ -79,7 +83,7 @@ class RetrievalService {
           expandedQuery: expandedQuery,
           filters: filters,
           similarityThreshold,
-          message: 'No relevant information found. Try a more general query or check if data has been uploaded.'
+          message: 'No relevant information found. This could mean:\\n\\n• The information hasn\'t been indexed yet\\n• Try rephrasing your question or using different keywords\\n• The topic might be outside of Scott\'s documented experience\\n\\nSuggestions:\\n• Ask about specific companies (e.g., \"Coca-Cola\", \"Lockheed Martin\")\\n• Try broader terms (e.g., \"leadership\" instead of \"team management\")\\n• Ask about general topics (e.g., \"cybersecurity\", \"AI projects\")'
         };
       }
 
@@ -490,11 +494,42 @@ class RetrievalService {
     const seenIds = new Set(semanticResults.map(r => r.id));
     const uniqueTextResults = textResults.filter(r => !seenIds.has(r.id));
     
+    console.log(`🔗 Merging ${semanticResults.length} semantic + ${uniqueTextResults.length} unique text results`);
+    
     // Combine and sort by score
     const combined = [...semanticResults, ...uniqueTextResults]
       .sort((a, b) => (b.similarity || 0) - (a.similarity || 0));
       
     return combined;
+  }
+  
+  /**
+   * Validate and clean search results
+   * @param {Array} results - Raw search results
+   * @returns {Array} - Cleaned results
+   */
+  validateSearchResults(results) {
+    return results.filter(result => {
+      // Basic validation
+      if (!result.id || !result.content) {
+        console.warn('⚠️ Filtered out invalid result:', result.id);
+        return false;
+      }
+      
+      // Content quality check
+      if (result.content.length < 50) {
+        console.warn('⚠️ Filtered out short content:', result.id);
+        return false;
+      }
+      
+      // Similarity score validation
+      if (typeof result.similarity !== 'number' || result.similarity < 0 || result.similarity > 1) {
+        console.warn('⚠️ Invalid similarity score for:', result.id, result.similarity);
+        result.similarity = Math.max(0, Math.min(1, result.similarity || 0));
+      }
+      
+      return true;
+    });
   }
 }
 

@@ -1,9 +1,20 @@
 import { db } from '../config/database.js';
 import EmbeddingService from './embeddings.js';
 
+/**
+ * @deprecated This service has been deprecated in favor of the consolidated RetrievalService.
+ * The main RetrievalService now includes all the functionality from SimpleRetrievalService
+ * with improved semantic search, better fallback logic, and no artificial similarity scores.
+ * 
+ * Use RetrievalService from './retrieval.js' instead.
+ * 
+ * This file will be removed in a future version.
+ */
 class SimpleRetrievalService {
   constructor() {
     this.embeddings = new EmbeddingService();
+    
+    console.warn('⚠️ SimpleRetrievalService is deprecated. Use RetrievalService from ./retrieval.js instead.');
   }
 
   /**

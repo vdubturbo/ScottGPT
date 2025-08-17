@@ -52,9 +52,9 @@ node scripts/indexer.js   # Note: Has 2-minute debug timeout
 │   └── data.js            # Data ingestion endpoint
 ├── services/              # Business logic (RAG pipeline)
 │   ├── rag.js            # Main RAG orchestrator
-│   ├── retrieval.js      # Semantic search (FIXED)
+│   ├── retrieval.js      # Consolidated retrieval service (semantic + text fallback)
 │   ├── embeddings.js     # Cohere integration (FIXED)
-│   └── simple-retrieval.js # Backup retrieval (deprecated)
+│   └── simple-retrieval.js # Deprecated - consolidated into retrieval.js
 ├── config/                # Configuration files
 │   └── database.js       # Supabase config (FIXED)
 ├── scripts/
@@ -73,10 +73,16 @@ node scripts/indexer.js   # Note: Has 2-minute debug timeout
 
 ## Recent Fixes (Aug 2025)
 
-1. **Similarity-First Retrieval**: Now calculates similarity for 1000 chunks before filtering
-2. **Soft Filtering**: Filters are preferences with small boosts (0.02), not hard requirements
-3. **Text Search Fix**: Only triggers when NO semantic results, uses lower confidence (0.3)
-4. **Threshold Optimization**: Lowered from 0.35-0.45 to 0.25-0.35 for better recall
+1. **Consolidated Retrieval Services**: Merged dual retrieval systems into single robust service
+   - Removed artificial similarity score manipulation
+   - Semantic search prioritized over text search
+   - Text search only as true fallback when semantic returns zero results
+   - Enhanced reranking with multiple quality signals
+2. **Similarity-First Retrieval**: Now calculates similarity for 1000 chunks before filtering
+3. **Soft Filtering**: Filters are preferences with small boosts (0.02), not hard requirements
+4. **Text Search Fix**: Only triggers when NO semantic results, uses lower confidence (0.3)
+5. **Threshold Optimization**: Lowered from 0.35-0.45 to 0.25-0.35 for better recall
+6. **Indexer Timeout Fix**: Removed artificial 2-minute timeout, added dynamic timeouts
 
 ## RAG Pipeline Flow
 
