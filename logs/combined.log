@@ -311,3 +311,13 @@
 {"count":12,"level":"info","message":"Retrieved approved tags","service":"API","timestamp":"2025-08-17 10:28:11"}
 {"fileCount":1,"files":[{"name":"Lovett Resume-June2021.docx","size":55206}],"ip":"127.0.0.1","level":"info","message":"Files uploaded successfully","service":"API","timestamp":"2025-08-17 10:30:22"}
 {"fileCount":1,"files":[{"name":"Scott Lovett Resume  8-17.docx","size":39282}],"ip":"127.0.0.1","level":"info","message":"Files uploaded successfully","service":"API","timestamp":"2025-08-17 10:46:17"}
+{"level":"info","message":"Environment validation complete - all required variables configured","timestamp":"2025-08-17 11:19:35"}
+{"level":"info","message":"ScottGPT server started successfully","port":"3001","timestamp":"2025-08-17 11:19:35"}
+{"level":"info","message":"Environment validation complete - all required variables configured","timestamp":"2025-08-17 11:27:19"}
+{"level":"info","message":"ScottGPT server started successfully","port":"3001","timestamp":"2025-08-17 11:27:20"}
+{"level":"info","message":"Environment validation complete - all required variables configured","timestamp":"2025-08-17 11:27:23"}
+{"level":"info","message":"ScottGPT server started successfully","port":"3001","timestamp":"2025-08-17 11:27:23"}
+{"level":"info","message":"Environment validation complete - all required variables configured","timestamp":"2025-08-17 11:27:34"}
+{"level":"info","message":"ScottGPT server started successfully","port":"3001","timestamp":"2025-08-17 11:27:35"}
+{"level":"info","message":"Environment validation complete - all required variables configured","timestamp":"2025-08-17 11:27:38"}
+{"level":"info","message":"ScottGPT server started successfully","port":"3001","timestamp":"2025-08-17 11:27:39"}

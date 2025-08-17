@@ -90,7 +90,6 @@ node scripts/indexer.js   # Note: Has 2-minute debug timeout
 
 ## Known Issues
 
-- **Indexer Timeout**: Debug timeout at 2 minutes causes false failure message
 - **Text Search Syntax**: Some complex OR queries have syntax issues (non-critical)
 
 ## Testing Queries

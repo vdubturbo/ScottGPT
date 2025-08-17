@@ -16,15 +16,78 @@ console.log("📍 Node version:", process.version);
 dotenv.config();
 console.log("📋 Environment variables loaded");
 
-// REDUCED timeout for debugging - prevent infinite hanging
-const PROCESS_TIMEOUT = 2 * 60 * 1000; // 2 minutes for debugging
-setTimeout(() => {
-  console.error('❌ FORCED TIMEOUT - indexer taking too long (2+ minutes)');
-  console.error('   This was forced to prevent hanging during debugging');
-  console.error('   Check your network connection and API keys');
-  process.exit(1);
-}, PROCESS_TIMEOUT);
-console.log('⏰ DEBUG: Process timeout set to 2 minutes (reduced for debugging)');
+// Dynamic timeout configuration
+const BASE_TIMEOUT = 30 * 1000; // 30 seconds base
+const TIMEOUT_PER_FILE = 10 * 1000; // 10 seconds per file
+const TIMEOUT_PER_CHUNK = 5 * 1000; // 5 seconds per chunk for embedding
+let processStartTime = Date.now();
+let totalFilesCount = 0;
+let totalChunksCount = 0;
+let currentTimeoutMs = BASE_TIMEOUT;
+let timeoutHandle = null;
+
+// Progress tracking
+let progressStats = {
+  filesProcessed: 0,
+  filesSkipped: 0,
+  chunksProcessed: 0,
+  errors: 0,
+  startTime: Date.now(),
+  lastUpdate: Date.now()
+};
+
+// Function to update and extend timeout based on discovered content
+function updateDynamicTimeout(additionalFiles = 0, additionalChunks = 0) {
+  totalFilesCount += additionalFiles;
+  totalChunksCount += additionalChunks;
+  
+  // Calculate new timeout based on discovered content
+  const newTimeout = BASE_TIMEOUT + 
+    (totalFilesCount * TIMEOUT_PER_FILE) + 
+    (totalChunksCount * TIMEOUT_PER_CHUNK);
+  
+  // Clear existing timeout if present
+  if (timeoutHandle) {
+    clearTimeout(timeoutHandle);
+  }
+  
+  // Set new timeout with buffer
+  currentTimeoutMs = Math.max(newTimeout, currentTimeoutMs);
+  const remainingTime = currentTimeoutMs - (Date.now() - processStartTime);
+  
+  if (remainingTime > 0) {
+    timeoutHandle = setTimeout(() => {
+      console.error('\n❌ PROCESS TIMEOUT - Indexer exceeded maximum allowed time');
+      console.error(`   Allowed time: ${Math.round(currentTimeoutMs / 1000)}s`);
+      console.error(`   Progress: ${progressStats.filesProcessed} files, ${progressStats.chunksProcessed} chunks`);
+      console.error('   This may indicate a network issue or API problem');
+      console.error('   Try running again with fewer files or check your connection');
+      process.exit(1);
+    }, remainingTime);
+  }
+}
+
+// Function to report progress
+function reportProgress(event = null) {
+  const elapsed = Math.round((Date.now() - progressStats.startTime) / 1000);
+  const timeSinceLastUpdate = Date.now() - progressStats.lastUpdate;
+  
+  // Only report if significant time has passed or on specific events
+  if (event || timeSinceLastUpdate > 5000) {
+    console.log(`⏱️  Progress [${elapsed}s]: Files: ${progressStats.filesProcessed}/${totalFilesCount} | Chunks: ${progressStats.chunksProcessed}/${totalChunksCount} | Skipped: ${progressStats.filesSkipped}`);
+    progressStats.lastUpdate = Date.now();
+  }
+}
+
+// Clear timeout on successful completion
+function clearProcessTimeout() {
+  if (timeoutHandle) {
+    clearTimeout(timeoutHandle);
+    timeoutHandle = null;
+    console.log('✅ Process completed successfully within timeout');
+  }
+}
+
 console.log('🔄 About to check environment variables...');
 
 // Debug environment variables
@@ -157,7 +220,7 @@ function chunkText(text, header) {
 // Using 1 second delay to be conservative and avoid hitting limits
 
 async function embedText(text) {
-  console.log(`🔄 [DEBUG] Starting embedding for text (${text.length} chars)`);
+  const startTime = Date.now();
   
   try {
     const response = await cohere.embed({
@@ -166,14 +229,19 @@ async function embedText(text) {
       inputType: "search_document"
     });
     
-    console.log(`✅ [DEBUG] Embedding successful, dimension: ${response.embeddings[0].length}`);
+    const duration = Date.now() - startTime;
+    
+    // Only log if embedding took longer than expected
+    if (duration > 2000) {
+      console.log(`⚠️  Slow embedding: ${duration}ms for ${text.length} chars`);
+    }
     
     // Add a small delay to respect rate limits
     await sleep(1000); // 1 second between calls
     
     return response.embeddings[0];
   } catch (error) {
-    console.error(`❌ [DEBUG] Embedding failed:`, error.message);
+    console.error(`❌ Embedding failed after ${Date.now() - startTime}ms:`, error.message);
     throw error;
   }
 }
@@ -239,22 +307,14 @@ async function upsertSource(data) {
 
 async function processFile(filePath, sourceDir) {
   const fileName = path.basename(filePath);
-  console.log(`🔗 Processing: ${fileName}`);
-  
-  // Debug statement 1
-  console.log(`🔄 [DEBUG] Starting processFile for: ${fileName}`);
-  console.log(`🔄 [DEBUG] Current time: ${new Date().toISOString()}`);
+  const fileStartTime = Date.now();
+  console.log(`\n📄 Processing: ${fileName}`);
   
   try {
     const raw = await fs.readFile(filePath, "utf8");
     
-    // Debug statement 2
-    console.log(`🔄 [DEBUG] File read successfully, size: ${raw.length} characters`);
     const fileHash = crypto.createHash("sha1").update(raw).digest("hex");
     const { data, content } = matter(raw);
-    
-    // Debug statement 3
-    console.log(`🔄 [DEBUG] YAML parsed, data keys: ${Object.keys(data).join(', ')}`);
     
     // Check if we've already processed this exact content
     const existingChunks = await supabase
@@ -265,15 +325,13 @@ async function processFile(filePath, sourceDir) {
     
     if (existingChunks.data && existingChunks.data.length > 0) {
       console.log(`⏭️  Skipping ${fileName} - content unchanged (hash: ${fileHash.slice(0, 8)})`);
+      progressStats.filesSkipped++;
+      reportProgress();
       return { chunks: 0, skipped: true };
     }
     
     // Upsert source record
     const sourceId = await upsertSource(data);
-    console.log(`📋 Source ID: ${sourceId}`);
-    
-    // Debug statement 4
-    console.log(`🔄 [DEBUG] Source upserted with ID: ${sourceId}`);
     
     // Generate content summary
     const contentSummary = await generateSummary(content, data.title);
@@ -283,13 +341,15 @@ async function processFile(filePath, sourceDir) {
     
     // Chunk the content
     const chunks = chunkText(content, header);
-    console.log(`📦 Created ${chunks.length} chunks`);
+    console.log(`   📦 ${chunks.length} chunks to process`);
     
-    // Debug statement 5
-    console.log(`🔄 [DEBUG] Starting chunk processing, ${chunks.length} chunks to process`);
+    // Update timeout based on discovered chunks
+    updateDynamicTimeout(0, chunks.length);
     
     if (chunks.length === 0) {
-      console.log(`⚠️  No chunks created for ${fileName} - content too short`);
+      console.log(`   ⚠️  No chunks created - content too short`);
+      progressStats.filesProcessed++;
+      reportProgress();
       return { chunks: 0, skipped: false };
     }
     
@@ -305,18 +365,17 @@ async function processFile(filePath, sourceDir) {
     for (let i = 0; i < chunks.length; i++) {
       const chunk = chunks[i];
       
-      // Debug statement 6
-      console.log(`🔄 [DEBUG] Processing chunk ${i + 1}/${chunks.length} at ${new Date().toISOString()}`);
-      
       try {
-        // Debug statement 7
-        console.log(`🔄 [DEBUG] About to call embedText for chunk ${i + 1}`);
+        // Show progress every 5 chunks or on first/last
+        if (i === 0 || i === chunks.length - 1 || (i + 1) % 5 === 0) {
+          console.log(`   🔄 Processing chunk ${i + 1}/${chunks.length}...`);
+        }
         
-        // Generate embedding
-        const embedding = await embedText(chunk);
+        // Generate embedding with retry logic
+        const embedding = await retryWithBackoff(async () => {
+          return await embedText(chunk);
+        }, 3, 2000);
         
-        // Debug statement 8
-        console.log(`🔄 [DEBUG] embedText completed for chunk ${i + 1}, embedding length: ${embedding?.length}`);
         const tokenCount = estimateTokens(chunk);
         
         // Insert chunk
@@ -334,26 +393,39 @@ async function processFile(filePath, sourceDir) {
           file_hash: fileHash
         });
         
-        // Debug statement 9
-        console.log(`🔄 [DEBUG] Chunk ${i + 1} inserted to database successfully`);
-        
-        console.log(`✅ Chunk ${i + 1}/${chunks.length} - ${tokenCount} tokens`);
         processedChunks++;
+        progressStats.chunksProcessed++;
         
-        // No delay needed here - batching handles rate limiting
+        // Report progress periodically
+        if (processedChunks % 10 === 0) {
+          reportProgress();
+        }
         
       } catch (error) {
-        console.error(`❌ Error processing chunk ${i + 1} of ${fileName}:`);
-        console.error('   Message:', error.message);
-        if (error.code) console.error('   Code:', error.code);
-        // Log but continue - errors are handled by retryWithBackoff
+        console.error(`   ❌ Error on chunk ${i + 1}:`, error.message);
+        progressStats.errors++;
+        
+        // Decide whether to continue based on error type
+        if (error.status === 401 || error.message.includes('Invalid API')) {
+          throw error; // Critical error, stop processing
+        }
+        // Otherwise continue with next chunk
       }
     }
+    
+    const fileDuration = Math.round((Date.now() - fileStartTime) / 1000);
+    console.log(`   ✅ Completed: ${processedChunks} chunks in ${fileDuration}s`);
+    
+    progressStats.filesProcessed++;
+    reportProgress();
     
     return { chunks: processedChunks, skipped: false };
     
   } catch (error) {
     console.error(`❌ Error processing ${fileName}:`, error.message);
+    progressStats.errors++;
+    progressStats.filesProcessed++;
+    reportProgress();
     return { chunks: 0, skipped: false, error: error.message };
   }
 }
@@ -363,7 +435,10 @@ async function processDirectory(dirPath) {
     const files = await fs.readdir(dirPath);
     const mdFiles = files.filter(f => f.endsWith(".md"));
     
-    console.log(`📁 Processing directory: ${dirPath} (${mdFiles.length} files)`);
+    console.log(`\n📁 Processing directory: ${dirPath} (${mdFiles.length} files)`);
+    
+    // Update timeout based on discovered files
+    updateDynamicTimeout(mdFiles.length, 0);
     
     let totalChunks = 0;
     let processedFiles = 0;
@@ -395,9 +470,15 @@ async function processDirectory(dirPath) {
 }
 
 async function indexer() {
-  console.log("🔗 Starting indexing and embedding...");
-  console.log(`📊 Debug: Cohere API key length: ${process.env.COHERE_API_KEY?.length}`);
-  console.log(`📊 Debug: Database connection test...`);
+  console.log("\n🚀 Starting ScottGPT Indexer");
+  console.log("================================\n");
+  
+  // Initialize progress tracking
+  processStartTime = Date.now();
+  progressStats.startTime = processStartTime;
+  
+  // Set initial conservative timeout
+  updateDynamicTimeout(1, 0);
   
   // Test Cohere connection first - this is critical
   const cohereWorking = await testCohereConnection();
@@ -473,18 +554,25 @@ async function indexer() {
     grandTotalErrors += stats.errorCount;
   }
   
-  console.log('✅ [DEBUG] All chunks processed, indexing complete');
+  // Clear timeout on successful completion
+  clearProcessTimeout();
   
+  const totalDuration = Math.round((Date.now() - processStartTime) / 1000);
+  
+  console.log("\n================================");
   console.log("📈 Final Statistics:");
+  console.log("================================");
+  console.log(`   Total time: ${totalDuration}s`);
   console.log(`   Files processed: ${grandTotalFiles}`);
   console.log(`   Files skipped: ${grandTotalSkipped}`);
   console.log(`   Total chunks created: ${grandTotalChunks}`);
   console.log(`   Errors: ${grandTotalErrors}`);
   
   if (grandTotalChunks > 0) {
-    console.log("✅ Indexing complete! Your ScottGPT knowledge base is ready.");
     const avgChunksPerFile = grandTotalFiles > 0 ? (grandTotalChunks / grandTotalFiles).toFixed(1) : 0;
-    console.log(`📊 Average: ${avgChunksPerFile} chunks per file`);
+    const avgTimePerFile = grandTotalFiles > 0 ? (totalDuration / grandTotalFiles).toFixed(1) : 0;
+    console.log(`   Average: ${avgChunksPerFile} chunks/file, ${avgTimePerFile}s/file`);
+    console.log("\n✅ Indexing complete! Your ScottGPT knowledge base is ready.");
     
     // Archive processed files to keep sources/ directory lean
     console.log('\n📁 Archiving processed files...');
