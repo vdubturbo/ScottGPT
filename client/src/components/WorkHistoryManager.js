@@ -30,8 +30,11 @@ const WorkHistoryManager = () => {
   // Load work history data
   const loadWorkHistory = useCallback(async () => {
     try {
-      const data = await getWorkHistory();
-      setJobs(data.jobs || []);
+      const response = await getWorkHistory();
+      // Handle the nested response structure: response.data.jobs
+      const jobs = response?.data?.jobs || response?.jobs || [];
+      console.log('Work history loaded:', jobs.length, 'jobs');
+      setJobs(jobs);
     } catch (err) {
       console.error('Failed to load work history:', err);
     }
@@ -40,10 +43,13 @@ const WorkHistoryManager = () => {
   // Load duplicates summary
   const loadDuplicatesSummary = useCallback(async () => {
     try {
-      const summary = await getDuplicatesSummary();
+      const response = await getDuplicatesSummary();
+      // Handle the nested response structure
+      const summary = response?.data || response;
       setDuplicatesSummary(summary);
     } catch (err) {
       console.error('Failed to load duplicates summary:', err);
+      // Don't set duplicates summary if it fails - it's not critical
     }
   }, [getDuplicatesSummary]);
 
