@@ -1,6 +1,11 @@
 import express from 'express';
 import RAGService from '../services/rag.js';
 import CONFIG from '../config/app-config.js';
+import { 
+  handleError, 
+  ValidationError,
+  logError 
+} from '../utils/error-handling.js';
 
 const router = express.Router();
 
@@ -12,16 +17,22 @@ router.post('/', async (req, res) => {
     const { message, conversationHistory, options } = req.body;
     
     if (!message || typeof message !== 'string') {
+      const validationError = new ValidationError('Message is required and must be a string', 'message', message);
+      handleError(validationError, { service: 'chat', operation: 'validateMessage' });
       return res.status(400).json({ error: 'Message is required and must be a string' });
     }
 
     const query = message.trim();
     
     if (query.length === 0) {
+      const validationError = new ValidationError('Message cannot be empty', 'message', query);
+      handleError(validationError, { service: 'chat', operation: 'validateMessage' });
       return res.status(400).json({ error: 'Message cannot be empty' });
     }
 
     if (query.length > CONFIG.server.requestLimits.messageMaxLength) {
+      const validationError = new ValidationError('Message too long', 'message', query.length);
+      handleError(validationError, { service: 'chat', operation: 'validateMessage', maxLength: CONFIG.server.requestLimits.messageMaxLength });
       return res.status(400).json({ 
         error: `Message is too long. Please keep it under ${CONFIG.server.requestLimits.messageMaxLength} characters.` 
       });
@@ -75,24 +86,40 @@ router.post('/', async (req, res) => {
     res.json(response);
     
   } catch (error) {
-    console.error('Chat error:', error);
+    const handledError = handleError(error, {
+      service: 'chat',
+      operation: 'answerQuestion',
+      query: req.body.message?.substring(0, 100) // First 100 chars for context
+    });
     
-    // Provide user-friendly error messages
+    // Provide user-friendly error messages based on error type
     let errorMessage = 'I apologize, but I encountered an error processing your question.';
+    let statusCode = 500;
     
-    if (error.message.includes('rate limit')) {
+    if (handledError.context?.userFriendly) {
+      errorMessage = handledError.message;
+    } else if (handledError.name === 'RateLimitError') {
       errorMessage = 'I\'m currently experiencing high demand. Please try again in a moment.';
-    } else if (error.message.includes('API key')) {
+      statusCode = 429;
+    } else if (handledError.name === 'APIError' && handledError.statusCode === 401) {
       errorMessage = 'There\'s a configuration issue on my end. Please contact support.';
-    } else if (error.message.includes('embedding')) {
-      errorMessage = 'I had trouble understanding your question. Please try rephrasing it.';
-    } else if (error.message.includes('database') || error.message.includes('supabase')) {
+      statusCode = 503;
+    } else if (handledError.name === 'NetworkError') {
+      errorMessage = 'I\'m having trouble accessing external services right now. Please try again shortly.';
+      statusCode = 503;
+    } else if (handledError.name === 'DatabaseError') {
       errorMessage = 'I\'m having trouble accessing my knowledge base right now. Please try again shortly.';
+      statusCode = 503;
+    } else if (handledError.name === 'ProcessingError') {
+      errorMessage = 'I had trouble processing your question. Please try rephrasing it.';
+      statusCode = 422;
     }
-    
-    res.status(500).json({ 
+
+    res.status(statusCode).json({
       error: errorMessage,
-      details: process.env.NODE_ENV === 'development' ? error.message : undefined
+      details: CONFIG.environment.NODE_ENV === 'development' ? handledError.message : undefined,
+      errorType: handledError.name,
+      retryable: handledError.retryable
     });
   }
 });

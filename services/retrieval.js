@@ -5,6 +5,14 @@ import {
   logScoringBreakdown,
   DEFAULT_SCORING_CONFIG 
 } from '../config/scoring-config.js';
+import { 
+  retryOperation, 
+  circuitBreakers, 
+  handleError, 
+  ProcessingError,
+  DatabaseError,
+  RecoveryStrategies 
+} from '../utils/error-handling.js';
 
 class RetrievalService {
   constructor() {
@@ -50,12 +58,21 @@ class RetrievalService {
       const similarityThreshold = minSimilarity || this.embeddings.calculateSimilarityThreshold(query);
       console.log(`📊 Similarity threshold: ${similarityThreshold}`);
 
-      // Step 5: Search database using semantic search (primary method)
-      let searchResults = await db.searchChunks(queryEmbedding, {
-        skills: filters.skills,
-        tags: filters.tags,
-        threshold: similarityThreshold,
-        limit: Math.max(maxResults * 2, 20) // Get more results for reranking
+      // Step 5: Search database using semantic search (primary method) with retry logic
+      let searchResults = await circuitBreakers.supabase.execute(async () => {
+        return await retryOperation(
+          async () => await db.searchChunks(queryEmbedding, {
+            skills: filters.skills,
+            tags: filters.tags,
+            threshold: similarityThreshold,
+            limit: Math.max(maxResults * 2, 20) // Get more results for reranking
+          }),
+          { 
+            service: 'retrieval', 
+            operation: 'semantic_search',
+            query: query.substring(0, 50) // First 50 chars for context
+          }
+        );
       });
 
       console.log(`💾 Semantic search returned ${searchResults.length} chunks`);
@@ -122,8 +139,32 @@ class RetrievalService {
       };
 
     } catch (error) {
-      console.error('Context retrieval error:', error);
-      throw new Error(`Context retrieval failed: ${error.message}`);
+      const handledError = handleError(error, {
+        service: 'retrieval',
+        operation: 'retrieveContext',
+        query: query.substring(0, 100) // First 100 chars for context
+      });
+      
+      // Provide user-friendly error messages based on error type
+      if (handledError.name === 'DatabaseError') {
+        throw new ProcessingError(
+          'Search service temporarily unavailable. Please try again in a moment.',
+          'retrieveContext',
+          { userFriendly: true }
+        );
+      } else if (handledError.name === 'NetworkError') {
+        throw new ProcessingError(
+          'Network connectivity issue. Please check your connection and try again.',
+          'retrieveContext',
+          { userFriendly: true }
+        );
+      } else {
+        throw new ProcessingError(
+          `Failed to retrieve context: ${handledError.message}`,
+          'retrieveContext',
+          { userFriendly: true, originalError: handledError }
+        );
+      }
     }
   }
 

@@ -6,6 +6,15 @@ import { CohereClient } from 'cohere-ai';
 import { db, supabase } from '../config/database.js';
 import { validateEmbedding } from '../utils/embedding-utils.js';
 import CONFIG from '../config/app-config.js';
+import { 
+  retryOperation, 
+  circuitBreakers, 
+  handleError, 
+  APIError, 
+  RateLimitError,
+  ProcessingError,
+  RecoveryStrategies 
+} from '../utils/error-handling.js';
 
 // IMMEDIATE DEBUG - Show script startup
 console.log("🚀 INDEXER SCRIPT STARTING - File loaded");
@@ -217,10 +226,20 @@ async function embedText(text) {
   const startTime = Date.now();
   
   try {
-    const response = await cohere.embed({
-      texts: [text],
-      model: CONFIG.ai.cohere.model,
-      inputType: CONFIG.ai.cohere.inputType.document
+    // Use circuit breaker and retry logic for Cohere API
+    const response = await circuitBreakers.cohere.execute(async () => {
+      return await retryOperation(
+        async () => await cohere.embed({
+          texts: [text],
+          model: CONFIG.ai.cohere.model,
+          inputType: CONFIG.ai.cohere.inputType.document
+        }),
+        { 
+          service: 'indexer', 
+          operation: 'cohere_embed',
+          textLength: text.length
+        }
+      );
     });
     
     const duration = Date.now() - startTime;
@@ -235,8 +254,15 @@ async function embedText(text) {
     
     return response.embeddings[0];
   } catch (error) {
-    console.error(`❌ Embedding failed after ${Date.now() - startTime}ms:`, error.message);
-    throw error;
+    const handledError = handleError(error, {
+      service: 'indexer',
+      operation: 'embedText',
+      textLength: text.length,
+      duration: Date.now() - startTime
+    });
+    
+    console.error(`❌ Embedding failed after ${Date.now() - startTime}ms:`, handledError.message);
+    throw handledError;
   }
 }
 

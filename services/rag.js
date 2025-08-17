@@ -2,6 +2,14 @@ import RetrievalService from './retrieval.js';
 import QueryProcessor from './query-processor.js';
 import OpenAI from 'openai';
 import CONFIG from '../config/app-config.js';
+import { 
+  retryOperation, 
+  circuitBreakers, 
+  handleError, 
+  APIError, 
+  ProcessingError,
+  RecoveryStrategies 
+} from '../utils/error-handling.js';
 
 class RAGService {
   constructor() {
@@ -78,15 +86,24 @@ class RAGService {
       // Step 4: Build conversation with context
       const messages = this.buildMessages(systemPrompt, query, contextText, conversationHistory);
 
-      // Step 5: Generate answer
+      // Step 5: Generate answer with circuit breaker and retry logic
       console.log('🔮 Generating answer...');
-      const completion = await this.openai.chat.completions.create({
-        model: this.model,
-        messages: messages,
-        temperature: temperature,
-        max_tokens: maxTokens,
-        presence_penalty: 0.1,  // Encourage diverse vocabulary
-        frequency_penalty: 0.1  // Reduce repetition
+      const completion = await circuitBreakers.openai.execute(async () => {
+        return await retryOperation(
+          async () => await this.openai.chat.completions.create({
+            model: this.model,
+            messages: messages,
+            temperature: temperature,
+            max_tokens: maxTokens,
+            presence_penalty: 0.1,  // Encourage diverse vocabulary
+            frequency_penalty: 0.1  // Reduce repetition
+          }),
+          { 
+            service: 'rag', 
+            operation: 'openai_completion',
+            query: query.substring(0, 50) // First 50 chars for context
+          }
+        );
       });
 
       const answer = completion.choices[0].message.content;
@@ -111,15 +128,39 @@ class RAGService {
       };
 
     } catch (error) {
-      console.error('RAG answer generation error:', error);
+      const handledError = handleError(error, {
+        service: 'rag',
+        operation: 'answerQuestion',
+        query: query.substring(0, 100) // First 100 chars for context
+      });
       
-      // Provide helpful error messages
-      if (error.message.includes('rate limit')) {
-        throw new Error('Service temporarily unavailable due to high demand. Please try again in a moment.');
-      } else if (error.message.includes('API key')) {
-        throw new Error('Service configuration error. Please contact support.');
+      // Provide user-friendly error messages based on error type
+      if (handledError.name === 'RateLimitError') {
+        throw new APIError(
+          'Service temporarily unavailable due to high demand. Please try again in a moment.',
+          handledError.apiProvider,
+          429,
+          { userFriendly: true }
+        );
+      } else if (handledError.name === 'ConfigurationError') {
+        throw new APIError(
+          'Service configuration error. Please contact support.',
+          handledError.apiProvider,
+          500,
+          { userFriendly: true }
+        );
+      } else if (handledError.name === 'NetworkError') {
+        throw new ProcessingError(
+          'Network connectivity issue. Please check your connection and try again.',
+          'answerQuestion',
+          { userFriendly: true }
+        );
       } else {
-        throw new Error(`Failed to generate answer: ${error.message}`);
+        throw new ProcessingError(
+          `Failed to generate answer: ${handledError.message}`,
+          'answerQuestion',
+          { userFriendly: true, originalError: handledError }
+        );
       }
     }
   }

@@ -1,5 +1,13 @@
 import { CohereClient } from 'cohere-ai';
 import CONFIG from '../config/app-config.js';
+import { 
+  retryOperation, 
+  circuitBreakers, 
+  handleError, 
+  APIError, 
+  RateLimitError,
+  ProcessingError 
+} from '../utils/error-handling.js';
 
 class EmbeddingService {
   constructor() {
@@ -18,33 +26,60 @@ class EmbeddingService {
   async embedText(text, inputType = null) {
     try {
       if (!text || typeof text !== 'string' || text.trim().length === 0) {
-        throw new Error('Text input is required and must be a non-empty string');
+        throw new ProcessingError('Text input is required and must be a non-empty string', 'embedText');
       }
 
-      const response = await this.cohere.embed({
-        texts: [text.trim()],
-        model: this.model,
-        inputType: inputType || this.config.inputType.query
+      // Use circuit breaker and retry logic for Cohere API
+      const response = await circuitBreakers.cohere.execute(async () => {
+        return await retryOperation(
+          async () => await this.cohere.embed({
+            texts: [text.trim()],
+            model: this.model,
+            inputType: inputType || this.config.inputType.query
+          }),
+          { 
+            service: 'embeddings', 
+            operation: 'cohere_embed',
+            textLength: text.length
+          }
+        );
       });
 
       if (!response.embeddings || response.embeddings.length === 0) {
-        throw new Error('No embeddings returned from Cohere API');
+        throw new APIError('No embeddings returned from Cohere API', 'cohere', 200);
       }
 
       return response.embeddings[0];
     } catch (error) {
-      console.error('Embedding generation error:', error);
+      const handledError = handleError(error, {
+        service: 'embeddings',
+        operation: 'embedText',
+        textLength: text?.length,
+        inputType: inputType
+      });
       
-      // Handle specific Cohere API errors
-      if (error.statusCode === 429) {
-        throw new Error('Rate limit exceeded. Please try again later.');
-      } else if (error.statusCode === 401) {
-        throw new Error('Invalid Cohere API key');
-      } else if (error.statusCode >= 500) {
-        throw new Error('Cohere API service unavailable');
+      // Provide user-friendly error messages based on error type
+      if (handledError.name === 'RateLimitError') {
+        throw new APIError(
+          'Embedding service temporarily unavailable due to high demand. Please try again in a moment.',
+          'cohere',
+          429,
+          { userFriendly: true }
+        );
+      } else if (handledError.name === 'APIError' && handledError.statusCode === 401) {
+        throw new APIError(
+          'Service configuration error. Please contact support.',
+          'cohere',
+          401,
+          { userFriendly: true }
+        );
+      } else {
+        throw new ProcessingError(
+          `Failed to generate embedding: ${handledError.message}`,
+          'embedText',
+          { userFriendly: true, originalError: handledError }
+        );
       }
-      
-      throw new Error(`Embedding failed: ${error.message}`);
     }
   }
 
