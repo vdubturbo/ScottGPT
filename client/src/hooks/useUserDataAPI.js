@@ -113,6 +113,127 @@ export const useUserDataAPI = () => {
     return apiCall(() => axios.get(`${API_BASE}/gaps`));
   }, [apiCall]);
 
+  // Export API calls
+  const getExportFormats = useCallback(() => {
+    return apiCall(() => axios.get(`${API_BASE}/export/formats`));
+  }, [apiCall]);
+
+  const getExportStats = useCallback(() => {
+    return apiCall(() => axios.get(`${API_BASE}/export/stats`));
+  }, [apiCall]);
+
+  const validateExport = useCallback((format, options = {}) => {
+    return apiCall(() => axios.post(`${API_BASE}/export/validate`, { format, options }));
+  }, [apiCall]);
+
+  const previewExport = useCallback((format, options = {}) => {
+    return apiCall(() => axios.post(`${API_BASE}/export/preview`, { format, options }));
+  }, [apiCall]);
+
+  const exportJSON = useCallback((options = {}) => {
+    const params = new URLSearchParams(options);
+    return apiCall(() => axios.get(`${API_BASE}/export/json?${params}`));
+  }, [apiCall]);
+
+  const exportCSV = useCallback((options = {}) => {
+    const params = new URLSearchParams(options);
+    return apiCall(() => axios.get(`${API_BASE}/export/csv?${params}`));
+  }, [apiCall]);
+
+  const exportResumeData = useCallback((options = {}) => {
+    const params = new URLSearchParams(options);
+    return apiCall(() => axios.get(`${API_BASE}/export/resume-data?${params}`));
+  }, [apiCall]);
+
+  const exportTimeline = useCallback((options = {}) => {
+    const params = new URLSearchParams(options);
+    return apiCall(() => axios.get(`${API_BASE}/export/timeline?${params}`));
+  }, [apiCall]);
+
+  // Resume Generation API calls
+  const getResumeTemplates = useCallback(() => {
+    return apiCall(() => axios.get(`${API_BASE}/generate/templates`));
+  }, [apiCall]);
+
+  const getResumeFormats = useCallback(() => {
+    return apiCall(() => axios.get(`${API_BASE}/generate/formats`));
+  }, [apiCall]);
+
+  const validateResumeOptions = useCallback((options = {}) => {
+    return apiCall(() => axios.post(`${API_BASE}/generate/validate`, options));
+  }, [apiCall]);
+
+  const previewResume = useCallback((options = {}) => {
+    return apiCall(() => axios.post(`${API_BASE}/generate/preview`, options));
+  }, [apiCall]);
+
+  const generateResume = useCallback((options = {}) => {
+    return apiCall(() => axios.post(`${API_BASE}/generate/resume`, options));
+  }, [apiCall]);
+
+  // Advanced Analysis API calls
+  const getCompanyIntelligence = useCallback(() => {
+    return apiCall(() => axios.get(`${API_BASE}/company-intelligence`));
+  }, [apiCall]);
+
+  const getSkillsAnalysis = useCallback((options = {}) => {
+    const params = new URLSearchParams(options);
+    return apiCall(() => axios.get(`${API_BASE}/skills-analysis?${params}`));
+  }, [apiCall]);
+
+  const suggestSkills = useCallback((jobId, options = {}) => {
+    return apiCall(() => axios.post(`${API_BASE}/suggest-skills`, { jobId, options }));
+  }, [apiCall]);
+
+  const getQualityReport = useCallback((options = {}) => {
+    const params = new URLSearchParams(options);
+    return apiCall(() => axios.get(`${API_BASE}/quality-report?${params}`));
+  }, [apiCall]);
+
+  const getQualityScore = useCallback(() => {
+    return apiCall(() => axios.get(`${API_BASE}/quality-score`));
+  }, [apiCall]);
+
+  const generateImprovementPlan = useCallback((options = {}) => {
+    return apiCall(() => axios.post(`${API_BASE}/quality-improvement-plan`, options));
+  }, [apiCall]);
+
+  // Bulk Operations API calls
+  const previewBulkOperation = useCallback((operationType, params) => {
+    return apiCall(() => axios.post(`${API_BASE}/bulk/preview`, { operationType, params }));
+  }, [apiCall]);
+
+  const executeBulkOperation = useCallback((operationType, params, preview = false) => {
+    return apiCall(() => axios.post(`${API_BASE}/bulk/execute`, { operationType, params, preview }));
+  }, [apiCall]);
+
+  const getBulkOperationStatus = useCallback((operationId) => {
+    return apiCall(() => axios.get(`${API_BASE}/bulk/status/${operationId}`));
+  }, [apiCall]);
+
+  const cancelBulkOperation = useCallback((operationId) => {
+    return apiCall(() => axios.delete(`${API_BASE}/bulk/cancel/${operationId}`));
+  }, [apiCall]);
+
+  const bulkUpdateSkills = useCallback((jobIds, operation, skills, preview = false) => {
+    return apiCall(() => axios.post(`${API_BASE}/bulk/update-skills`, {
+      jobIds, operation, skills, preview
+    }));
+  }, [apiCall]);
+
+  const bulkFixDates = useCallback((fixes, preview = false) => {
+    return apiCall(() => axios.post(`${API_BASE}/bulk/fix-dates`, { fixes, preview }));
+  }, [apiCall]);
+
+  const bulkMergeDuplicates = useCallback((mergeGroups, preview = false) => {
+    return apiCall(() => axios.post(`${API_BASE}/bulk/merge-duplicates`, { mergeGroups, preview }));
+  }, [apiCall]);
+
+  // System Operations API calls
+  const regenerateAllEmbeddings = useCallback((options = {}) => {
+    return apiCall(() => axios.post(`${API_BASE}/regenerate-all-embeddings`, options));
+  }, [apiCall]);
+
   return {
     loading,
     error,
@@ -137,7 +258,44 @@ export const useUserDataAPI = () => {
     // Data Quality
     getDataQuality,
     validateData,
-    getTimelineGaps
+    getTimelineGaps,
+    
+    // Export Functions
+    getExportFormats,
+    getExportStats,
+    validateExport,
+    previewExport,
+    exportJSON,
+    exportCSV,
+    exportResumeData,
+    exportTimeline,
+    
+    // Resume Generation
+    getResumeTemplates,
+    getResumeFormats,
+    validateResumeOptions,
+    previewResume,
+    generateResume,
+    
+    // Advanced Analysis
+    getCompanyIntelligence,
+    getSkillsAnalysis,
+    suggestSkills,
+    getQualityReport,
+    getQualityScore,
+    generateImprovementPlan,
+    
+    // Bulk Operations
+    previewBulkOperation,
+    executeBulkOperation,
+    getBulkOperationStatus,
+    cancelBulkOperation,
+    bulkUpdateSkills,
+    bulkFixDates,
+    bulkMergeDuplicates,
+    
+    // System Operations
+    regenerateAllEmbeddings
   };
 };
 

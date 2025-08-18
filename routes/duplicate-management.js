@@ -463,11 +463,12 @@ router.post('/auto-merge', autoMergeLimit, async (req, res) => {
       ip: req.ip 
     });
 
-    // Get all jobs
+    // Get all jobs (same order as detect endpoint)
     const { data: jobs, error } = await supabase
       .from('sources')
       .select('*')
-      .eq('type', 'job');
+      .eq('type', 'job')
+      .order('created_at', { ascending: false });
 
     if (error) throw error;
 
@@ -488,7 +489,7 @@ router.post('/auto-merge', autoMergeLimit, async (req, res) => {
           const mergePreview = await mergeService.previewMerge(
             candidate.job.id,
             candidate.primaryJob?.job?.id || duplicates.duplicateGroups
-              .find(g => g.duplicates.includes(candidate))?.primaryJob.job.id
+              .find(g => g.duplicates.some(dup => dup.job.id === candidate.job.id))?.primaryJob.job.id
           );
           
           previews.push({
@@ -533,8 +534,9 @@ router.post('/auto-merge', autoMergeLimit, async (req, res) => {
       try {
         results.attempted++;
         
+        // Find the group by matching the candidate's job ID
         const primaryJobId = duplicates.duplicateGroups
-          .find(g => g.duplicates.includes(candidate))?.primaryJob.job.id;
+          .find(g => g.duplicates.some(dup => dup.job.id === candidate.job.id))?.primaryJob.job.id;
 
         if (!primaryJobId) {
           throw new Error('Primary job not found for merge candidate');
@@ -610,11 +612,12 @@ router.get('/merge-candidates', detectDuplicatesLimit, async (req, res) => {
       ip: req.ip 
     });
 
-    // Get all jobs
+    // Get all jobs (same order as detect endpoint) 
     const { data: jobs, error } = await supabase
       .from('sources')
       .select('*')
-      .eq('type', 'job');
+      .eq('type', 'job')
+      .order('created_at', { ascending: false });
 
     if (error) throw error;
 

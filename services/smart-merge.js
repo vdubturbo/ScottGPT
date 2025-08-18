@@ -6,6 +6,7 @@
 
 import winston from 'winston';
 import { v4 as uuidv4 } from 'uuid';
+import { distance as levenshteinDistance } from 'fastest-levenshtein';
 import { supabase } from '../config/database.js';
 import EmbeddingService from './embeddings.js';
 import DataProcessingService from '../utils/data-processing.js';
@@ -125,9 +126,10 @@ export class SmartMergeService {
     try {
       this.logger.info('Starting merge operation', { mergeId, sourceId, targetId });
 
-      // Start transaction
-      const { data: transaction, error: transactionError } = await supabase.rpc('begin_transaction');
-      if (transactionError) throw transactionError;
+      // TODO: Replace with proper Supabase transaction handling
+      // Start transaction (temporarily disabled due to missing DB function)
+      // const { data: transaction, error: transactionError } = await supabase.rpc('begin_transaction');
+      // if (transactionError) throw transactionError;
 
       // Track merge operation
       const mergeContext = {
@@ -184,8 +186,9 @@ export class SmartMergeService {
 
         if (deleteError) throw deleteError;
 
+        // TODO: Re-enable when content_chunks table is available
         // Regenerate embeddings for merged job
-        await this.regenerateEmbeddingsForMergedJob(targetId, mergedData);
+        // await this.regenerateEmbeddingsForMergedJob(targetId, mergedData);
 
         // Record merge in audit log
         await this.recordMergeAudit(mergeId, sourceJob, targetJob, mergedData);
@@ -451,18 +454,11 @@ export class SmartMergeService {
       if (jobError) throw jobError;
       if (!job) return null;
 
-      // Get content chunks
-      const { data: chunks, error: chunksError } = await supabase
-        .from('content_chunks')
-        .select('*')
-        .eq('source_id', jobId)
-        .order('created_at');
-
-      if (chunksError) throw chunksError;
-
+      // TODO: Implement content_chunks table when available
+      // For now, use empty chunks array to maintain compatibility
       return {
         ...job,
-        chunks: chunks || []
+        chunks: []
       };
 
     } catch (error) {
@@ -479,37 +475,13 @@ export class SmartMergeService {
    */
   async mergeContentChunks(sourceJob, targetJob, mergeId) {
     try {
-      // Update source chunks to point to target job
-      if (sourceJob.chunks.length > 0) {
-        const sourceChunkIds = sourceJob.chunks.map(chunk => chunk.id);
-        
-        const { error: updateError } = await supabase
-          .from('content_chunks')
-          .update({ 
-            source_id: targetJob.id,
-            merge_id: mergeId,
-            merge_original_source_id: sourceJob.id,
-            updated_at: new Date().toISOString()
-          })
-          .in('id', sourceChunkIds);
-
-        if (updateError) throw updateError;
-      }
-
-      // Mark target chunks as merged
-      if (targetJob.chunks.length > 0) {
-        const targetChunkIds = targetJob.chunks.map(chunk => chunk.id);
-        
-        const { error: markError } = await supabase
-          .from('content_chunks')
-          .update({ 
-            merge_id: mergeId,
-            updated_at: new Date().toISOString()
-          })
-          .in('id', targetChunkIds);
-
-        if (markError) throw markError;
-      }
+      // TODO: Implement chunk merging when content_chunks table is available
+      // For now, skip chunk merging since table doesn't exist
+      this.logger.info('Skipping chunk merge - content_chunks table not available', { 
+        sourceJobId: sourceJob.id,
+        targetJobId: targetJob.id,
+        mergeId
+      });
 
     } catch (error) {
       this.logger.error('Error merging content chunks', { 
@@ -1055,9 +1027,10 @@ export class SmartMergeService {
         throw new Error('Merge undo has expired');
       }
 
-      // Start transaction
-      const { error: transactionError } = await supabase.rpc('begin_transaction');
-      if (transactionError) throw transactionError;
+      // TODO: Replace with proper Supabase transaction handling
+      // Start transaction (temporarily disabled due to missing DB function)
+      // const { error: transactionError } = await supabase.rpc('begin_transaction');
+      // if (transactionError) throw transactionError;
 
       try {
         // Restore source job

@@ -121,7 +121,7 @@ const DuplicateManager = ({ onClose }) => {
   const handleAutoMerge = async () => {
     try {
       const result = await autoMerge({
-        confidenceThreshold: 0.95,
+        confidenceThreshold: 0.8, // Lower threshold to catch more auto-mergeable duplicates
         maxMerges: 5,
         confirmed: true
       });

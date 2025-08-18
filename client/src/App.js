@@ -5,6 +5,7 @@ import './App.css';
 // Lazy load components to avoid blocking the app
 const TagManager = React.lazy(() => import('./TagManager'));
 const UserDataManager = React.lazy(() => import('./components/UserDataManager'));
+const ExportManager = React.lazy(() => import('./components/ExportManager'));
 
 function App() {
   const [message, setMessage] = useState('');
@@ -243,6 +244,12 @@ function App() {
           >
             🏷️ Tags
           </button>
+          <button 
+            className={`tab-button ${activeTab === 'export' ? 'active' : ''}`}
+            onClick={() => setActiveTab('export')}
+          >
+            📥 Export
+          </button>
         </div>
       </header>
       
@@ -477,6 +484,12 @@ function App() {
         {activeTab === 'tags' && (
           <React.Suspense fallback={<div>Loading Tags...</div>}>
             <TagManager />
+          </React.Suspense>
+        )}
+
+        {activeTab === 'export' && (
+          <React.Suspense fallback={<div>Loading Export Tools...</div>}>
+            <ExportManager />
           </React.Suspense>
         )}
       </main>
