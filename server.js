@@ -47,7 +47,10 @@ const uploadLimit = createRateLimit(
   CONFIG.rateLimiting.upload.maxRequests, 
   CONFIG.rateLimiting.upload.message
 );
-const dataLimit = createRateLimit(1 * 60 * 1000, 20, 'Too many data requests, please try again later'); // TODO: Move to config
+// Development-friendly data limits
+const dataLimit = CONFIG.environment.IS_DEVELOPMENT 
+  ? createRateLimit(1 * 60 * 1000, 1000, 'Development rate limit') // Very high limit for dev
+  : createRateLimit(1 * 60 * 1000, 20, 'Too many data requests, please try again later');
 
 // Middleware
 app.use(helmet());

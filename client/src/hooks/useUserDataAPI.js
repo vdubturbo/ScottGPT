@@ -18,8 +18,11 @@ export const useUserDataAPI = () => {
     setError(null);
     try {
       const result = await apiFunc();
-      return result.data;
+      console.log('API call raw result:', result);
+      // The API returns { success: true, data: {...} }, so we need result.data.data
+      return result.data?.data || result.data;
     } catch (err) {
+      console.error('API call error:', err);
       const errorMessage = err.response?.data?.message || err.response?.data?.error || err.message;
       setError(errorMessage);
       throw err;

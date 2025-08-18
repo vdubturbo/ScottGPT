@@ -88,11 +88,22 @@ export class AdvancedValidationService extends DataValidationService {
     // Calculate overall quality score
     report.overall = this.calculateOverallQuality(report);
 
-    this.logger.info('Data quality validation completed', {
-      totalJobs: jobs.length,
-      overallScore: report.overall.score,
-      criticalIssues: report.summary.criticalIssues
-    });
+    // Only log summary if there are significant issues or for periodic reporting
+    if (report.summary.criticalIssues > 0) {
+      this.logger.warn('Data quality validation completed with critical issues', {
+        totalJobs: jobs.length,
+        overallScore: report.overall.score,
+        criticalIssues: report.summary.criticalIssues,
+        warnings: report.summary.warnings
+      });
+    } else if (report.summary.warnings > jobs.length * 0.5) { // More than 50% have warnings
+      this.logger.info('Data quality validation completed with many warnings', {
+        totalJobs: jobs.length,
+        overallScore: report.overall.score,
+        warningsCount: report.summary.warnings
+      });
+    }
+    // Successful validation with few issues is not logged to reduce noise
 
     return report;
   }
@@ -104,8 +115,14 @@ export class AdvancedValidationService extends DataValidationService {
    * @returns {Object} Validation with quality score
    */
   validateJobWithQuality(job, allJobs) {
-    // Standard validation
+    // Standard validation - temporarily disable logging during bulk validation
+    const originalLogLevel = this.logger.level;
+    this.logger.level = 'warn'; // Only log warnings and errors during bulk processing
+    
     const validation = this.validateJobData(job, allJobs);
+    
+    // Restore original log level
+    this.logger.level = originalLogLevel;
 
     // Quality scoring
     const quality = this.calculateContentQuality(job);

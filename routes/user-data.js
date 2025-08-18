@@ -9,6 +9,7 @@ import winston from 'winston';
 import { supabase } from '../config/database.js';
 import { DataValidationService } from '../services/data-validation.js';
 import { DataProcessingService } from '../utils/data-processing.js';
+import CompanyGroupingService from '../utils/company-grouping.js';
 import EmbeddingService from '../services/embeddings.js';
 import duplicateManagementRoutes from './duplicate-management.js';
 
@@ -23,6 +24,7 @@ const AI_DISABLE_MESSAGE = 'AI features temporarily disabled to prevent OpenAI A
 // Initialize services
 const validationService = new DataValidationService();
 const processingService = new DataProcessingService();
+const companyGroupingService = new CompanyGroupingService();
 const embeddingService = new EmbeddingService();
 
 // Setup logging
@@ -76,11 +78,22 @@ router.use(generalLimiter);
 
 /**
  * GET /api/user/work-history
- * Get chronological list of all jobs with summary information
+ * Get chronological list of all jobs with optional company grouping
+ * Query parameters:
+ *   - groupByCompany: boolean - Enable company grouping view (default: false)
+ *   - includeTimeline: boolean - Include timeline data for visualization (default: false)
  */
 router.get('/work-history', async (req, res) => {
   try {
-    logger.info('Fetching work history', { ip: req.ip });
+    const { groupByCompany, includeTimeline } = req.query;
+    const groupingEnabled = groupByCompany === 'true';
+    const timelineEnabled = includeTimeline === 'true';
+    
+    logger.info('Fetching work history', { 
+      ip: req.ip,
+      groupByCompany: groupingEnabled,
+      includeTimeline: timelineEnabled
+    });
 
     const { data: sources, error } = await supabase
       .from('sources')
@@ -106,7 +119,7 @@ router.get('/work-history', async (req, res) => {
       });
     }
 
-    // Process and enrich the data
+    // Process and enrich the individual job data
     const enrichedSources = await Promise.all(
       sources.map(async (source) => {
         // Get chunk count for each source
@@ -134,23 +147,196 @@ router.get('/work-history', async (req, res) => {
       })
     );
 
-    // Generate analytics
+    // Generate comprehensive analytics (includes company analytics)
     const analytics = processingService.generateAnalytics(enrichedSources);
 
+    // Prepare response data structure
+    const responseData = {
+      jobs: enrichedSources,
+      analytics: {
+        // Basic analytics (backward compatibility)
+        totalJobs: analytics.totalJobs,
+        totalDurationMonths: analytics.totalDuration,
+        averageDurationMonths: Math.round(analytics.averageDuration),
+        topSkills: Object.entries(analytics.skillFrequency || {})
+          .sort(([,a], [,b]) => b - a)
+          .slice(0, 10)
+          .map(([skill, count]) => ({ skill, count })),
+        organizations: Object.keys(analytics.organizationHistory || {}).length,
+        
+        // Enhanced company analytics (always included but detailed when grouped)
+        companies: analytics.companies
+      },
+      displayMode: groupingEnabled ? 'grouped' : 'individual'
+    };
+
+    // Add company grouping data if requested
+    if (groupingEnabled) {
+      try {
+        // Generate company groups
+        const companyGroups = companyGroupingService.groupJobsByCompany(enrichedSources);
+        
+        // Transform company groups for API response
+        const companiesData = companyGroups.map(company => ({
+          // Basic company information
+          company: company.originalNames[0],
+          normalizedName: company.normalizedName,
+          originalNames: company.originalNames,
+          totalPositions: company.totalPositions,
+          
+          // Dates and duration
+          startDate: company.dateRange?.start,
+          endDate: company.dateRange?.end,
+          dateRange: company.dateRange?.formatted,
+          totalTenure: company.tenure.formatted,
+          totalMonths: company.tenure.months,
+          
+          // Positions within company
+          positions: company.positions.map(pos => ({
+            id: pos.id,
+            title: pos.title,
+            startDate: pos.date_start,
+            endDate: pos.date_end,
+            duration: processingService.calculateDuration(pos.date_start, pos.date_end),
+            durationFormatted: processingService.formatDurationFromMonths(
+              processingService.calculateDuration(pos.date_start, pos.date_end)
+            ),
+            skills: pos.skills || [],
+            chunkCount: pos.chunkCount || 0,
+            isCurrentPosition: !pos.date_end
+          })),
+          
+          // Career progression analysis
+          careerProgression: {
+            pattern: company.careerProgression.pattern,
+            progressionScore: company.careerProgression.progressionScore,
+            promotions: company.careerProgression.promotions.map(promo => ({
+              from: promo.from.title,
+              to: promo.to.title,
+              date: promo.to.date,
+              indicators: promo.indicators
+            })),
+            promotionCount: company.careerProgression.promotions.length,
+            lateralMoves: company.careerProgression.lateralMoves.length,
+            totalRoleChanges: company.careerProgression.totalRoleChanges
+          },
+          
+          // Boomerang pattern analysis
+          boomerangPattern: {
+            isBoomerang: company.boomerangPattern.isBoomerang,
+            stints: company.boomerangPattern.stints,
+            gaps: company.boomerangPattern.gaps.map(gap => ({
+              start: gap.start,
+              end: gap.end,
+              duration: gap.duration,
+              durationFormatted: gap.durationFormatted
+            })),
+            totalGapTime: company.boomerangPattern.totalGapTimeFormatted
+          },
+          
+          // Skills analysis
+          skillsAnalysis: {
+            totalSkills: company.aggregatedSkills.skillCount,
+            topSkills: Object.entries(company.aggregatedSkills.skillFrequency || {})
+              .sort(([,a], [,b]) => b - a)
+              .slice(0, 8)
+              .map(([skill, count]) => ({ skill, count })),
+            skillCategories: company.aggregatedSkills.categoryDistribution,
+            skillEvolution: company.aggregatedSkills.skillEvolution?.length || 0
+          },
+          
+          // Company insights
+          insights: company.insights,
+          
+          // Calculated metrics for frontend display
+          careerPercentage: analytics.totalDuration > 0 ? 
+            Math.round((company.tenure.months / analytics.totalDuration) * 100 * 10) / 10 : 0,
+          
+          // Display hints for UI
+          displayHints: {
+            isHighlight: company.tenure.months > 36 || // 3+ years
+              (analytics.totalDuration > 0 && (company.tenure.months / analytics.totalDuration) > 0.25), // 25%+ of career
+            progressionLevel: company.careerProgression.pattern === 'strong_upward' ? 'high' :
+              company.careerProgression.pattern === 'upward' ? 'medium' : 'low',
+            stabilityLevel: company.tenure.months > 36 ? 'high' :
+              company.tenure.months > 12 ? 'medium' : 'low'
+          }
+        }));
+        
+        // Sort companies by most recent activity
+        companiesData.sort((a, b) => {
+          const aLatest = new Date(Math.max(...a.positions.map(p => new Date(p.endDate || new Date()))));
+          const bLatest = new Date(Math.max(...b.positions.map(p => new Date(p.endDate || new Date()))));
+          return bLatest - aLatest;
+        });
+        
+        responseData.companies = companiesData;
+        
+        // Add company-level summary statistics
+        responseData.companySummary = {
+          totalCompanies: companiesData.length,
+          companiesWithMultipleRoles: companiesData.filter(c => c.totalPositions > 1).length,
+          boomerangCompanies: companiesData.filter(c => c.boomerangPattern.isBoomerang).length,
+          companiesWithPromotions: companiesData.filter(c => c.careerProgression.promotionCount > 0).length,
+          averageTenurePerCompany: companiesData.length > 0 ?
+            Math.round(companiesData.reduce((sum, c) => sum + c.totalMonths, 0) / companiesData.length) : 0,
+          longestTenure: companiesData.length > 0 ?
+            Math.max(...companiesData.map(c => c.totalMonths)) : 0
+        };
+        
+        logger.info('Company grouping completed', {
+          totalCompanies: companiesData.length,
+          multiRoleCompanies: responseData.companySummary.companiesWithMultipleRoles
+        });
+        
+      } catch (groupingError) {
+        logger.error('Error during company grouping', {
+          error: groupingError.message,
+          stack: groupingError.stack
+        });
+        // Don't fail the entire request - fall back to individual view
+        responseData.displayMode = 'individual';
+        responseData.groupingError = 'Company grouping failed - showing individual view';
+      }
+    }
+
+    // Add timeline data if requested
+    if (timelineEnabled) {
+      try {
+        const timelineData = processingService.generateCompanyTimeline(enrichedSources);
+        responseData.timeline = {
+          blocks: timelineData.timeline,
+          patterns: timelineData.patterns,
+          gaps: timelineData.gaps,
+          overlaps: timelineData.overlaps,
+          insights: timelineData.insights,
+          metadata: timelineData.metadata
+        };
+        
+        logger.info('Timeline data generated', {
+          timelineBlocks: timelineData.timeline.length,
+          careerPattern: timelineData.patterns.careerPattern
+        });
+        
+      } catch (timelineError) {
+        logger.error('Error generating timeline data', {
+          error: timelineError.message,
+          stack: timelineError.stack
+        });
+        // Timeline is optional - don't fail the request
+        responseData.timelineError = 'Timeline generation failed';
+      }
+    }
+
+    // Success response
     res.json({
       success: true,
-      data: {
-        jobs: enrichedSources,
-        analytics: {
-          totalJobs: analytics.totalJobs,
-          totalDurationMonths: analytics.totalDuration,
-          averageDurationMonths: Math.round(analytics.averageDuration),
-          topSkills: Object.entries(analytics.skillFrequency)
-            .sort(([,a], [,b]) => b - a)
-            .slice(0, 10)
-            .map(([skill, count]) => ({ skill, count })),
-          organizations: Object.keys(analytics.organizationHistory).length
-        }
+      data: responseData,
+      features: {
+        groupByCompany: groupingEnabled,
+        includeTimeline: timelineEnabled,
+        companyAnalytics: true,
+        careerPatterns: groupingEnabled || timelineEnabled
       },
       timestamp: new Date().toISOString()
     });

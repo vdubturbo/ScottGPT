@@ -70,7 +70,8 @@ node monitor-db-performance.js # Check current performance and optimization stat
 │   ├── embeddings.js     # Cohere integration (FIXED)
 │   └── simple-retrieval.js # Deprecated - consolidated into retrieval.js
 ├── utils/                 # Shared utilities
-│   └── embedding-utils.js # Embedding validation, storage, and processing utilities
+│   ├── embedding-utils.js # Embedding validation, storage, and processing utilities
+│   └── company-grouping.js # Company career analysis and job grouping service
 ├── config/                # Configuration files
 │   └── database.js       # Supabase config (FIXED)
 ├── scripts/
@@ -188,6 +189,115 @@ curl -X POST http://localhost:3005/api/chat \
 - **Performance Baselines**: Database < 1s, API < 5s, Embeddings < 2s
 - **Test Documentation**: See `tests/README.md` for detailed usage
 - **Archived Debug Scripts**: 19 scripts archived in `archive-debug-scripts/`
+
+## Company Grouping Service
+
+A new utility service (`utils/company-grouping.js`) provides intelligent career analysis by grouping job positions by company while handling complex edge cases:
+
+### Features
+- **Smart Company Normalization**: Groups "Microsoft", "Microsoft Corp", and "Microsoft Corporation" as the same company
+- **Career Progression Detection**: Identifies promotions, lateral moves, and demotions within companies
+- **Boomerang Employee Detection**: Recognizes employees who return to the same company after gaps
+- **Skills Evolution Analysis**: Tracks skill development and changes across positions within each company
+- **Date Handling**: Manages missing dates, overlapping employment, and invalid date formats
+
+### Key Methods
+```javascript
+import CompanyGroupingService from './utils/company-grouping.js';
+const service = new CompanyGroupingService();
+
+// Group jobs by company with full analysis
+const companyGroups = service.groupJobsByCompany(jobs);
+
+// Individual methods for specific analysis
+const normalized = service.normalizeCompanyName('Microsoft Corporation'); // → 'microsoft'
+const progression = service.calculateCareerProgression(positions);
+const boomerang = service.detectBoomerangPattern(positions);
+const skills = service.aggregateCompanySkills(positions);
+```
+
+### Edge Cases Handled
+- Company name variations and aliases
+- Non-consecutive employment dates (boomerang patterns)
+- Overlapping dates within same company (promotions)
+- Missing or invalid date fields
+- Empty or malformed skills data
+- Very long careers with many position changes
+
+### Output Structure
+Each company group includes:
+- `normalizedName`: Standardized company identifier
+- `originalNames`: All original company name variations found
+- `positions`: Chronologically sorted job positions
+- `careerProgression`: Promotion/lateral move analysis with progression score
+- `boomerangPattern`: Employment gap analysis and stint detection
+- `aggregatedSkills`: Unique skills, frequency, and evolution over time
+- `tenure`: Total time worked at company (days, months, years)
+- `insights`: Generated insights about career patterns and growth
+
+### Usage Example
+```javascript
+// Example with career progression
+const jobs = [
+  { title: 'Engineer', org: 'Microsoft Corp', date_start: '2020-01-01', skills: ['JavaScript'] },
+  { title: 'Senior Engineer', org: 'Microsoft Corporation', date_start: '2021-01-01', skills: ['JavaScript', 'React'] }
+];
+
+const result = service.groupJobsByCompany(jobs);
+// Result: 1 company group with promotion detected, skills evolution tracked
+```
+
+## Enhanced Data Export Service
+
+The `DataExportService` has been enhanced to integrate company grouping for superior resume generation:
+
+### New Export Format: `resumeDataGrouped`
+Company-focused resume export with hierarchical structure showing career progression within each organization:
+
+```javascript
+import { DataExportService } from './services/data-export.js';
+const exportService = new DataExportService();
+
+// Enhanced company-grouped export
+const groupedData = await exportService.exportResumeDataGrouped({
+  maxCompanies: 5,
+  minCompanyTenureMonths: 6,
+  includeProgressionDetails: true,
+  includeBoomerangAnalysis: true
+});
+```
+
+### Enhanced Resume Output Structure
+```
+Microsoft (2018 - Present, 5 years 6 months)
+├── Principal Software Engineer (Feb 2022 - Present)
+├── Senior Software Engineer (Apr 2020 - Jan 2022)
+└── Software Engineer (Jun 2018 - Mar 2020)
+Skills: [JavaScript, C#, Azure, TypeScript, React, Node.js, Leadership]
+Key Achievements: [Led cross-functional initiatives, Established best practices]
+```
+
+### Features
+- **Backward Compatible**: Existing `exportResumeData()` now includes `companyGroups` array
+- **Hierarchical Display**: Companies with sub-positions showing progression
+- **Career Progression**: Automatic promotion and lateral move detection
+- **Boomerang Analysis**: Identifies employees who returned to companies
+- **Skills Aggregation**: Company-level skill consolidation with evolution tracking
+- **Multiple Templates**: Hierarchical, chronological, and skills-based resume formats
+- **Smart Filtering**: Minimum tenure thresholds and company limits
+
+### Resume Templates Available
+1. **Hierarchical**: Company-grouped with career progression trees
+2. **Chronological**: Traditional format enhanced with company context  
+3. **Skills-based**: Organized by skill categories with supporting company experience
+
+### Export Options
+- `maxCompanies`: Limit number of companies (default: all)
+- `minCompanyTenureMonths`: Filter short-term positions (default: 3)
+- `includeProgressionDetails`: Full career progression analysis (default: true)
+- `includeBoomerangAnalysis`: Boomerang employment patterns (default: true)
+- `skillLimit`: Maximum skills per company (default: 50)
+- `showCompanyInsights`: AI-generated insights (default: true)
 
 ## Environment Variables
 

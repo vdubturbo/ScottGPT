@@ -52,12 +52,22 @@ export class DataValidationService {
       // Set overall validity
       result.isValid = result.errors.length === 0;
 
-      this.logger.info('Job data validation completed', {
-        jobId: jobData.id,
-        isValid: result.isValid,
-        errorCount: result.errors.length,
-        warningCount: result.warnings.length
-      });
+      // Only log if there are issues or for debugging purposes
+      if (result.errors.length > 0) {
+        this.logger.warn('Job validation failed', {
+          jobId: jobData.id,
+          errorCount: result.errors.length,
+          warningCount: result.warnings.length,
+          errors: result.errors.map(e => e.code)
+        });
+      } else if (result.warnings.length > 2) { // Only log if many warnings
+        this.logger.info('Job validation completed with warnings', {
+          jobId: jobData.id,
+          warningCount: result.warnings.length,
+          warnings: result.warnings.map(w => w.code)
+        });
+      }
+      // Successful validations with few warnings are not logged to reduce noise
 
     } catch (error) {
       this.logger.error('Validation error occurred', { error: error.message });

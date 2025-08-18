@@ -31,7 +31,7 @@ const DataQualityDashboard = ({ onClose }) => {
       ]);
       
       setQualityData(quality);
-      setTimelineGaps(gaps.gaps || []);
+      setTimelineGaps(gaps?.gaps || []); // gaps response has gaps array inside data
       setValidationResults(validation);
     } catch (err) {
       console.error('Failed to load quality data:', err);
@@ -57,26 +57,16 @@ const DataQualityDashboard = ({ onClose }) => {
   const calculateOverallScore = () => {
     if (!qualityData) return 0;
     
-    const metrics = qualityData.metrics || {};
-    const weights = {
-      completeness: 0.3,
-      consistency: 0.25,
-      accuracy: 0.2,
-      timeliness: 0.15,
-      uniqueness: 0.1
-    };
+    // Use the backend-provided overall score if available
+    if (qualityData.qualitySummary?.overallScore !== undefined) {
+      return qualityData.qualitySummary.overallScore / 100; // Convert from percentage to 0-1 range
+    }
     
-    let totalScore = 0;
-    let totalWeight = 0;
+    if (qualityData.completenessScore !== undefined) {
+      return qualityData.completenessScore / 100; // Convert from percentage to 0-1 range
+    }
     
-    Object.entries(weights).forEach(([metric, weight]) => {
-      if (metrics[metric] !== undefined) {
-        totalScore += metrics[metric] * weight;
-        totalWeight += weight;
-      }
-    });
-    
-    return totalWeight > 0 ? totalScore / totalWeight : 0;
+    return 0;
   };
 
   // Get quality color
@@ -143,25 +133,38 @@ const DataQualityDashboard = ({ onClose }) => {
   const renderIssues = () => {
     const allIssues = [];
     
-    // Add validation errors and warnings
+    // Add validation errors and warnings from the actual response structure
     if (validationResults) {
-      validationResults.errors?.forEach(error => {
+      // Add overall issues
+      validationResults.overall?.issues?.forEach(issue => {
         allIssues.push({
-          type: 'error',
-          severity: 'high',
-          category: 'Validation',
-          message: error.message,
-          field: error.field
+          type: issue.severity === 'critical' ? 'error' : 'warning',
+          severity: issue.severity === 'critical' ? 'high' : 'medium',
+          category: issue.category || 'Validation',
+          message: issue.message
         });
       });
       
-      validationResults.warnings?.forEach(warning => {
-        allIssues.push({
-          type: 'warning',
-          severity: 'medium',
-          category: 'Validation',
-          message: warning.message,
-          field: warning.field
+      // Add job-specific validation errors
+      validationResults.jobs?.forEach(job => {
+        job.validation?.errors?.forEach(error => {
+          allIssues.push({
+            type: 'error',
+            severity: 'high',
+            category: `${job.title} - Validation`,
+            message: error.message,
+            field: error.field
+          });
+        });
+        
+        job.validation?.warnings?.forEach(warning => {
+          allIssues.push({
+            type: 'warning',
+            severity: 'medium',
+            category: `${job.title} - Timeline`,
+            message: warning.message,
+            field: warning.field
+          });
         });
       });
     }
@@ -177,34 +180,34 @@ const DataQualityDashboard = ({ onClose }) => {
       });
     });
     
-    // Add quality-based issues
-    if (qualityData) {
-      const metrics = qualityData.metrics || {};
+    // Add quality-based issues from backend data
+    if (qualityData?.qualitySummary) {
+      const summary = qualityData.qualitySummary;
       
-      if (metrics.completeness < 0.7) {
+      if (summary.criticalIssues > 0) {
         allIssues.push({
           type: 'quality',
-          severity: metrics.completeness < 0.5 ? 'high' : 'medium',
+          severity: 'high',
+          category: 'Data Validation',
+          message: `${summary.criticalIssues} critical data issues need immediate attention`
+        });
+      }
+      
+      if (summary.poorJobs > 0) {
+        allIssues.push({
+          type: 'quality',
+          severity: summary.poorJobs > 5 ? 'high' : 'medium',
+          category: 'Data Quality',
+          message: `${summary.poorJobs} job entries have poor data quality`
+        });
+      }
+      
+      if (qualityData.healthMetrics?.jobs?.withDescriptions === 0 && qualityData.healthMetrics?.jobs?.total > 0) {
+        allIssues.push({
+          type: 'quality',
+          severity: 'high',
           category: 'Completeness',
-          message: 'Several job entries are missing important information'
-        });
-      }
-      
-      if (metrics.consistency < 0.7) {
-        allIssues.push({
-          type: 'quality',
-          severity: 'medium',
-          category: 'Consistency',
-          message: 'Job entries have inconsistent formatting or structure'
-        });
-      }
-      
-      if (metrics.uniqueness < 0.9) {
-        allIssues.push({
-          type: 'quality',
-          severity: 'medium',
-          category: 'Duplicates',
-          message: 'Potential duplicate entries detected'
+          message: 'No jobs have detailed descriptions - this significantly impacts search quality'
         });
       }
     }
@@ -219,6 +222,9 @@ const DataQualityDashboard = ({ onClose }) => {
   const overallScore = calculateOverallScore();
   const overallGrade = getQualityGrade(overallScore);
   const issues = renderIssues();
+
+  // Keep a minimal debug for now
+  console.log('Data Quality Dashboard rendering with score:', overallScore);
 
   return (
     <div className="data-quality-overlay">
@@ -273,10 +279,12 @@ const DataQualityDashboard = ({ onClose }) => {
                       className="quality-grade"
                       style={{ color: getQualityColor(overallScore) }}
                     >
-                      {overallGrade}
+                      {qualityData?.qualitySummary?.grade || overallGrade}
                     </div>
                     <div className="quality-description">
-                      {qualityData?.summary || 'Data quality assessment based on multiple factors including completeness, consistency, and accuracy.'}
+                      {qualityData?.qualitySummary ? 
+                        `Overall quality based on ${qualityData.healthMetrics?.jobs?.total || 0} job entries with ${qualityData.qualitySummary.warnings || 0} warnings and ${qualityData.qualitySummary.criticalIssues || 0} critical issues.` :
+                        'Data quality assessment based on multiple factors including completeness, consistency, and accuracy.'}
                     </div>
                     {qualityData?.lastUpdated && (
                       <div className="last-updated">
@@ -290,15 +298,15 @@ const DataQualityDashboard = ({ onClose }) => {
                 <div className="quick-stats">
                   <div className="stat-item">
                     <div className="stat-number">
-                      {qualityData?.stats?.totalJobs || 0}
+                      {qualityData?.healthMetrics?.jobs?.total || 0}
                     </div>
                     <div className="stat-label">Total Jobs</div>
                   </div>
                   <div className="stat-item">
                     <div className="stat-number">
-                      {qualityData?.stats?.completeJobs || 0}
+                      {qualityData?.qualitySummary?.excellentJobs || 0}
                     </div>
-                    <div className="stat-label">Complete</div>
+                    <div className="stat-label">Excellent</div>
                   </div>
                   <div className="stat-item">
                     <div className="stat-number">
@@ -308,7 +316,7 @@ const DataQualityDashboard = ({ onClose }) => {
                   </div>
                   <div className="stat-item">
                     <div className="stat-number">
-                      {issues.filter(i => i.severity === 'high').length}
+                      {(qualityData?.qualitySummary?.criticalIssues || 0) + (qualityData?.qualitySummary?.warnings || 0)}
                     </div>
                     <div className="stat-label">Issues</div>
                   </div>
@@ -319,32 +327,38 @@ const DataQualityDashboard = ({ onClose }) => {
               <div className="quality-metrics">
                 <h3>Quality Metrics</h3>
                 <div className="metrics-grid">
-                  {qualityData?.metrics && (
+                  {qualityData && (
                     <>
                       {renderQualityMetric(
                         'Completeness',
-                        qualityData.metrics.completeness,
+                        (qualityData.completenessScore || 0) / 100,
                         'How much required information is present'
                       )}
                       {renderQualityMetric(
-                        'Consistency',
-                        qualityData.metrics.consistency,
-                        'How uniform the data format and structure is'
+                        'Skills Coverage',
+                        qualityData.healthMetrics?.jobs?.total > 0 
+                          ? (qualityData.healthMetrics.jobs.withSkills || 0) / qualityData.healthMetrics.jobs.total 
+                          : 0,
+                        'Jobs with skills information'
                       )}
                       {renderQualityMetric(
-                        'Accuracy',
-                        qualityData.metrics.accuracy,
-                        'How correct and valid the data appears'
+                        'Description Coverage',
+                        qualityData.healthMetrics?.jobs?.total > 0 
+                          ? (qualityData.healthMetrics.jobs.withDescriptions || 0) / qualityData.healthMetrics.jobs.total 
+                          : 0,
+                        'Jobs with detailed descriptions'
                       )}
                       {renderQualityMetric(
-                        'Timeliness',
-                        qualityData.metrics.timeliness,
-                        'How current and up-to-date the information is'
+                        'Location Coverage',
+                        qualityData.healthMetrics?.jobs?.total > 0 
+                          ? (qualityData.healthMetrics.jobs.withLocations || 0) / qualityData.healthMetrics.jobs.total 
+                          : 0,
+                        'Jobs with location information'
                       )}
                       {renderQualityMetric(
-                        'Uniqueness',
-                        qualityData.metrics.uniqueness,
-                        'How free the data is from duplicates'
+                        'Overall Quality',
+                        (qualityData.qualitySummary?.overallScore || 0) / 100,
+                        'Overall data quality assessment'
                       )}
                     </>
                   )}
@@ -374,7 +388,12 @@ const DataQualityDashboard = ({ onClose }) => {
                             <strong>Suggestions:</strong>
                             <ul>
                               {gap.suggestions.map((suggestion, i) => (
-                                <li key={i}>{suggestion}</li>
+                                <li key={i}>
+                                  {typeof suggestion === 'string' 
+                                    ? suggestion 
+                                    : `${suggestion.activity || suggestion.type}: ${suggestion.description}`
+                                  }
+                                </li>
                               ))}
                             </ul>
                           </div>
@@ -444,11 +463,20 @@ const DataQualityDashboard = ({ onClose }) => {
               )}
 
               {/* No Issues State */}
-              {issues.length === 0 && (
+              {issues.length === 0 && overallScore > 0.8 && (
                 <div className="no-issues">
                   <div className="no-issues-icon">✨</div>
                   <h3>Excellent Data Quality!</h3>
                   <p>Your work history data looks great with no major issues detected.</p>
+                </div>
+              )}
+              
+              {/* Low quality but no critical issues */}
+              {issues.length === 0 && overallScore <= 0.8 && overallScore > 0 && (
+                <div className="no-issues">
+                  <div className="no-issues-icon">📊</div>
+                  <h3>Data Analysis Complete</h3>
+                  <p>Your work history has been analyzed. While no critical issues were detected, there may be opportunities for improvement in the quality metrics above.</p>
                 </div>
               )}
             </>

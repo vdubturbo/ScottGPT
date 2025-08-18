@@ -8,6 +8,7 @@ import winston from 'winston';
 import { supabase } from '../config/database.js';
 import { DataProcessingService } from '../utils/data-processing.js';
 import { DataValidationService } from './data-validation.js';
+import CompanyGroupingService from '../utils/company-grouping.js';
 import { Parser } from 'json2csv';
 
 export class DataExportService {
@@ -26,6 +27,7 @@ export class DataExportService {
 
     this.processingService = new DataProcessingService();
     this.validationService = new DataValidationService();
+    this.companyGroupingService = new CompanyGroupingService();
 
     // Export format configurations
     this.exportFormats = {
@@ -38,6 +40,10 @@ export class DataExportService {
         extension: 'csv'
       },
       resumeData: {
+        mimeType: 'application/json',
+        extension: 'json'
+      },
+      resumeDataGrouped: {
         mimeType: 'application/json',
         extension: 'json'
       },
@@ -318,6 +324,9 @@ export class DataExportService {
       // Generate career summary
       const careerSummary = this.generateCareerSummary(processedJobs, topSkills);
 
+      // Generate company groupings for additional insights
+      const companyGroups = this.companyGroupingService.groupJobsByCompany(processedJobs);
+
       return {
         metadata: {
           exportDate: new Date().toISOString(),
@@ -325,10 +334,21 @@ export class DataExportService {
           totalJobs: processedJobs.length,
           jobsFiltered: jsonData.jobs.length - processedJobs.length,
           skillsIncluded: topSkills.length,
-          generatedFor: 'resume-generation'
+          generatedFor: 'resume-generation',
+          includesCompanyGrouping: true
         },
         profile: careerSummary,
         positions: processedJobs,
+        companyGroups: companyGroups.map(company => ({
+          name: company.normalizedName,
+          originalNames: company.originalNames,
+          totalTenure: company.tenure.formatted,
+          positionCount: company.totalPositions,
+          careerProgression: company.careerProgression.pattern,
+          isBoomerang: company.boomerangPattern.isBoomerang,
+          keySkills: company.aggregatedSkills.uniqueSkills.slice(0, 10),
+          insights: company.insights
+        })),
         skills: {
           top: topSkills,
           categorized: categorizedSkills,
@@ -345,6 +365,240 @@ export class DataExportService {
 
     } catch (error) {
       this.logger.error('Error exporting resume data', { error: error.message });
+      throw error;
+    }
+  }
+
+  /**
+   * Export resume data with company-focused grouping and hierarchy
+   * @param {Object} options - Export options
+   * @returns {Object} Company-grouped resume data structure
+   */
+  async exportResumeDataGrouped(options = {}) {
+    try {
+      const {
+        maxCompanies = null,
+        skillLimit = 50,
+        includeProgressionDetails = true,
+        includeBoomerangAnalysis = true,
+        minCompanyTenureMonths = 3,
+        showCompanyInsights = true
+      } = options;
+
+      this.logger.info('Exporting company-grouped resume data', { options });
+
+      // Get base resume data first
+      const baseData = await this.exportResumeData({
+        maxJobs: null, // Get all jobs for proper company analysis
+        skillLimit,
+        includeOutcomes: true
+      });
+
+      // Group jobs by company with full analysis
+      const companyGroups = this.companyGroupingService.groupJobsByCompany(baseData.positions);
+
+      // Filter companies by minimum tenure if specified
+      const filteredCompanies = companyGroups
+        .filter(company => {
+          if (minCompanyTenureMonths && company.tenure.days < (minCompanyTenureMonths * 30)) {
+            return false;
+          }
+          return true;
+        })
+        .slice(0, maxCompanies || undefined);
+
+      // Process companies for resume format with hierarchical structure
+      const processedCompanies = filteredCompanies.map(company => {
+        // Sort positions within company chronologically (most recent first for resume display)
+        const sortedPositions = [...company.positions].sort((a, b) => {
+          const aDate = new Date(a.startDate || '1900-01-01');
+          const bDate = new Date(b.startDate || '1900-01-01');
+          return bDate - aDate; // Most recent first
+        });
+
+        // Format positions for resume display
+        const resumePositions = sortedPositions.map(position => ({
+          title: position.title,
+          startDate: position.startDate,
+          endDate: position.endDate,
+          duration: position.duration,
+          summary: position.summary,
+          keyAchievements: position.keyAchievements || [],
+          skills: position.skills || [],
+          isCurrentPosition: position.isCurrentPosition
+        }));
+
+        // Generate company-level achievements by combining all positions
+        const allAchievements = sortedPositions
+          .flatMap(pos => pos.keyAchievements || [])
+          .filter(Boolean);
+
+        // Create hierarchical company structure
+        const companyData = {
+          // Basic company information
+          name: company.originalNames.length > 1 ? 
+            company.originalNames[0] : // Use first/primary name
+            company.originalNames[0],
+          normalizedName: company.normalizedName,
+          alternativeNames: company.originalNames.length > 1 ? 
+            company.originalNames.slice(1) : [],
+          
+          // Tenure and position information
+          totalTenure: company.tenure.formatted,
+          tenureDetails: {
+            years: company.tenure.years,
+            months: company.tenure.months,
+            days: company.tenure.days
+          },
+          positionCount: company.totalPositions,
+          
+          // Date range
+          dateRange: {
+            start: company.dateRange.start,
+            end: company.dateRange.end,
+            formatted: company.dateRange.formatted
+          },
+          
+          // Hierarchical positions (most recent first)
+          positions: resumePositions,
+          
+          // Aggregated company-level data
+          skills: {
+            all: company.aggregatedSkills.uniqueSkills,
+            count: company.aggregatedSkills.skillCount,
+            byFrequency: Object.entries(company.aggregatedSkills.skillFrequency)
+              .sort(([,a], [,b]) => b - a)
+              .slice(0, skillLimit)
+              .map(([skill, frequency]) => ({ skill, frequency })),
+            evolution: includeProgressionDetails ? company.aggregatedSkills.skillEvolution : null
+          },
+          
+          // Combined achievements across all positions
+          keyAchievements: [...new Set(allAchievements)].slice(0, 10),
+          
+          // Career progression analysis
+          careerProgression: includeProgressionDetails ? {
+            pattern: company.careerProgression.pattern,
+            progressionScore: company.careerProgression.progressionScore,
+            promotions: company.careerProgression.promotions.map(promo => ({
+              from: promo.from.title,
+              to: promo.to.title,
+              date: promo.to.date,
+              indicators: promo.indicators
+            })),
+            lateralMoves: company.careerProgression.lateralMoves.length,
+            totalRoleChanges: company.careerProgression.totalRoleChanges,
+            insights: company.careerProgression.insights
+          } : {
+            pattern: company.careerProgression.pattern,
+            promotionCount: company.careerProgression.promotions.length
+          },
+          
+          // Boomerang analysis
+          boomerangPattern: includeBoomerangAnalysis ? {
+            isBoomerang: company.boomerangPattern.isBoomerang,
+            stints: company.boomerangPattern.stints,
+            gaps: company.boomerangPattern.gaps.map(gap => ({
+              duration: gap.durationFormatted,
+              start: gap.start,
+              end: gap.end
+            })),
+            insights: company.boomerangPattern.insights
+          } : {
+            isBoomerang: company.boomerangPattern.isBoomerang,
+            stints: company.boomerangPattern.stints
+          },
+          
+          // Company insights
+          insights: showCompanyInsights ? company.insights : [],
+          
+          // Display formatting helpers
+          displayFormat: this.formatCompanyForResume(company, resumePositions)
+        };
+
+        return companyData;
+      });
+
+      // Generate overall career insights across companies
+      const careerInsights = this.generateCrossCompanyInsights(filteredCompanies);
+      
+      // Aggregate skills across all companies
+      const allCompanySkills = filteredCompanies
+        .flatMap(company => company.aggregatedSkills.uniqueSkills);
+      const globalSkillFrequency = {};
+      allCompanySkills.forEach(skill => {
+        globalSkillFrequency[skill] = (globalSkillFrequency[skill] || 0) + 1;
+      });
+
+      const topGlobalSkills = Object.entries(globalSkillFrequency)
+        .sort(([,a], [,b]) => b - a)
+        .slice(0, skillLimit)
+        .map(([skill, frequency]) => ({ skill, frequency }));
+
+      return {
+        metadata: {
+          exportDate: new Date().toISOString(),
+          exportFormat: 'resume-data-grouped',
+          totalCompanies: processedCompanies.length,
+          companiesFiltered: companyGroups.length - processedCompanies.length,
+          totalPositions: processedCompanies.reduce((sum, company) => sum + company.positionCount, 0),
+          skillsIncluded: topGlobalSkills.length,
+          generatedFor: 'company-grouped-resume-generation',
+          includesProgressionDetails: includeProgressionDetails,
+          includesBoomerangAnalysis: includeBoomerangAnalysis
+        },
+        
+        // Enhanced profile with company-level insights
+        profile: {
+          ...baseData.profile,
+          companyCount: processedCompanies.length,
+          averageCompanyTenure: this.calculateAverageCompanyTenure(processedCompanies),
+          boomerangCompanies: processedCompanies.filter(c => c.boomerangPattern.isBoomerang).length,
+          careerProgressionSummary: this.summarizeCareerProgression(processedCompanies)
+        },
+        
+        // Company-grouped structure (primary output)
+        companies: processedCompanies,
+        
+        // Global skills across all companies
+        skills: {
+          global: {
+            top: topGlobalSkills,
+            total: topGlobalSkills.length,
+            categorized: this.processingService.categorizeSkills(topGlobalSkills.map(s => s.skill))
+          },
+          byCompany: processedCompanies.map(company => ({
+            company: company.name,
+            skills: company.skills.byFrequency.slice(0, 10)
+          }))
+        },
+        
+        // Cross-company insights
+        careerInsights,
+        
+        // Statistics
+        statistics: {
+          ...baseData.statistics,
+          companyStatistics: {
+            totalCompanies: processedCompanies.length,
+            averageTenurePerCompany: this.calculateAverageCompanyTenure(processedCompanies),
+            longestTenure: Math.max(...processedCompanies.map(c => c.tenureDetails.days)),
+            shortestTenure: Math.min(...processedCompanies.map(c => c.tenureDetails.days)),
+            companiesWithPromotions: processedCompanies.filter(c => c.careerProgression.promotionCount > 0).length,
+            boomerangCompanies: processedCompanies.filter(c => c.boomerangPattern.isBoomerang).length
+          }
+        },
+        
+        // Formatting templates for different resume styles
+        resumeTemplates: {
+          hierarchical: this.generateHierarchicalTemplate(processedCompanies),
+          chronological: this.generateChronologicalTemplate(processedCompanies),
+          skills_based: this.generateSkillsBasedTemplate(processedCompanies, topGlobalSkills)
+        }
+      };
+
+    } catch (error) {
+      this.logger.error('Error exporting company-grouped resume data', { error: error.message });
       throw error;
     }
   }
@@ -524,6 +778,15 @@ export class DataExportService {
           }
           break;
 
+        case 'resumeDataGrouped':
+          if (options.maxCompanies && options.maxCompanies < 2) {
+            validation.warnings.push('Very few companies selected for grouped resume - consider including more organizations');
+          }
+          if (options.minCompanyTenureMonths && options.minCompanyTenureMonths > 12) {
+            validation.warnings.push('High minimum tenure may exclude valuable short-term positions');
+          }
+          break;
+
         case 'timeline':
           if (count < 2) {
             validation.warnings.push('Timeline analysis requires at least 2 positions');
@@ -595,6 +858,18 @@ export class DataExportService {
           previewData = await this.exportResumeData(previewOptions);
           // Truncate positions
           previewData.positions = previewData.positions.slice(0, 3);
+          break;
+
+        case 'resumeDataGrouped':
+          previewData = await this.exportResumeDataGrouped({
+            ...previewOptions,
+            maxCompanies: Math.min(previewOptions.maxCompanies || 3, 3)
+          });
+          // Truncate companies and positions within companies
+          previewData.companies = previewData.companies.slice(0, 2).map(company => ({
+            ...company,
+            positions: company.positions.slice(0, 2)
+          }));
           break;
 
         case 'timeline':
@@ -800,6 +1075,7 @@ export class DataExportService {
         json: 2000, // ~2KB per job in JSON
         csv: 500,   // ~500B per job in CSV
         resumeData: 1500, // ~1.5KB per job
+        resumeDataGrouped: 3000, // ~3KB per job (includes company analysis)
         timeline: 1800 // ~1.8KB per job
       };
 
@@ -1019,6 +1295,263 @@ export class DataExportService {
         low: gaps.filter(g => g.severity === 'low').length
       }
     };
+  }
+
+  // ============================================================================
+  // COMPANY GROUPING HELPER METHODS
+  // ============================================================================
+
+  /**
+   * Format company data for resume display
+   */
+  formatCompanyForResume(company, positions) {
+    const header = `${company.originalNames[0]} (${company.dateRange.formatted}, ${company.tenure.formatted})`;
+    
+    const positionLines = positions.map((position, index) => {
+      const isLast = index === positions.length - 1;
+      const prefix = isLast ? '└──' : '├──';
+      const dateRange = `${this.formatDate(position.startDate)} - ${this.formatDate(position.endDate)}`;
+      return `${prefix} ${position.title} (${dateRange})`;
+    });
+
+    const skills = `Skills: [${company.aggregatedSkills.uniqueSkills.slice(0, 10).join(', ')}]`;
+    const achievements = company.insights.length > 0 ? 
+      `Key Achievements: [${company.insights.slice(0, 3).join(', ')}]` : '';
+
+    return {
+      header,
+      positions: positionLines,
+      skills,
+      achievements,
+      fullText: [header, ...positionLines, skills, achievements].filter(Boolean).join('\n')
+    };
+  }
+
+  /**
+   * Generate cross-company career insights
+   */
+  generateCrossCompanyInsights(companies) {
+    const insights = [];
+
+    // Company loyalty analysis
+    const companiesWithMultiplePositions = companies.filter(c => c.totalPositions > 1).length;
+    const boomerangCompanies = companies.filter(c => c.boomerangPattern.isBoomerang).length;
+    
+    if (companiesWithMultiplePositions > 0) {
+      insights.push(`Career growth within organizations: ${companiesWithMultiplePositions} companies with multiple positions`);
+    }
+
+    if (boomerangCompanies > 0) {
+      insights.push(`Boomerang career pattern: Returned to ${boomerangCompanies} company${boomerangCompanies > 1 ? 'ies' : ''}`);
+    }
+
+    // Career progression patterns
+    const promotionCompanies = companies.filter(c => c.careerProgression.promotions.length > 0);
+    if (promotionCompanies.length > 0) {
+      const totalPromotions = promotionCompanies.reduce((sum, c) => sum + c.careerProgression.promotions.length, 0);
+      insights.push(`Career advancement: ${totalPromotions} promotions across ${promotionCompanies.length} companies`);
+    }
+
+    // Tenure patterns
+    const longTenureCompanies = companies.filter(c => c.tenure.years >= 3).length;
+    if (longTenureCompanies > 0) {
+      insights.push(`Long-term commitment: ${longTenureCompanies} companies with 3+ year tenure`);
+    }
+
+    // Skills evolution
+    const skillEvolutionCompanies = companies.filter(c => 
+      c.aggregatedSkills.skillEvolution && c.aggregatedSkills.skillEvolution.length > 0
+    );
+    if (skillEvolutionCompanies.length > 0) {
+      insights.push(`Continuous learning: Skill evolution demonstrated across ${skillEvolutionCompanies.length} companies`);
+    }
+
+    return {
+      insights,
+      summary: {
+        totalCompanies: companies.length,
+        growthCompanies: companiesWithMultiplePositions,
+        boomerangCompanies,
+        promotionCompanies: promotionCompanies.length,
+        longTenureCompanies
+      }
+    };
+  }
+
+  /**
+   * Calculate average company tenure
+   */
+  calculateAverageCompanyTenure(companies) {
+    if (companies.length === 0) return 0;
+    
+    const totalDays = companies.reduce((sum, company) => sum + company.tenureDetails.days, 0);
+    const avgDays = totalDays / companies.length;
+    const avgMonths = Math.round(avgDays / 30);
+    
+    return {
+      days: Math.round(avgDays),
+      months: avgMonths,
+      years: Math.round(avgMonths / 12),
+      formatted: this.formatDuration(null, null, avgDays)
+    };
+  }
+
+  /**
+   * Summarize career progression across companies
+   */
+  summarizeCareerProgression(companies) {
+    const totalPromotions = companies.reduce((sum, c) => sum + (c.careerProgression.promotionCount || 0), 0);
+    const totalLateralMoves = companies.reduce((sum, c) => sum + (c.careerProgression.lateralMoves || 0), 0);
+    
+    const progressionPatterns = companies.map(c => c.careerProgression.pattern);
+    const strongUpwardCount = progressionPatterns.filter(p => p === 'strong_upward').length;
+    const upwardCount = progressionPatterns.filter(p => p === 'upward').length;
+
+    return {
+      totalPromotions,
+      totalLateralMoves,
+      companiesWithStrongProgression: strongUpwardCount,
+      companiesWithUpwardProgression: upwardCount,
+      overallPattern: strongUpwardCount > companies.length / 2 ? 'strong_upward' : 
+                     (strongUpwardCount + upwardCount) > companies.length / 2 ? 'upward' : 'mixed'
+    };
+  }
+
+  /**
+   * Generate hierarchical resume template
+   */
+  generateHierarchicalTemplate(companies) {
+    const template = {
+      title: 'Company-Grouped Resume Format',
+      description: 'Hierarchical view showing career progression within each company',
+      sections: companies.map(company => ({
+        companyHeader: {
+          name: company.name,
+          tenure: company.totalTenure,
+          positionCount: company.positionCount,
+          formatted: `**${company.name}** | ${company.totalTenure} | ${company.positionCount} position${company.positionCount > 1 ? 's' : ''}`
+        },
+        positions: company.positions.map((position, index) => ({
+          title: position.title,
+          dateRange: `${this.formatDate(position.startDate)} - ${this.formatDate(position.endDate)}`,
+          duration: position.duration,
+          formatted: `  ${position.title} | ${this.formatDate(position.startDate)} - ${this.formatDate(position.endDate)}`
+        })),
+        skills: {
+          list: company.skills.byFrequency.slice(0, 8),
+          formatted: `**Skills:** ${company.skills.byFrequency.slice(0, 8).map(s => s.skill).join(', ')}`
+        },
+        achievements: {
+          list: company.keyAchievements.slice(0, 5),
+          formatted: company.keyAchievements.slice(0, 5).map(achievement => `  • ${achievement}`).join('\n')
+        }
+      }))
+    };
+
+    return template;
+  }
+
+  /**
+   * Generate chronological resume template
+   */
+  generateChronologicalTemplate(companies) {
+    // Flatten all positions from all companies and sort chronologically
+    const allPositions = companies.flatMap(company => 
+      company.positions.map(position => ({
+        ...position,
+        companyName: company.name,
+        companyTenure: company.totalTenure,
+        companySkills: company.skills.byFrequency.slice(0, 5)
+      }))
+    );
+
+    // Sort by start date (most recent first)
+    allPositions.sort((a, b) => {
+      const aDate = new Date(a.startDate || '1900-01-01');
+      const bDate = new Date(b.startDate || '1900-01-01');
+      return bDate - aDate;
+    });
+
+    return {
+      title: 'Chronological Resume Format',
+      description: 'Traditional chronological view with company context',
+      positions: allPositions.map(position => ({
+        header: `${position.title} | ${position.companyName}`,
+        dateRange: `${this.formatDate(position.startDate)} - ${this.formatDate(position.endDate)}`,
+        duration: position.duration,
+        skills: position.skills.slice(0, 6),
+        achievements: position.keyAchievements.slice(0, 3),
+        formatted: `**${position.title}** | *${position.companyName}* | ${this.formatDate(position.startDate)} - ${this.formatDate(position.endDate)}`
+      }))
+    };
+  }
+
+  /**
+   * Generate skills-based resume template
+   */
+  generateSkillsBasedTemplate(companies, globalSkills) {
+    // Group companies by primary skill categories
+    const skillCategories = this.processingService.categorizeSkills(globalSkills.map(s => s.skill));
+    
+    const skillBasedSections = Object.entries(skillCategories).map(([category, count]) => {
+      const relevantCompanies = companies.filter(company => {
+        const companySkills = company.skills.all.join(' ').toLowerCase();
+        return globalSkills
+          .filter(gs => this.processingService.categorizeSkills([gs.skill])[category])
+          .some(skill => companySkills.includes(skill.skill.toLowerCase()));
+      });
+
+      return {
+        skillCategory: category,
+        skillCount: count,
+        companiesWithSkills: relevantCompanies.length,
+        companies: relevantCompanies.map(company => ({
+          name: company.name,
+          positions: company.positions.map(p => p.title).join(', '),
+          tenure: company.totalTenure,
+          relevantSkills: company.skills.byFrequency
+            .filter(skill => this.processingService.categorizeSkills([skill.skill])[category])
+            .slice(0, 5)
+        }))
+      };
+    });
+
+    return {
+      title: 'Skills-Based Resume Format',
+      description: 'Organized by skill categories with supporting company experience',
+      skillSections: skillBasedSections
+    };
+  }
+
+  /**
+   * Helper method to format dates consistently
+   */
+  formatDate(dateStr) {
+    if (!dateStr) return 'Present';
+    const date = new Date(dateStr);
+    return date.toLocaleDateString('en-US', { 
+      year: 'numeric', 
+      month: 'short' 
+    });
+  }
+
+  /**
+   * Enhanced duration formatting with days support
+   */
+  formatDuration(startDate, endDate, totalDays = null) {
+    if (totalDays !== null) {
+      const years = Math.floor(totalDays / 365);
+      const months = Math.floor((totalDays % 365) / 30);
+      
+      if (years > 0) {
+        return months > 0 ? `${years} year${years > 1 ? 's' : ''} ${months} month${months > 1 ? 's' : ''}` : 
+                           `${years} year${years > 1 ? 's' : ''}`;
+      }
+      return `${months} month${months > 1 ? 's' : ''}`;
+    }
+
+    // Fall back to existing duration formatting
+    return this.formatDuration(startDate, endDate);
   }
 }
 
