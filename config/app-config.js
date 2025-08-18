@@ -54,7 +54,7 @@ const ENV_CONFIG = {
   // Server Configuration
   PORT: {
     required: false,
-    default: 3001,
+    default: 3005,
     type: 'number',
     validator: (value) => value >= 1 && value <= 65535,
     error: 'PORT must be between 1 and 65535'

@@ -522,37 +522,33 @@ export class DataQualityAnalysisService {
   /**
    * Generate enhancement suggestions using existing enhancement service
    */
-  async generateEnhancementSuggestions(jobs) {
+  async generateEnhancementSuggestions(jobs, options = {}) {
     try {
-      const suggestions = [];
-
-      // Skills enhancement suggestions for low-skill jobs
+      // AI enhancement suggestions are completely disabled to prevent API abuse
+      // This method now only returns metadata about jobs that could benefit from enhancement
+      
       const lowSkillJobs = jobs.filter(job => !job.skills || job.skills.length < 3);
       
-      for (const job of lowSkillJobs.slice(0, 5)) { // Limit to avoid API overuse
-        try {
-          const skillSuggestions = await this.enhancementService.suggestSkills(job, { 
-            maxSuggestions: 8,
-            confidenceThreshold: 0.7 
-          });
-          
-          if (skillSuggestions.suggestions.length > 0) {
-            suggestions.push({
-              type: 'skills',
-              jobId: job.id,
-              jobTitle: job.title,
-              current: job.skills || [],
-              suggested: skillSuggestions.suggestions.slice(0, 5),
-              confidence: skillSuggestions.analysis.confidence
-            });
-          }
-        } catch (error) {
-          this.logger.warn('Error generating skill suggestions for job', { 
-            jobId: job.id, 
-            error: error.message 
-          });
-        }
-      }
+      this.logger.info('AI enhancement suggestions permanently disabled to prevent OpenAI API abuse', { 
+        lowSkillJobsCount: lowSkillJobs.length,
+        message: 'Use individual enhancement endpoints for selective AI suggestions'
+      });
+
+      // Return empty suggestions array but maintain expected structure for backward compatibility
+      const suggestions = [];
+      
+      // Add metadata about jobs that could benefit from enhancement (without AI suggestions)
+      lowSkillJobs.slice(0, 10).forEach(job => {
+        suggestions.push({
+          type: 'skills',
+          jobId: job.id,
+          jobTitle: job.title,
+          current: job.skills || [],
+          suggested: [], // Always empty - no AI suggestions
+          confidence: null,
+          note: 'Use individual skill suggestion API endpoint for AI-powered suggestions'
+        });
+      });
 
       return suggestions;
     } catch (error) {

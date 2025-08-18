@@ -15,7 +15,8 @@ const WorkHistoryManager = () => {
     clearError,
     getWorkHistory,
     detectDuplicates,
-    getDuplicatesSummary
+    getDuplicatesSummary,
+    deleteJob
   } = useUserDataAPI();
 
   const [jobs, setJobs] = useState([]);
@@ -124,6 +125,23 @@ const WorkHistoryManager = () => {
     setSelectedJob(null);
   };
 
+  // Handle job delete
+  const handleJobDelete = async (job) => {
+    const confirmMessage = `Are you sure you want to delete "${job.title}" at ${job.org}?\n\nThis action cannot be undone and will also delete all related content and embeddings.`;
+    
+    if (window.confirm(confirmMessage)) {
+      try {
+        await deleteJob(job.id);
+        console.log(`Job deleted: ${job.title}`);
+        loadWorkHistory(); // Refresh the list
+        loadDuplicatesSummary(); // Refresh duplicates
+      } catch (err) {
+        console.error('Failed to delete job:', err);
+        // Error will be handled by the useUserDataAPI hook and displayed in the error banner
+      }
+    }
+  };
+
   // Format date for display
   const formatDate = (dateStr) => {
     if (!dateStr) return 'Present';
@@ -206,6 +224,16 @@ const WorkHistoryManager = () => {
                   >
                     Edit
                   </button>
+                  <button 
+                    className="btn-delete"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      handleJobDelete(job);
+                    }}
+                    title="Delete job"
+                  >
+                    Delete
+                  </button>
                 </div>
               </div>
             </div>
@@ -244,6 +272,16 @@ const WorkHistoryManager = () => {
                 }}
               >
                 Edit
+              </button>
+              <button 
+                className="btn-delete"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  handleJobDelete(job);
+                }}
+                title="Delete job"
+              >
+                Delete
               </button>
             </div>
           </div>

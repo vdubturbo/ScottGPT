@@ -227,7 +227,7 @@ const JobEditor = ({ job, onSave, onCancel }) => {
                     value={formData.title}
                     onChange={(e) => handleFieldChange('title', e.target.value)}
                     placeholder="e.g., Senior Software Engineer"
-                    className={validation.errors.some(e => e.field === 'title') ? 'error' : ''}
+                    className={validation.errors?.some(e => e.field === 'title') ? 'error' : ''}
                     autoComplete="organization-title"
                   />
                   <ValidationMessage 
@@ -245,7 +245,7 @@ const JobEditor = ({ job, onSave, onCancel }) => {
                     value={formData.org}
                     onChange={(e) => handleFieldChange('org', e.target.value)}
                     placeholder="e.g., Tech Corp Inc."
-                    className={validation.errors.some(e => e.field === 'org') ? 'error' : ''}
+                    className={validation.errors?.some(e => e.field === 'org') ? 'error' : ''}
                     autoComplete="organization"
                   />
                   <ValidationMessage 
@@ -293,7 +293,7 @@ const JobEditor = ({ job, onSave, onCancel }) => {
                       id="date_start"
                       value={formData.date_start}
                       onChange={(value) => handleFieldChange('date_start', value)}
-                      className={validation.errors.some(e => e.field === 'date_start') ? 'error' : ''}
+                      className={validation.errors?.some(e => e.field === 'date_start') ? 'error' : ''}
                     />
                     <ValidationMessage 
                       field="date_start" 
@@ -309,7 +309,7 @@ const JobEditor = ({ job, onSave, onCancel }) => {
                       value={formData.date_end}
                       onChange={(value) => handleFieldChange('date_end', value)}
                       allowCurrent={true}
-                      className={validation.errors.some(e => e.field === 'date_end') ? 'error' : ''}
+                      className={validation.errors?.some(e => e.field === 'date_end') ? 'error' : ''}
                     />
                     <ValidationMessage 
                       field="date_end" 
@@ -331,7 +331,7 @@ const JobEditor = ({ job, onSave, onCancel }) => {
                     onChange={(e) => handleFieldChange('description', e.target.value)}
                     placeholder="Describe your role, responsibilities, and achievements..."
                     rows={6}
-                    className={validation.errors.some(e => e.field === 'description') ? 'error' : ''}
+                    className={validation.errors?.some(e => e.field === 'description') ? 'error' : ''}
                   />
                   <ValidationMessage 
                     field="description" 

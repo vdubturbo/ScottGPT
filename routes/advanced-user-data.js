@@ -1,6 +1,17 @@
 /**
  * Advanced User Data Management API Routes
  * Provides bulk operations, smart enhancements, and system operations
+ * 
+ * AI FEATURES STATUS (Updated Aug 2025):
+ * =====================================
+ * The following endpoints had AI functionality PERMANENTLY DISABLED:
+ * - /suggest-skills - Previously used OpenAI for intelligent skill extraction
+ * - /quality-report - Previously included AI-generated insights and recommendations  
+ * - /quality-improvement-plan - Previously used AI for personalized improvement plans
+ * 
+ * All AI features now use rule-based logic only to prevent unauthorized OpenAI API costs.
+ * Rate limits have been adjusted to be more restrictive for these endpoints.
+ * Maintenance mode flag (AI_FEATURES_ENABLED) allows easy re-enabling when needed.
  */
 
 import express from 'express';
@@ -15,6 +26,12 @@ import { DataQualityAnalysisService } from '../services/data-quality-analysis.js
 import EmbeddingService from '../services/embeddings.js';
 
 const router = express.Router();
+
+// AI Features Maintenance Mode Flag
+// Set to false to disable all AI-powered features (OpenAI, smart enhancements)
+const AI_FEATURES_ENABLED = false;
+const AI_DISABLE_REASON = 'temporary-cost-protection';
+const AI_DISABLE_MESSAGE = 'AI features temporarily disabled to prevent OpenAI API costs';
 
 // Initialize services
 const bulkOpsService = new BulkOperationsService();
@@ -42,15 +59,56 @@ const bulkOperationLimiter = rateLimit({
   max: 5, // 5 bulk operations per window
   message: { error: 'Too many bulk operations, please try again later' },
   standardHeaders: true,
-  legacyHeaders: false
+  legacyHeaders: false,
+  onLimitReached: (req, res, options) => {
+    logger.warn('Bulk operation rate limit exceeded', {
+      ip: req.ip,
+      userAgent: req.get('User-Agent'),
+      endpoint: req.path,
+      windowMs: options.windowMs,
+      maxRequests: options.max
+    });
+  }
 });
 
+// IMPORTANT: AI features are temporarily disabled to prevent OpenAI API costs
+// These endpoints now return rule-based responses only
 const enhancementLimiter = rateLimit({
   windowMs: 5 * 60 * 1000, // 5 minutes
-  max: 20, // 20 enhancement requests per window
-  message: { error: 'Too many enhancement requests, please try again later' },
+  max: 10, // Reduced from 20 - more restrictive since AI features disabled
+  message: { 
+    error: 'Too many enhancement requests, please try again later',
+    note: 'AI features are temporarily disabled for cost protection'
+  },
   standardHeaders: true,
-  legacyHeaders: false
+  legacyHeaders: false,
+  onLimitReached: (req, res, options) => {
+    logger.warn('Enhancement rate limit exceeded', {
+      ip: req.ip,
+      userAgent: req.get('User-Agent'),
+      endpoint: req.path,
+      aiDisabled: true,
+      windowMs: options.windowMs,
+      maxRequests: options.max
+    });
+  }
+});
+
+const validationLimiter = rateLimit({
+  windowMs: 1 * 60 * 1000, // 1 minute
+  max: 100, // 100 validation requests per minute - permissive for real-time validation
+  message: { error: 'Too many validation requests, please slow down' },
+  standardHeaders: true,
+  legacyHeaders: false,
+  onLimitReached: (req, res, options) => {
+    logger.warn('Validation rate limit exceeded', {
+      ip: req.ip,
+      userAgent: req.get('User-Agent'),
+      endpoint: req.path,
+      windowMs: options.windowMs,
+      maxRequests: options.max
+    });
+  }
 });
 
 const systemLimiter = rateLimit({
@@ -58,7 +116,16 @@ const systemLimiter = rateLimit({
   max: 3, // 3 system operations per window
   message: { error: 'Too many system operations, please try again later' },
   standardHeaders: true,
-  legacyHeaders: false
+  legacyHeaders: false,
+  onLimitReached: (req, res, options) => {
+    logger.warn('System operation rate limit exceeded', {
+      ip: req.ip,
+      userAgent: req.get('User-Agent'),
+      endpoint: req.path,
+      windowMs: options.windowMs,
+      maxRequests: options.max
+    });
+  }
 });
 
 // ============================================================================
@@ -537,7 +604,18 @@ router.get('/gaps', enhancementLimiter, async (req, res) => {
 
 /**
  * POST /api/user/suggest-skills
- * AI-powered skill suggestions based on job descriptions
+ * Skill suggestions based on job descriptions (AI disabled)
+ * 
+ * FORMERLY AI-POWERED: This endpoint previously used OpenAI GPT-4 for intelligent
+ * skill extraction and suggestions. AI functionality has been permanently disabled
+ * to prevent unauthorized API costs.
+ * 
+ * CURRENT BEHAVIOR: Returns rule-based skill suggestions only, using:
+ * - Keyword matching against skill databases
+ * - Industry-standard skill mappings
+ * - Job title and description parsing
+ * 
+ * RATE LIMITING: More restrictive limits applied since AI features disabled
  */
 router.post('/suggest-skills', enhancementLimiter, async (req, res) => {
   try {
@@ -573,28 +651,47 @@ router.post('/suggest-skills', enhancementLimiter, async (req, res) => {
       });
     }
 
-    logger.info('Generating skill suggestions', { 
+    // Check maintenance mode and add appropriate headers
+    const isMaintenanceMode = checkAIMaintenanceMode(req, res, 'suggest-skills');
+    
+    logger.info('Generating skill suggestions (maintenance mode active)', { 
       jobId: job.id,
       title: job.title?.substring(0, 50),
-      ip: req.ip
+      ip: req.ip,
+      requestedAI: options.includeAI,
+      actualAI: !isMaintenanceMode,
+      maintenanceMode: isMaintenanceMode
     });
 
-    const suggestions = await enhancementService.suggestSkills(job, options);
+    // Force AI disabled when in maintenance mode
+    const effectiveOptions = {
+      ...options,
+      includeAI: AI_FEATURES_ENABLED ? options.includeAI : false
+    };
+
+    const suggestions = await enhancementService.suggestSkills(job, effectiveOptions);
+
+    const responseData = {
+      job: {
+        id: job.id,
+        title: job.title,
+        org: job.org,
+        currentSkills: job.skills || []
+      },
+      suggestions: suggestions.suggestions,
+      categorized: suggestions.categorized,
+      analysis: {
+        ...suggestions.analysis,
+        aiContribution: AI_FEATURES_ENABLED ? suggestions.analysis.aiContribution : 0,
+        ruleBasedOnly: !AI_FEATURES_ENABLED
+      },
+      recommendations: suggestions.recommendations
+    };
 
     res.json({
       success: true,
-      data: {
-        job: {
-          id: job.id,
-          title: job.title,
-          org: job.org,
-          currentSkills: job.skills || []
-        },
-        suggestions: suggestions.suggestions,
-        categorized: suggestions.categorized,
-        analysis: suggestions.analysis,
-        recommendations: suggestions.recommendations
-      },
+      ...(isMaintenanceMode ? createAIDisabledResponse({}) : {}),
+      data: responseData,
       timestamp: new Date().toISOString()
     });
 
@@ -603,7 +700,8 @@ router.post('/suggest-skills', enhancementLimiter, async (req, res) => {
     
     res.status(500).json({
       error: 'Failed to generate skill suggestions',
-      message: error.message
+      message: error.message,
+      aiDisabled: true
     });
   }
 });
@@ -612,11 +710,35 @@ router.post('/suggest-skills', enhancementLimiter, async (req, res) => {
  * POST /api/user/validate
  * Comprehensive data validation report with quality scoring
  */
-router.post('/validate', enhancementLimiter, async (req, res) => {
+router.post('/validate', validationLimiter, async (req, res) => {
   try {
-    const { includeEnhancements = true } = req.body;
+    const { includeEnhancements = true, jobData, validateOnly = false } = req.body;
 
-    logger.info('Generating comprehensive validation report', { 
+    // If jobData is provided, validate only that specific job
+    if (jobData) {
+      logger.info('Validating single job', { 
+        jobId: jobData.id || 'new',
+        validateOnly,
+        ip: req.ip
+      });
+
+      // Single job validation - much more efficient
+      const validation = validationService.validateJobData(jobData);
+      
+      return res.json({
+        success: true,
+        data: {
+          isValid: validation.isValid,
+          errors: validation.errors,
+          warnings: validation.warnings,
+          processedData: validation.processedData
+        },
+        timestamp: new Date().toISOString()
+      });
+    }
+
+    // Full system validation only if no specific job data provided
+    logger.info('Generating comprehensive validation report for all jobs', { 
       includeEnhancements,
       ip: req.ip
     });
@@ -883,7 +1005,17 @@ router.get('/data-quality', enhancementLimiter, async (req, res) => {
 
 /**
  * GET /api/user/quality-report
- * Generate comprehensive data health and quality analysis report
+ * Generate comprehensive data health and quality analysis report (AI disabled)
+ * 
+ * FORMERLY AI-POWERED: This endpoint previously included AI-generated insights,
+ * recommendations, and enhancement suggestions using OpenAI GPT-4.
+ * 
+ * CURRENT BEHAVIOR: Returns rule-based analysis only:
+ * - Statistical data quality metrics
+ * - Template-based recommendations
+ * - Predefined improvement suggestions
+ * 
+ * AI functionality disabled for cost protection.
  */
 router.get('/quality-report', enhancementLimiter, async (req, res) => {
   try {
@@ -894,23 +1026,41 @@ router.get('/quality-report', enhancementLimiter, async (req, res) => {
       generateActionPlan = 'true'
     } = req.query;
 
-    const options = {
+    const requestedOptions = {
       includeRecommendations: includeRecommendations === 'true',
       includeEnhancements: includeEnhancements === 'true',
       detailedAnalysis: detailedAnalysis === 'true',
       generateActionPlan: generateActionPlan === 'true'
     };
 
-    logger.info('Comprehensive quality report requested', { 
-      options,
-      ip: req.ip 
+    // Force AI enhancements disabled regardless of client request
+    const aiDisabledOptions = {
+      ...requestedOptions,
+      includeEnhancements: false // Always disable AI enhancements
+    };
+
+    logger.info('Comprehensive quality report requested (AI enhancements disabled)', { 
+      requestedOptions,
+      actualOptions: aiDisabledOptions,
+      ip: req.ip,
+      message: 'AI enhancements permanently disabled to prevent OpenAI API abuse'
     });
 
-    const healthReport = await qualityAnalysisService.generateDataHealthReport(options);
+    const healthReport = await qualityAnalysisService.generateDataHealthReport(aiDisabledOptions);
+
+    // Add response headers indicating AI is disabled
+    res.set('X-AI-Features-Disabled', 'true');
+    res.set('X-AI-Disable-Reason', 'temporary-cost-protection');
 
     res.json({
       success: true,
-      data: healthReport,
+      aiDisabled: true, // Inform frontend AI is disabled
+      aiDisableReason: 'AI enhancements temporarily disabled to prevent OpenAI API costs',
+      data: {
+        ...healthReport,
+        aiEnhancementsUsed: false, // Clearly indicate no AI was used
+        enhancementMethod: 'rule-based-only'
+      },
       timestamp: new Date().toISOString()
     });
 
@@ -919,7 +1069,8 @@ router.get('/quality-report', enhancementLimiter, async (req, res) => {
     
     res.status(500).json({
       error: 'Failed to generate quality report',
-      message: error.message
+      message: error.message,
+      aiDisabled: true
     });
   }
 });
@@ -978,7 +1129,17 @@ router.get('/quality-score', enhancementLimiter, async (req, res) => {
 
 /**
  * POST /api/user/quality-improvement-plan
- * Generate a customized improvement plan based on current data quality
+ * Generate a customized improvement plan based on current data quality (AI disabled)
+ * 
+ * FORMERLY AI-POWERED: Previously generated personalized improvement plans using
+ * AI analysis of data patterns, user behavior, and intelligent prioritization.
+ * 
+ * CURRENT BEHAVIOR: Uses predefined templates and rule-based logic:
+ * - Standard improvement templates
+ * - Priority filtering based on data scores
+ * - Generic milestone generation
+ * 
+ * AI enhancements disabled to prevent OpenAI API abuse.
  */
 router.post('/quality-improvement-plan', enhancementLimiter, async (req, res) => {
   try {
@@ -988,17 +1149,18 @@ router.post('/quality-improvement-plan', enhancementLimiter, async (req, res) =>
       focusAreas = ['all']
     } = req.body;
 
-    logger.info('Quality improvement plan requested', { 
+    logger.info('Quality improvement plan requested (AI enhancements disabled)', { 
       timeframe,
       priority,
       focusAreas,
-      ip: req.ip 
+      ip: req.ip,
+      message: 'AI-based enhancements permanently disabled to prevent OpenAI API abuse'
     });
 
-    // Generate comprehensive report for analysis
+    // Generate comprehensive report for analysis (AI disabled)
     const healthReport = await qualityAnalysisService.generateDataHealthReport({
       includeRecommendations: true,
-      includeEnhancements: true,
+      includeEnhancements: false, // Always disable AI enhancements
       detailedAnalysis: true,
       generateActionPlan: true
     });
@@ -1020,13 +1182,22 @@ router.post('/quality-improvement-plan', enhancementLimiter, async (req, res) =>
       milestones: generateMilestones(healthReport.actionPlan, timeframe),
       resources: {
         estimatedTime: healthReport.actionPlan?.overview?.estimatedImprovementTime || 'Unknown',
-        toolsNeeded: ['Data validation', 'Content enhancement', 'AI suggestions'],
-        skillsRequired: ['Data entry', 'Content writing', 'Basic editing']
-      }
+        toolsNeeded: ['Data validation', 'Content enhancement', 'Manual skill suggestions'],
+        skillsRequired: ['Data entry', 'Content writing', 'Basic editing'],
+        aiToolsDisabled: 'AI-powered enhancements temporarily unavailable'
+      },
+      aiEnhancementsUsed: false, // Clearly indicate no AI was used
+      enhancementMethod: 'rule-based-only'
     };
+
+    // Add response headers indicating AI is disabled
+    res.set('X-AI-Features-Disabled', 'true');
+    res.set('X-AI-Disable-Reason', 'temporary-cost-protection');
 
     res.json({
       success: true,
+      aiDisabled: true, // Inform frontend AI is disabled
+      aiDisableReason: 'AI enhancements temporarily disabled to prevent OpenAI API costs',
       data: customizedPlan,
       timestamp: new Date().toISOString()
     });
@@ -1036,10 +1207,53 @@ router.post('/quality-improvement-plan', enhancementLimiter, async (req, res) =>
     
     res.status(500).json({
       error: 'Failed to generate improvement plan',
-      message: error.message
+      message: error.message,
+      aiDisabled: true
     });
   }
 });
+
+// ============================================================================
+// MAINTENANCE MODE UTILITIES
+// ============================================================================
+
+/**
+ * Check if AI features are enabled and add appropriate headers/logging
+ * @param {Object} req - Express request object
+ * @param {Object} res - Express response object
+ * @param {string} endpoint - Endpoint name for logging
+ */
+function checkAIMaintenanceMode(req, res, endpoint) {
+  if (!AI_FEATURES_ENABLED) {
+    logger.info(`AI features disabled for ${endpoint}`, {
+      ip: req.ip,
+      endpoint,
+      reason: AI_DISABLE_REASON,
+      userAgent: req.get('User-Agent')
+    });
+    
+    // Add headers to inform client
+    res.set('X-AI-Features-Disabled', 'true');
+    res.set('X-AI-Disable-Reason', AI_DISABLE_REASON);
+    res.set('X-AI-Maintenance-Mode', 'active');
+  }
+  return !AI_FEATURES_ENABLED;
+}
+
+/**
+ * Standard AI disabled response structure
+ * @param {Object} data - Response data
+ * @param {string} message - Optional custom message
+ */
+function createAIDisabledResponse(data, message = null) {
+  return {
+    ...data,
+    aiDisabled: true,
+    aiDisableReason: message || AI_DISABLE_MESSAGE,
+    aiEnhancementsUsed: false,
+    enhancementMethod: 'rule-based-only'
+  };
+}
 
 // ============================================================================
 // HELPER FUNCTIONS

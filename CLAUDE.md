@@ -20,7 +20,7 @@ npm install
 cd client && npm install
 
 # Development (run both server and client)
-npm run dev        # Backend server (port 3001)
+npm run dev        # Backend server (port 3005)
 cd client && npm start  # Frontend React app (port 3000)
 
 # Build for production
@@ -167,17 +167,17 @@ npm run test:debug       # Debug specific tests
 
 ```bash
 # OLDP Experience (should return Lockheed Martin 2001-2005)
-curl -X POST http://localhost:3001/api/chat \
+curl -X POST http://localhost:3005/api/chat \
   -H "Content-Type: application/json" \
   -d '{"message": "Tell me about Scott's OLDP experience"}'
 
 # IoT Work (should return Coca-Cola Freestyle)
-curl -X POST http://localhost:3001/api/chat \
+curl -X POST http://localhost:3005/api/chat \
   -H "Content-Type: application/json" \
   -d '{"message": "What IoT work did Scott do?"}'
 
 # AI/ML Experience (should return machine learning projects)
-curl -X POST http://localhost:3001/api/chat \
+curl -X POST http://localhost:3005/api/chat \
   -H "Content-Type: application/json" \
   -d '{"message": "What AI/ML experience does Scott have?"}'
 ```

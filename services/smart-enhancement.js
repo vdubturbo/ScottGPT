@@ -8,6 +8,7 @@ import OpenAI from 'openai';
 import { supabase } from '../config/database.js';
 import { AdvancedValidationService } from './advanced-validation.js';
 import { DataProcessingService } from '../utils/data-processing.js';
+import openaiProtection from '../utils/openai-protection.js';
 
 export class SmartEnhancementService {
   constructor() {
@@ -30,6 +31,15 @@ export class SmartEnhancementService {
     this.validationService = new AdvancedValidationService();
     this.processingService = new DataProcessingService();
 
+    // Circuit breaker for OpenAI API protection
+    this.circuitBreaker = {
+      isOpen: false,
+      failureCount: 0,
+      lastFailureTime: null,
+      threshold: 3, // Open circuit after 3 failures
+      cooldownPeriod: 5 * 60 * 1000 // 5 minutes cooldown
+    };
+
     // Industry skill mappings and common patterns
     this.industrySkills = new Map([
       ['software', ['JavaScript', 'Python', 'React', 'Node.js', 'Docker', 'AWS', 'Git']],
@@ -44,35 +54,50 @@ export class SmartEnhancementService {
   }
 
   /**
-   * Suggest skills based on job description using AI
+   * Suggest skills based on job description (AI functionality disabled)
    * @param {Object} jobData - Job data including title, description, org
    * @param {Object} options - Enhancement options
    * @returns {Object} Skill suggestions and analysis
    */
   async suggestSkills(jobData, options = {}) {
     try {
-      this.logger.info('Generating skill suggestions', { 
+      this.logger.info('Generating skill suggestions (AI disabled, rule-based only)', { 
         jobId: jobData.id,
         title: jobData.title?.substring(0, 50)
       });
 
-      const { includeAI = true, maxSuggestions = 15, confidenceThreshold = 0.6 } = options;
+      let { includeAI = true, maxSuggestions = 15, confidenceThreshold = 0.6 } = options;
 
-      // Get industry context
+      // Get industry context (doesn't use API)
       const industryContext = await this.analyzeIndustryContext(jobData);
 
-      // Generate AI-powered suggestions
+      // AI-powered suggestions are permanently disabled to prevent API abuse
       let aiSuggestions = [];
-      if (includeAI) {
-        aiSuggestions = await this.generateAISkillSuggestions(jobData, industryContext);
-      }
+      this.logger.info('AI skill suggestions permanently disabled to prevent OpenAI API abuse', {
+        jobId: jobData.id,
+        requestedAI: includeAI,
+        message: 'Using rule-based suggestions only'
+      });
+
+      // Protection service usage preserved for future re-implementation
+      // const requestKey = `skill-suggestions-${jobData.id}`;
+      // const protection = openaiProtection.canMakeRequest(requestKey);
+      // if (protection.allowed) {
+      //   try {
+      //     openaiProtection.registerRequest(requestKey);
+      //     aiSuggestions = await this.generateAISkillSuggestions(jobData, industryContext);
+      //     openaiProtection.recordSuccess(requestKey);
+      //   } catch (error) {
+      //     openaiProtection.recordFailure(error, requestKey);
+      //   }
+      // }
 
       // Generate rule-based suggestions
       const ruleBased = this.generateRuleBasedSuggestions(jobData, industryContext);
 
-      // Combine and rank suggestions
+      // Combine and rank suggestions (only rule-based now)
       const combinedSuggestions = this.combineAndRankSuggestions(
-        aiSuggestions, 
+        aiSuggestions, // Always empty array
         ruleBased, 
         jobData.skills || []
       );
@@ -96,7 +121,7 @@ export class SmartEnhancementService {
           suggestedSkillsCount: filteredSuggestions.length,
           confidence: this.calculateOverallConfidence(filteredSuggestions),
           sources: {
-            ai: aiSuggestions.length,
+            ai: 0, // Always 0 - AI disabled
             ruleBased: ruleBased.length
           }
         },
@@ -159,19 +184,20 @@ export class SmartEnhancementService {
   }
 
   /**
-   * Generate comprehensive data quality report
+   * Generate comprehensive data quality report (AI enhancements disabled)
    * @param {Array} jobs - All job data
    * @returns {Object} Comprehensive quality report
    */
   async generateDataQualityReport(jobs) {
     try {
-      this.logger.info('Generating data quality report', { jobCount: jobs.length });
+      this.logger.info('Generating data quality report (AI enhancements disabled)', { jobCount: jobs.length });
 
       // Run comprehensive validation
       const qualityReport = this.validationService.validateDataQuality(jobs);
 
-      // Add enhancement suggestions
-      const enhancements = await this.suggestDataEnhancements(jobs, qualityReport);
+      // Add enhancement suggestions (AI disabled)
+      this.logger.info('AI enhancements permanently disabled in data quality reports to prevent OpenAI API abuse');
+      const enhancements = await this.suggestDataEnhancements(jobs, qualityReport, { includeAI: false });
 
       // Calculate improvement potential
       const improvementPotential = this.calculateImprovementPotential(qualityReport);
@@ -191,40 +217,45 @@ export class SmartEnhancementService {
   }
 
   /**
-   * Generate AI-powered skill suggestions
+   * Generate AI-powered skill suggestions (DISABLED)
    * @param {Object} jobData - Job data
    * @param {Object} industryContext - Industry context
-   * @returns {Array} AI-generated skill suggestions
+   * @returns {Array} AI-generated skill suggestions (always empty)
    */
   async generateAISkillSuggestions(jobData, industryContext) {
-    try {
-      const prompt = this.buildSkillSuggestionPrompt(jobData, industryContext);
+    // AI skill suggestions permanently disabled to prevent OpenAI API abuse
+    this.logger.info('AI skill suggestions disabled - returning empty array', {
+      jobId: jobData.id,
+      message: 'Use rule-based suggestions only'
+    });
 
-      const completion = await this.openai.chat.completions.create({
-        model: 'gpt-4',
-        messages: [
-          {
-            role: 'system',
-            content: 'You are an expert career advisor and technical skills analyst. Analyze job descriptions and suggest relevant technical and professional skills that would be associated with the role.'
-          },
-          {
-            role: 'user',
-            content: prompt
-          }
-        ],
-        max_tokens: 800,
-        temperature: 0.3
-      });
+    // Original OpenAI API call commented out for future re-implementation:
+    // try {
+    //   const prompt = this.buildSkillSuggestionPrompt(jobData, industryContext);
+    //   const completion = await this.openai.chat.completions.create({
+    //     model: 'gpt-4',
+    //     messages: [
+    //       {
+    //         role: 'system',
+    //         content: 'You are an expert career advisor and technical skills analyst. Analyze job descriptions and suggest relevant technical and professional skills that would be associated with the role.'
+    //       },
+    //       {
+    //         role: 'user',
+    //         content: prompt
+    //       }
+    //     ],
+    //     max_tokens: 800,
+    //     temperature: 0.3
+    //   });
+    //   const response = completion.choices[0]?.message?.content;
+    //   if (!response) return [];
+    //   return this.parseAISkillSuggestions(response);
+    // } catch (error) {
+    //   this.logger.error('Error generating AI skill suggestions', { error: error.message });
+    //   return [];
+    // }
 
-      const response = completion.choices[0]?.message?.content;
-      if (!response) return [];
-
-      return this.parseAISkillSuggestions(response);
-
-    } catch (error) {
-      this.logger.error('Error generating AI skill suggestions', { error: error.message });
-      return []; // Graceful fallback
-    }
+    return []; // Always return empty array
   }
 
   /**
@@ -726,12 +757,13 @@ Only suggest skills not already in the current skills list.
   }
 
   /**
-   * Suggest data enhancements based on quality report
+   * Suggest data enhancements based on quality report (AI disabled)
    * @param {Array} jobs - All jobs
    * @param {Object} qualityReport - Quality validation report
+   * @param {Object} options - Enhancement options (AI permanently disabled)
    * @returns {Object} Enhancement suggestions
    */
-  async suggestDataEnhancements(jobs, qualityReport) {
+  async suggestDataEnhancements(jobs, qualityReport, options = {}) {
     const enhancements = {
       skills: [],
       descriptions: [],
@@ -739,20 +771,27 @@ Only suggest skills not already in the current skills list.
       consistency: []
     };
 
-    // Skills enhancements
+    // Skills enhancements - PERMANENTLY DISABLED to prevent bulk OpenAI API calls
     const jobsWithFewSkills = qualityReport.jobs.filter(
       job => job.quality.scores.skills < 0.5
     );
     
-    for (const jobData of jobsWithFewSkills) {
+    this.logger.info('AI skill enhancement suggestions permanently disabled to prevent OpenAI API abuse', {
+      jobsWithFewSkills: jobsWithFewSkills.length,
+      requestedAI: options.includeAI,
+      message: 'Use individual skill suggestion API endpoint for selective AI suggestions'
+    });
+    
+    // Only add basic job info without AI suggestions
+    for (const jobData of jobsWithFewSkills.slice(0, 10)) { // Limit to 10 for UI purposes
       const job = jobs.find(j => j.id === jobData.id);
       if (job) {
-        const skillSuggestions = await this.suggestSkills(job, { maxSuggestions: 5 });
         enhancements.skills.push({
           jobId: job.id,
           title: job.title,
           currentSkillsCount: (job.skills || []).length,
-          suggestions: skillSuggestions.suggestions.slice(0, 5)
+          suggestions: [], // Empty - no AI suggestions
+          message: 'Use individual skill suggestion feature for AI-powered suggestions'
         });
       }
     }
@@ -882,6 +921,13 @@ Only suggest skills not already in the current skills list.
         estimate: totalMinutes < 60 ? `${totalMinutes} minutes` : `${Math.round(totalMinutes / 60 * 10) / 10} hours`
       }
     };
+  }
+
+  /**
+   * Get OpenAI protection status for debugging
+   */
+  getProtectionStatus() {
+    return openaiProtection.getUsageStats();
   }
 }
 

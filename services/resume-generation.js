@@ -8,6 +8,7 @@ import winston from 'winston';
 import OpenAI from 'openai';
 import { DataExportService } from './data-export.js';
 import EmbeddingService from './embeddings.js';
+import openaiProtection from '../utils/openai-protection.js';
 import fs from 'fs/promises';
 import path from 'path';
 
@@ -81,15 +82,21 @@ export class ResumeGenerationService {
         includeProjects = true,
         includeEducation = true,
         customSections = [],
-        enhanceContent = true,
+        enhanceContent = true, // User option preserved but ignored
         personalInfo = {}
       } = options;
 
-      this.logger.info('Generating resume', { 
+      // AI enhancement permanently disabled to prevent OpenAI API abuse
+      const actualEnhanceContent = false;
+
+      this.logger.info('Generating resume (AI enhancement disabled)', { 
         template, 
         outputFormat, 
         targetRole,
-        maxPositions 
+        maxPositions,
+        requestedEnhancement: enhanceContent,
+        actualEnhancement: actualEnhanceContent,
+        message: 'AI content enhancement permanently disabled to prevent OpenAI API abuse'
       });
 
       // Get optimized resume data
@@ -100,11 +107,33 @@ export class ResumeGenerationService {
         minDurationMonths: 1
       });
 
-      // Enhance content with AI if requested
+      // AI enhancement disabled - use original data
       let enhancedData = resumeData;
-      if (enhanceContent) {
-        enhancedData = await this.enhanceResumeContent(resumeData, targetRole);
-      }
+      this.logger.info('Skipping AI content enhancement', {
+        message: 'Resume generation continues with original data only'
+      });
+
+      // Protection service code preserved for future re-implementation:
+      // if (actualEnhanceContent) {
+      //   const requestKey = `resume-enhancement-${Date.now()}`;
+      //   const protection = openaiProtection.canMakeRequest(requestKey);
+      //   if (protection.allowed) {
+      //     try {
+      //       openaiProtection.registerRequest(requestKey);
+      //       enhancedData = await this.enhanceResumeContent(resumeData, targetRole);
+      //       openaiProtection.recordSuccess(requestKey);
+      //     } catch (error) {
+      //       openaiProtection.recordFailure(error, requestKey);
+      //       this.logger.error('Error enhancing resume content', { error: error.message });
+      //       enhancedData = resumeData;
+      //     }
+      //   } else {
+      //     this.logger.warn('Resume enhancement blocked by protection service', { 
+      //       reason: protection.reason 
+      //     });
+      //     enhancedData = resumeData;
+      //   }
+      // }
 
       // Build resume structure
       const resumeStructure = await this.buildResumeStructure(
@@ -131,10 +160,12 @@ export class ResumeGenerationService {
         targetRole,
         positionsIncluded: enhancedData.positions.length,
         skillsIncluded: enhancedData.skills.top.length,
-        enhancementUsed: enhanceContent,
+        enhancementRequested: enhanceContent,
+        enhancementUsed: false, // Always false - AI enhancement disabled
         estimatedAtsScore: await this.calculateAtsScore(resumeStructure),
         wordCount: this.countWords(content),
-        sections: Object.keys(resumeStructure)
+        sections: Object.keys(resumeStructure),
+        aiDisabledReason: 'AI content enhancement permanently disabled to prevent OpenAI API abuse'
       };
 
       return {
@@ -152,196 +183,253 @@ export class ResumeGenerationService {
   }
 
   /**
-   * Enhance resume content using AI
+   * Enhance resume content using AI (DISABLED)
    * @param {Object} resumeData - Raw resume data
    * @param {string} targetRole - Target role for optimization
-   * @returns {Object} Enhanced resume data
+   * @returns {Object} Original resume data unchanged
    */
   async enhanceResumeContent(resumeData, targetRole) {
-    try {
-      this.logger.info('Enhancing resume content with AI', { targetRole });
+    // AI enhancement permanently disabled to prevent OpenAI API abuse
+    this.logger.info('Resume content enhancement disabled - returning original data', { 
+      targetRole,
+      message: 'AI content enhancement permanently disabled to prevent OpenAI API abuse'
+    });
 
-      // Enhance each position
-      const enhancedPositions = await Promise.all(
-        resumeData.positions.map(async (position) => {
-          const enhancedPosition = await this.enhancePositionContent(position, targetRole);
-          return enhancedPosition;
-        })
-      );
+    // Original AI enhancement code preserved for future re-implementation:
+    // try {
+    //   this.logger.info('Enhancing resume content with AI', { targetRole });
+    //   const enhancedPositions = await Promise.all(
+    //     resumeData.positions.map(async (position) => {
+    //       const enhancedPosition = await this.enhancePositionContent(position, targetRole);
+    //       return enhancedPosition;
+    //     })
+    //   );
+    //   const enhancedSummary = await this.generateProfessionalSummary(
+    //     resumeData.profile, 
+    //     resumeData.skills.top, 
+    //     targetRole
+    //   );
+    //   const optimizedSkills = await this.optimizeSkillsForRole(
+    //     resumeData.skills, 
+    //     targetRole
+    //   );
+    //   return {
+    //     ...resumeData,
+    //     positions: enhancedPositions,
+    //     profile: {
+    //       ...resumeData.profile,
+    //       enhancedSummary
+    //     },
+    //     skills: optimizedSkills
+    //   };
+    // } catch (error) {
+    //   this.logger.error('Error enhancing resume content', { error: error.message });
+    //   return resumeData;
+    // }
 
-      // Generate enhanced summary
-      const enhancedSummary = await this.generateProfessionalSummary(
-        resumeData.profile, 
-        resumeData.skills.top, 
-        targetRole
-      );
-
-      // Optimize skills for target role
-      const optimizedSkills = await this.optimizeSkillsForRole(
-        resumeData.skills, 
-        targetRole
-      );
-
-      return {
-        ...resumeData,
-        positions: enhancedPositions,
-        profile: {
-          ...resumeData.profile,
-          enhancedSummary
-        },
-        skills: optimizedSkills
-      };
-
-    } catch (error) {
-      this.logger.error('Error enhancing resume content', { error: error.message });
-      // Return original data if enhancement fails
-      return resumeData;
-    }
+    // Return original data unchanged
+    return resumeData;
   }
 
   /**
-   * Enhance individual position content
+   * Enhance individual position content (DISABLED)
    */
   async enhancePositionContent(position, targetRole) {
-    try {
-      const prompt = this.buildPositionEnhancementPrompt(position, targetRole);
+    // AI position enhancement permanently disabled to prevent OpenAI API abuse
+    this.logger.info('Position enhancement disabled - returning original position', {
+      positionId: position.id,
+      targetRole,
+      message: 'AI position enhancement permanently disabled to prevent OpenAI API abuse'
+    });
 
-      const completion = await this.openai.chat.completions.create({
-        model: 'gpt-4',
-        messages: [
-          {
-            role: 'system',
-            content: 'You are an expert resume writer. Enhance job descriptions to be more compelling and achievement-focused while maintaining accuracy.'
-          },
-          {
-            role: 'user',
-            content: prompt
-          }
-        ],
-        max_tokens: 500,
-        temperature: 0.3
-      });
+    // Original OpenAI API call code preserved for future re-implementation:
+    // const requestKey = `position-enhancement-${position.id}-${Date.now()}`;
+    // const protection = openaiProtection.canMakeRequest(requestKey);
+    // if (!protection.allowed) {
+    //   this.logger.warn('Position enhancement blocked by protection service', { 
+    //     positionId: position.id, 
+    //     reason: protection.reason 
+    //   });
+    //   return position;
+    // }
+    // try {
+    //   openaiProtection.registerRequest(requestKey);
+    //   const prompt = this.buildPositionEnhancementPrompt(position, targetRole);
+    //   const completion = await this.openai.chat.completions.create({
+    //     model: 'gpt-4',
+    //     messages: [
+    //       {
+    //         role: 'system',
+    //         content: 'You are an expert resume writer. Enhance job descriptions to be more compelling and achievement-focused while maintaining accuracy.'
+    //       },
+    //       {
+    //         role: 'user',
+    //         content: prompt
+    //       }
+    //     ],
+    //     max_tokens: 500,
+    //     temperature: 0.3
+    //   });
+    //   const enhancedContent = completion.choices[0]?.message?.content;
+    //   if (!enhancedContent) {
+    //     openaiProtection.recordSuccess(requestKey);
+    //     return position;
+    //   }
+    //   const parsed = this.parseEnhancedPosition(enhancedContent);
+    //   openaiProtection.recordSuccess(requestKey);
+    //   return {
+    //     ...position,
+    //     enhancedSummary: parsed.summary || position.summary,
+    //     enhancedAchievements: parsed.achievements || position.keyAchievements,
+    //     optimizedForRole: targetRole
+    //   };
+    // } catch (error) {
+    //   openaiProtection.recordFailure(error, requestKey);
+    //   this.logger.error('Error enhancing position content', { 
+    //     positionId: position.id, 
+    //     error: error.message 
+    //   });
+    //   return position;
+    // }
 
-      const enhancedContent = completion.choices[0]?.message?.content;
-      if (!enhancedContent) return position;
-
-      const parsed = this.parseEnhancedPosition(enhancedContent);
-      
-      return {
-        ...position,
-        enhancedSummary: parsed.summary || position.summary,
-        enhancedAchievements: parsed.achievements || position.keyAchievements,
-        optimizedForRole: targetRole
-      };
-
-    } catch (error) {
-      this.logger.error('Error enhancing position content', { 
-        positionId: position.id, 
-        error: error.message 
-      });
-      return position;
-    }
+    // Return original position unchanged
+    return position;
   }
 
   /**
-   * Generate professional summary
+   * Generate professional summary (DISABLED)
    */
   async generateProfessionalSummary(profile, topSkills, targetRole) {
-    try {
-      const prompt = `Create a compelling professional summary for a resume targeting ${targetRole || 'senior technical roles'}.
+    // AI professional summary generation permanently disabled to prevent OpenAI API abuse
+    this.logger.info('Professional summary generation disabled - returning null', {
+      targetRole,
+      message: 'AI professional summary generation permanently disabled to prevent OpenAI API abuse'
+    });
 
-Current Profile:
-- Total Experience: ${profile.totalExperienceYears} years
-- Top Skills: ${topSkills.slice(0, 10).map(s => s.skill).join(', ')}
-- Industries: ${profile.primaryIndustries.join(', ')}
-- Experience Level: ${profile.experienceLevel}
+    // Original OpenAI API call code preserved for future re-implementation:
+    // const requestKey = `professional-summary-${Date.now()}`;
+    // const protection = openaiProtection.canMakeRequest(requestKey);
+    // if (!protection.allowed) {
+    //   this.logger.warn('Professional summary generation blocked by protection service', { 
+    //     reason: protection.reason 
+    //   });
+    //   return null;
+    // }
+    // try {
+    //   openaiProtection.registerRequest(requestKey);
+    //   const prompt = `Create a compelling professional summary for a resume targeting ${targetRole || 'senior technical roles'}.
+    //
+    // Current Profile:
+    // - Total Experience: ${profile.totalExperienceYears} years
+    // - Top Skills: ${topSkills.slice(0, 10).map(s => s.skill).join(', ')}
+    // - Industries: ${profile.primaryIndustries.join(', ')}
+    // - Experience Level: ${profile.experienceLevel}
+    //
+    // Create a 3-4 sentence professional summary that:
+    // 1. Highlights years of experience and key expertise
+    // 2. Mentions most relevant skills for the target role
+    // 3. Emphasizes leadership/impact where appropriate
+    // 4. Uses strong action words and quantifiable impact
+    //
+    // Keep it professional, concise, and compelling.`;
+    //   const completion = await this.openai.chat.completions.create({
+    //     model: 'gpt-4',
+    //     messages: [
+    //       {
+    //         role: 'system',
+    //         content: 'You are an expert resume writer specializing in professional summaries that get results.'
+    //       },
+    //       {
+    //         role: 'user',
+    //         content: prompt
+    //       }
+    //     ],
+    //     max_tokens: 200,
+    //     temperature: 0.4
+    //   });
+    //   const result = completion.choices[0]?.message?.content || null;
+    //   openaiProtection.recordSuccess(requestKey);
+    //   return result;
+    // } catch (error) {
+    //   openaiProtection.recordFailure(error, requestKey);
+    //   this.logger.error('Error generating professional summary', { error: error.message });
+    //   return null;
+    // }
 
-Create a 3-4 sentence professional summary that:
-1. Highlights years of experience and key expertise
-2. Mentions most relevant skills for the target role
-3. Emphasizes leadership/impact where appropriate
-4. Uses strong action words and quantifiable impact
-
-Keep it professional, concise, and compelling.`;
-
-      const completion = await this.openai.chat.completions.create({
-        model: 'gpt-4',
-        messages: [
-          {
-            role: 'system',
-            content: 'You are an expert resume writer specializing in professional summaries that get results.'
-          },
-          {
-            role: 'user',
-            content: prompt
-          }
-        ],
-        max_tokens: 200,
-        temperature: 0.4
-      });
-
-      return completion.choices[0]?.message?.content || null;
-
-    } catch (error) {
-      this.logger.error('Error generating professional summary', { error: error.message });
-      return null;
-    }
+    // Always return null - no AI-generated summary
+    return null;
   }
 
   /**
-   * Optimize skills for target role
+   * Optimize skills for target role (DISABLED)
    */
   async optimizeSkillsForRole(skills, targetRole) {
-    if (!targetRole) return skills;
+    // AI skills optimization permanently disabled to prevent OpenAI API abuse
+    this.logger.info('Skills optimization disabled - returning original skills', {
+      targetRole,
+      message: 'AI skills optimization permanently disabled to prevent OpenAI API abuse'
+    });
 
-    try {
-      // Use AI to identify most relevant skills for the role
-      const prompt = `Given these skills and a target role of "${targetRole}", rank the top 15 most relevant skills.
+    // Original OpenAI API call code preserved for future re-implementation:
+    // if (!targetRole) return skills;
+    // const requestKey = `skills-optimization-${targetRole}-${Date.now()}`;
+    // const protection = openaiProtection.canMakeRequest(requestKey);
+    // if (!protection.allowed) {
+    //   this.logger.warn('Skills optimization blocked by protection service', { 
+    //     targetRole, 
+    //     reason: protection.reason 
+    //   });
+    //   return skills;
+    // }
+    // try {
+    //   openaiProtection.registerRequest(requestKey);
+    //   const prompt = `Given these skills and a target role of "${targetRole}", rank the top 15 most relevant skills.
+    //
+    // Available Skills: ${skills.top.map(s => s.skill).join(', ')}
+    //
+    // Return only a comma-separated list of the most relevant skills in order of importance for the role.`;
+    //   const completion = await this.openai.chat.completions.create({
+    //     model: 'gpt-4',
+    //     messages: [
+    //       {
+    //         role: 'system',
+    //         content: 'You are a technical recruiter expert at matching skills to job requirements.'
+    //       },
+    //       {
+    //         role: 'user',
+    //         content: prompt
+    //       }
+    //     ],
+    //     max_tokens: 150,
+    //     temperature: 0.2
+    //   });
+    //   const optimizedSkillsText = completion.choices[0]?.message?.content;
+    //   if (!optimizedSkillsText) {
+    //     openaiProtection.recordSuccess(requestKey);
+    //     return skills;
+    //   }
+    //   const optimizedSkillNames = optimizedSkillsText
+    //     .split(',')
+    //     .map(s => s.trim())
+    //     .filter(s => s.length > 0);
+    //   const optimizedSkills = optimizedSkillNames.map(skillName => {
+    //     const originalSkill = skills.top.find(s => s.skill === skillName);
+    //     return originalSkill || { skill: skillName, frequency: 1 };
+    //   });
+    //   openaiProtection.recordSuccess(requestKey);
+    //   return {
+    //     ...skills,
+    //     top: optimizedSkills,
+    //     optimizedFor: targetRole
+    //   };
+    // } catch (error) {
+    //   openaiProtection.recordFailure(error, requestKey);
+    //   this.logger.error('Error optimizing skills for role', { error: error.message });
+    //   return skills;
+    // }
 
-Available Skills: ${skills.top.map(s => s.skill).join(', ')}
-
-Return only a comma-separated list of the most relevant skills in order of importance for the role.`;
-
-      const completion = await this.openai.chat.completions.create({
-        model: 'gpt-4',
-        messages: [
-          {
-            role: 'system',
-            content: 'You are a technical recruiter expert at matching skills to job requirements.'
-          },
-          {
-            role: 'user',
-            content: prompt
-          }
-        ],
-        max_tokens: 150,
-        temperature: 0.2
-      });
-
-      const optimizedSkillsText = completion.choices[0]?.message?.content;
-      if (!optimizedSkillsText) return skills;
-
-      const optimizedSkillNames = optimizedSkillsText
-        .split(',')
-        .map(s => s.trim())
-        .filter(s => s.length > 0);
-
-      // Create optimized skill list with original frequency data
-      const optimizedSkills = optimizedSkillNames.map(skillName => {
-        const originalSkill = skills.top.find(s => s.skill === skillName);
-        return originalSkill || { skill: skillName, frequency: 1 };
-      });
-
-      return {
-        ...skills,
-        top: optimizedSkills,
-        optimizedFor: targetRole
-      };
-
-    } catch (error) {
-      this.logger.error('Error optimizing skills for role', { error: error.message });
-      return skills;
-    }
+    // Return original skills unchanged
+    return skills;
   }
 
   /**
@@ -810,6 +898,13 @@ ACHIEVEMENTS:
    */
   getSupportedFormats() {
     return this.outputFormats;
+  }
+
+  /**
+   * Get OpenAI protection status for debugging
+   */
+  getProtectionStatus() {
+    return openaiProtection.getUsageStats();
   }
 }
 

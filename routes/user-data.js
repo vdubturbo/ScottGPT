@@ -14,6 +14,12 @@ import duplicateManagementRoutes from './duplicate-management.js';
 
 const router = express.Router();
 
+// AI Features Maintenance Mode Flag
+// Currently no AI features in user-data.js, but flag available for consistency
+const AI_FEATURES_ENABLED = false;
+const AI_DISABLE_REASON = 'temporary-cost-protection';
+const AI_DISABLE_MESSAGE = 'AI features temporarily disabled to prevent OpenAI API costs';
+
 // Initialize services
 const validationService = new DataValidationService();
 const processingService = new DataProcessingService();
@@ -47,17 +53,52 @@ const generalLimiter = createRateLimit(
   'Too many requests, please try again later'
 );
 
+// Add logging to rate limiters
+generalLimiter.onLimitReached = (req, res, options) => {
+  logger.warn('General rate limit exceeded', {
+    ip: req.ip,
+    userAgent: req.get('User-Agent'),
+    endpoint: req.path,
+    windowMs: options.windowMs,
+    maxRequests: options.max
+  });
+};
+
 const updateLimiter = createRateLimit(
   5 * 60 * 1000, // 5 minutes
-  20, // 20 updates per window
+  50, // 50 updates per window - more permissive for auto-save functionality
   'Too many update requests, please try again later'
 );
+
+// Add logging to update limiter
+updateLimiter.onLimitReached = (req, res, options) => {
+  logger.warn('Update rate limit exceeded', {
+    ip: req.ip,
+    userAgent: req.get('User-Agent'),
+    endpoint: req.path,
+    sourceId: req.params.id,
+    windowMs: options.windowMs,
+    maxRequests: options.max
+  });
+};
 
 const deleteLimiter = createRateLimit(
   60 * 60 * 1000, // 1 hour
   5, // 5 deletions per window
   'Too many delete requests, please try again later'
 );
+
+// Add logging to delete limiter
+deleteLimiter.onLimitReached = (req, res, options) => {
+  logger.warn('Delete rate limit exceeded', {
+    ip: req.ip,
+    userAgent: req.get('User-Agent'),
+    endpoint: req.path,
+    sourceId: req.params.id,
+    windowMs: options.windowMs,
+    maxRequests: options.max
+  });
+};
 
 // Apply rate limiting
 router.use(generalLimiter);
@@ -163,10 +204,10 @@ router.get('/sources/:id', async (req, res) => {
   try {
     const { id } = req.params;
     
-    if (!id || isNaN(parseInt(id))) {
+    if (!id || id.trim() === '') {
       return res.status(400).json({
         error: 'Invalid source ID',
-        message: 'Source ID must be a valid number'
+        message: 'Source ID is required'
       });
     }
 
@@ -268,10 +309,10 @@ router.put('/sources/:id', updateLimiter, async (req, res) => {
     const { id } = req.params;
     const updateData = req.body;
 
-    if (!id || isNaN(parseInt(id))) {
+    if (!id || id.trim() === '') {
       return res.status(400).json({
         error: 'Invalid source ID',
-        message: 'Source ID must be a valid number'
+        message: 'Source ID is required'
       });
     }
 
@@ -310,7 +351,7 @@ router.put('/sources/:id', updateLimiter, async (req, res) => {
     }
 
     // Merge existing data with updates
-    const mergedData = { ...existingSource, ...updateData, id: parseInt(id) };
+    const mergedData = { ...existingSource, ...updateData, id: id };
 
     // Validate the updated data
     const validation = validationService.validateJobData(mergedData, allJobs);
@@ -332,7 +373,7 @@ router.put('/sources/:id', updateLimiter, async (req, res) => {
     // Process the data (normalize, clean, etc.)
     const processedData = processingService.processJobData(validation.processedData);
 
-    // Prepare update object (exclude computed fields)
+    // Prepare update object (exclude computed fields and non-existent columns)
     const {
       id: _id,
       created_at,
@@ -340,14 +381,25 @@ router.put('/sources/:id', updateLimiter, async (req, res) => {
       duration_months,
       skill_categories,
       processed_at,
+      description, // Exclude description if it doesn't exist in schema
       ...updateFields
     } = processedData;
+
+    // Clean update fields - convert empty strings to null for date fields
+    const cleanedUpdateFields = Object.entries(updateFields).reduce((acc, [key, value]) => {
+      if ((key.includes('date') || key.endsWith('_at')) && value === '') {
+        acc[key] = null;
+      } else {
+        acc[key] = value;
+      }
+      return acc;
+    }, {});
 
     // Update the source
     const { data: updatedSource, error: updateError } = await supabaseTransaction
       .from('sources')
       .update({
-        ...updateFields,
+        ...cleanedUpdateFields,
         updated_at: new Date().toISOString()
       })
       .eq('id', id)
@@ -496,10 +548,10 @@ router.delete('/sources/:id', deleteLimiter, async (req, res) => {
     const { id } = req.params;
     const { confirm } = req.query;
 
-    if (!id || isNaN(parseInt(id))) {
+    if (!id || id.trim() === '') {
       return res.status(400).json({
         error: 'Invalid source ID',
-        message: 'Source ID must be a valid number'
+        message: 'Source ID is required'
       });
     }
 
