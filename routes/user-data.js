@@ -53,16 +53,7 @@ const generalLimiter = createRateLimit(
   'Too many requests, please try again later'
 );
 
-// Add logging to rate limiters
-generalLimiter.onLimitReached = (req, res, options) => {
-  logger.warn('General rate limit exceeded', {
-    ip: req.ip,
-    userAgent: req.get('User-Agent'),
-    endpoint: req.path,
-    windowMs: options.windowMs,
-    maxRequests: options.max
-  });
-};
+// Note: Rate limit logging moved to handler in express-rate-limit v7
 
 const updateLimiter = createRateLimit(
   5 * 60 * 1000, // 5 minutes
@@ -70,35 +61,15 @@ const updateLimiter = createRateLimit(
   'Too many update requests, please try again later'
 );
 
-// Add logging to update limiter
-updateLimiter.onLimitReached = (req, res, options) => {
-  logger.warn('Update rate limit exceeded', {
-    ip: req.ip,
-    userAgent: req.get('User-Agent'),
-    endpoint: req.path,
-    sourceId: req.params.id,
-    windowMs: options.windowMs,
-    maxRequests: options.max
-  });
-};
+// Note: Rate limit logging moved to handler in express-rate-limit v7
 
 const deleteLimiter = createRateLimit(
-  60 * 60 * 1000, // 1 hour
-  5, // 5 deletions per window
-  'Too many delete requests, please try again later'
+  8 * 1000, // 8 seconds
+  1, // 1 deletion per window (one every 8 seconds)
+  'Too many delete requests, please try again in 8 seconds'
 );
 
-// Add logging to delete limiter
-deleteLimiter.onLimitReached = (req, res, options) => {
-  logger.warn('Delete rate limit exceeded', {
-    ip: req.ip,
-    userAgent: req.get('User-Agent'),
-    endpoint: req.path,
-    sourceId: req.params.id,
-    windowMs: options.windowMs,
-    maxRequests: options.max
-  });
-};
+// Note: Rate limit logging moved to handler in express-rate-limit v7
 
 // Apply rate limiting
 router.use(generalLimiter);
@@ -540,6 +511,151 @@ router.put('/sources/:id', updateLimiter, async (req, res) => {
 });
 
 /**
+ * DELETE /api/user/sources/bulk
+ * Remove multiple jobs with confirmation and cleanup
+ */
+router.delete('/sources/bulk', deleteLimiter, async (req, res) => {
+  try {
+    const { ids } = req.body;
+    const { confirm } = req.query;
+
+    if (!ids || !Array.isArray(ids) || ids.length === 0) {
+      return res.status(400).json({
+        error: 'Invalid source IDs',
+        message: 'Array of source IDs is required'
+      });
+    }
+
+    if (ids.length > 20) {
+      return res.status(400).json({
+        error: 'Too many items',
+        message: 'Maximum 20 items can be deleted at once'
+      });
+    }
+
+    if (confirm !== 'true') {
+      return res.status(400).json({
+        error: 'Confirmation required',
+        message: 'Add ?confirm=true to confirm deletion',
+        warning: 'This action cannot be undone'
+      });
+    }
+
+    logger.info('Bulk deleting sources', { 
+      sourceIds: ids, 
+      count: ids.length,
+      ip: req.ip 
+    });
+
+
+    const deletedSources = [];
+    const errors = [];
+    let totalDeletedChunks = 0;
+
+    // Process each ID
+    for (const id of ids) {
+      try {
+        // Get source details before deletion
+        const { data: source, error: fetchError } = await supabase
+          .from('sources')
+          .select('*')
+          .eq('id', id)
+          .eq('type', 'job')
+          .single();
+
+        if (fetchError) {
+          if (fetchError.code === 'PGRST116') {
+            errors.push({ id, error: 'Source not found' });
+            continue;
+          }
+          throw fetchError;
+        }
+
+        // Get chunk count for impact assessment
+        const { count: chunkCount } = await supabase
+          .from('content_chunks')
+          .select('*', { count: 'exact', head: true })
+          .eq('source_id', id);
+
+        // Delete related chunks first (cascade)
+        const { error: chunksDeleteError } = await supabase
+          .from('content_chunks')
+          .delete()
+          .eq('source_id', id);
+
+        if (chunksDeleteError) {
+          errors.push({ id, error: 'Failed to delete chunks' });
+          continue;
+        }
+
+        // Delete the source
+        const { error: sourceDeleteError } = await supabase
+          .from('sources')
+          .delete()
+          .eq('id', id);
+
+        if (sourceDeleteError) {
+          errors.push({ id, error: 'Failed to delete source' });
+          continue;
+        }
+
+        deletedSources.push({
+          id: source.id,
+          title: source.title,
+          org: source.org,
+          dateRange: `${source.date_start} to ${source.date_end || 'present'}`,
+          deletedChunks: chunkCount || 0
+        });
+
+        totalDeletedChunks += (chunkCount || 0);
+
+      } catch (error) {
+        logger.error('Error deleting individual source', { 
+          sourceId: id, 
+          error: error.message 
+        });
+        errors.push({ id, error: error.message });
+      }
+    }
+
+    logger.info('Bulk deletion completed', {
+      requested: ids.length,
+      successful: deletedSources.length,
+      failed: errors.length,
+      totalDeletedChunks
+    });
+
+    res.json({
+      success: true,
+      data: {
+        deletedSources,
+        errors,
+        summary: {
+          requested: ids.length,
+          successful: deletedSources.length,
+          failed: errors.length,
+          totalDeletedChunks,
+          totalEmbeddingsRemoved: totalDeletedChunks
+        }
+      },
+      message: `Bulk deletion completed: ${deletedSources.length} sources deleted, ${errors.length} failed`,
+      timestamp: new Date().toISOString()
+    });
+
+  } catch (error) {
+    logger.error('Unexpected error in bulk deletion endpoint', { 
+      error: error.message,
+      stack: error.stack 
+    });
+    
+    res.status(500).json({
+      error: 'Internal server error',
+      message: 'An unexpected error occurred during bulk deletion'
+    });
+  }
+});
+
+/**
  * DELETE /api/user/sources/:id
  * Remove job with confirmation and cleanup
  */
@@ -644,6 +760,48 @@ router.delete('/sources/:id', deleteLimiter, async (req, res) => {
     res.status(500).json({
       error: 'Internal server error',
       message: 'An unexpected error occurred while deleting the source'
+    });
+  }
+});
+
+/**
+ * GET /api/user/debug/sources
+ * Debug endpoint to check source data
+ */
+router.get('/debug/sources', async (req, res) => {
+  try {
+    const { data: sources, error } = await supabase
+      .from('sources')
+      .select('id, type, title, org, created_at')
+      .order('created_at', { ascending: false })
+      .limit(20);
+
+    if (error) {
+      throw error;
+    }
+
+    const jobSources = sources.filter(s => s.type === 'job');
+    const otherSources = sources.filter(s => s.type !== 'job');
+
+    res.json({
+      success: true,
+      data: {
+        totalSources: sources.length,
+        jobSources: {
+          count: jobSources.length,
+          items: jobSources
+        },
+        otherSources: {
+          count: otherSources.length,
+          types: [...new Set(otherSources.map(s => s.type))],
+          items: otherSources
+        }
+      }
+    });
+  } catch (error) {
+    res.status(500).json({
+      error: 'Debug query failed',
+      message: error.message
     });
   }
 });

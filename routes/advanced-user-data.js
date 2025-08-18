@@ -60,7 +60,7 @@ const bulkOperationLimiter = rateLimit({
   message: { error: 'Too many bulk operations, please try again later' },
   standardHeaders: true,
   legacyHeaders: false,
-  onLimitReached: (req, res, options) => {
+  handler: (req, res, next, options) => {
     logger.warn('Bulk operation rate limit exceeded', {
       ip: req.ip,
       userAgent: req.get('User-Agent'),
@@ -68,6 +68,7 @@ const bulkOperationLimiter = rateLimit({
       windowMs: options.windowMs,
       maxRequests: options.max
     });
+    next();
   }
 });
 
@@ -82,7 +83,7 @@ const enhancementLimiter = rateLimit({
   },
   standardHeaders: true,
   legacyHeaders: false,
-  onLimitReached: (req, res, options) => {
+  handler: (req, res, next, options) => {
     logger.warn('Enhancement rate limit exceeded', {
       ip: req.ip,
       userAgent: req.get('User-Agent'),
@@ -91,6 +92,7 @@ const enhancementLimiter = rateLimit({
       windowMs: options.windowMs,
       maxRequests: options.max
     });
+    next();
   }
 });
 
@@ -100,7 +102,7 @@ const validationLimiter = rateLimit({
   message: { error: 'Too many validation requests, please slow down' },
   standardHeaders: true,
   legacyHeaders: false,
-  onLimitReached: (req, res, options) => {
+  handler: (req, res, next, options) => {
     logger.warn('Validation rate limit exceeded', {
       ip: req.ip,
       userAgent: req.get('User-Agent'),
@@ -108,6 +110,7 @@ const validationLimiter = rateLimit({
       windowMs: options.windowMs,
       maxRequests: options.max
     });
+    next();
   }
 });
 
@@ -117,7 +120,7 @@ const systemLimiter = rateLimit({
   message: { error: 'Too many system operations, please try again later' },
   standardHeaders: true,
   legacyHeaders: false,
-  onLimitReached: (req, res, options) => {
+  handler: (req, res, next, options) => {
     logger.warn('System operation rate limit exceeded', {
       ip: req.ip,
       userAgent: req.get('User-Agent'),
@@ -125,6 +128,7 @@ const systemLimiter = rateLimit({
       windowMs: options.windowMs,
       maxRequests: options.max
     });
+    next();
   }
 });
 

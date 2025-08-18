@@ -45,6 +45,12 @@ export const useUserDataAPI = () => {
     return apiCall(() => axios.delete(`${API_BASE}/sources/${id}?confirm=true`));
   }, [apiCall]);
 
+  const bulkDeleteJobs = useCallback((ids) => {
+    return apiCall(() => axios.delete(`${API_BASE}/sources/bulk?confirm=true`, {
+      data: { ids }
+    }));
+  }, [apiCall]);
+
   // Duplicate Management API calls
   const detectDuplicates = useCallback((options = {}) => {
     const params = new URLSearchParams(options);
@@ -114,6 +120,7 @@ export const useUserDataAPI = () => {
     getJobDetails,
     updateJob,
     deleteJob,
+    bulkDeleteJobs,
     
     // Duplicate Management
     detectDuplicates,

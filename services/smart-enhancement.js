@@ -4,11 +4,11 @@
  */
 
 import winston from 'winston';
-import OpenAI from 'openai';
+// import OpenAI from 'openai'; // DISABLED: AI features temporarily disabled for cost protection
 import { supabase } from '../config/database.js';
 import { AdvancedValidationService } from './advanced-validation.js';
 import { DataProcessingService } from '../utils/data-processing.js';
-import openaiProtection from '../utils/openai-protection.js';
+// import openaiProtection from '../utils/openai-protection.js'; // DISABLED: No longer needed
 
 export class SmartEnhancementService {
   constructor() {
@@ -24,9 +24,9 @@ export class SmartEnhancementService {
       ]
     });
 
-    this.openai = new OpenAI({
-      apiKey: process.env.OPENAI_API_KEY
-    });
+    // this.openai = new OpenAI({ // DISABLED: AI features temporarily disabled
+    //   apiKey: process.env.OPENAI_API_KEY
+    // });
 
     this.validationService = new AdvancedValidationService();
     this.processingService = new DataProcessingService();

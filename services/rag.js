@@ -2,6 +2,7 @@ import RetrievalService from './retrieval.js';
 import QueryProcessor from './query-processor.js';
 import OpenAI from 'openai';
 import CONFIG from '../config/app-config.js';
+import openaiProtection from '../utils/openai-protection.js';
 import { 
   retryOperation, 
   circuitBreakers, 
@@ -19,6 +20,11 @@ class RAGService {
     this.openai = new OpenAI({ apiKey: CONFIG.ai.openai.apiKey });
     this.model = CONFIG.ai.openai.model;
     this.config = CONFIG.ai.openai;
+    
+    // AI Features Killswitch - CRITICAL SECURITY CONTROL
+    this.AI_ENABLED = false; // DISABLED to prevent unauthorized OpenAI API costs
+    this.AI_DISABLE_REASON = 'temporary-cost-protection';
+    this.AI_DISABLE_MESSAGE = 'AI chat functionality temporarily disabled to prevent OpenAI API costs';
   }
 
   /**
@@ -86,25 +92,71 @@ class RAGService {
       // Step 4: Build conversation with context
       const messages = this.buildMessages(systemPrompt, query, contextText, conversationHistory);
 
-      // Step 5: Generate answer with circuit breaker and retry logic
-      console.log('🔮 Generating answer...');
-      const completion = await circuitBreakers.openai.execute(async () => {
-        return await retryOperation(
-          async () => await this.openai.chat.completions.create({
-            model: this.model,
-            messages: messages,
-            temperature: temperature,
-            max_tokens: maxTokens,
-            presence_penalty: 0.1,  // Encourage diverse vocabulary
-            frequency_penalty: 0.1  // Reduce repetition
-          }),
-          { 
-            service: 'rag', 
-            operation: 'openai_completion',
-            query: query.substring(0, 50) // First 50 chars for context
-          }
-        );
-      });
+      // Step 5: AI KILLSWITCH CHECK - CRITICAL SECURITY CONTROL
+      if (!this.AI_ENABLED) {
+        console.log('🚫 AI features disabled - returning fallback response');
+        return {
+          answer: `I apologize, but AI chat functionality is currently disabled.\n\n**Reason:** ${this.AI_DISABLE_MESSAGE}\n\nHowever, I can still help you access information from the knowledge base. The system found ${contextResult.chunks.length} relevant pieces of information about "${query}".\n\n**Available information sources:**\n${contextResult.sources?.map(s => `• ${s.title} (${s.org})`).join('\n') || 'None available'}\n\nPlease try:\n• Browsing the work history section\n• Searching for specific companies or technologies\n• Asking more specific questions about documented experience`,
+          confidence: 'system_disabled',
+          sources: contextResult.sources || [],
+          contextUsed: contextResult,
+          processingTime: Date.now() - startTime,
+          reasoning: 'AI features disabled for cost protection',
+          aiDisabled: true,
+          aiDisableReason: this.AI_DISABLE_REASON
+        };
+      }
+
+      // Step 5: PROTECTION CHECK - Ultra-aggressive OpenAI protection
+      const requestKey = `rag_${Date.now()}_${query.substring(0, 20).replace(/\s/g, '_')}`;
+      const protectionCheck = openaiProtection.canMakeRequest(requestKey);
+      
+      if (!protectionCheck.allowed) {
+        console.log(`🛡️ OpenAI request blocked by protection: ${protectionCheck.reason}`);
+        return {
+          answer: `I apologize, but I cannot process your question right now due to API protection limits.\n\n**Reason:** ${protectionCheck.details}\n\nThis protection system prevents unexpected API costs. You can still access information directly:\n\n**Found ${contextResult.chunks.length} relevant pieces of information:**\n${contextResult.chunks.slice(0, 3).map((chunk, i) => `${i + 1}. ${chunk.title || 'Untitled'} (similarity: ${Math.round(chunk.similarity * 100)}%)`).join('\n')}\n\n**Sources:** ${contextResult.sources?.map(s => s.title).join(', ') || 'None'}\n\nPlease try again in ${protectionCheck.minutesRemaining || 10} minutes.`,
+          confidence: 'blocked_by_protection',
+          sources: contextResult.sources || [],
+          contextUsed: contextResult,
+          processingTime: Date.now() - startTime,
+          reasoning: `Request blocked: ${protectionCheck.reason}`,
+          protectionActive: true,
+          minutesUntilAvailable: protectionCheck.minutesRemaining
+        };
+      }
+
+      // Register request with protection system
+      openaiProtection.registerRequest(requestKey);
+
+      // Step 5: Generate answer with circuit breaker and retry logic (PROTECTED)
+      console.log('🔮 Generating answer with protection...');
+      let completion;
+      try {
+        completion = await circuitBreakers.openai.execute(async () => {
+          return await retryOperation(
+            async () => await this.openai.chat.completions.create({
+              model: this.model,
+              messages: messages,
+              temperature: temperature,
+              max_tokens: maxTokens,
+              presence_penalty: 0.1,  // Encourage diverse vocabulary
+              frequency_penalty: 0.1  // Reduce repetition
+            }),
+            { 
+              service: 'rag', 
+              operation: 'openai_completion',
+              query: query.substring(0, 50) // First 50 chars for context
+            }
+          );
+        });
+        
+        // Record success with protection system
+        openaiProtection.recordSuccess(requestKey);
+      } catch (error) {
+        // Record failure with protection system
+        openaiProtection.recordFailure(error, requestKey);
+        throw error;
+      }
 
       const answer = completion.choices[0].message.content;
       const tokensUsed = completion.usage?.total_tokens || 0;

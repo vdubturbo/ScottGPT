@@ -16,7 +16,8 @@ const WorkHistoryManager = () => {
     getWorkHistory,
     detectDuplicates,
     getDuplicatesSummary,
-    deleteJob
+    deleteJob,
+    bulkDeleteJobs
   } = useUserDataAPI();
 
   const [jobs, setJobs] = useState([]);
@@ -27,6 +28,8 @@ const WorkHistoryManager = () => {
   const [sortBy, setSortBy] = useState('date_start');
   const [sortOrder, setSortOrder] = useState('desc');
   const [searchTerm, setSearchTerm] = useState('');
+  const [selectedJobs, setSelectedJobs] = useState(new Set());
+  const [showBulkActions, setShowBulkActions] = useState(false);
 
   // Load work history data
   const loadWorkHistory = useCallback(async () => {
@@ -142,6 +145,68 @@ const WorkHistoryManager = () => {
     }
   };
 
+  // Handle checkbox selection
+  const handleJobCheckbox = (jobId, isSelected) => {
+    const newSelected = new Set(selectedJobs);
+    if (isSelected) {
+      newSelected.add(jobId);
+    } else {
+      newSelected.delete(jobId);
+    }
+    setSelectedJobs(newSelected);
+    setShowBulkActions(newSelected.size > 0);
+  };
+
+  // Handle select all
+  const handleSelectAll = (isSelected) => {
+    if (isSelected) {
+      const allJobIds = new Set(processedJobs.map(job => job.id));
+      setSelectedJobs(allJobIds);
+      setShowBulkActions(true);
+    } else {
+      setSelectedJobs(new Set());
+      setShowBulkActions(false);
+    }
+  };
+
+  // Handle bulk delete
+  const handleBulkDelete = async () => {
+    const selectedJobsArray = Array.from(selectedJobs);
+    const selectedJobDetails = jobs.filter(job => selectedJobs.has(job.id));
+    
+    // Debug logging
+    console.log('Bulk delete requested:', {
+      selectedJobsArray,
+      selectedJobDetails: selectedJobDetails.map(job => ({ id: job.id, title: job.title, org: job.org }))
+    });
+    
+    const confirmMessage = `Are you sure you want to delete ${selectedJobsArray.length} selected job${selectedJobsArray.length === 1 ? '' : 's'}?\n\nJobs to be deleted:\n${selectedJobDetails.map(job => `• ${job.title} at ${job.org}`).join('\n')}\n\nThis action cannot be undone and will also delete all related content and embeddings.`;
+    
+    if (window.confirm(confirmMessage)) {
+      try {
+        console.log('Sending bulk delete request with IDs:', selectedJobsArray);
+        const result = await bulkDeleteJobs(selectedJobsArray);
+        console.log(`Bulk delete completed:`, result);
+        
+        // Clear selections
+        setSelectedJobs(new Set());
+        setShowBulkActions(false);
+        
+        // Refresh the list
+        loadWorkHistory();
+        loadDuplicatesSummary();
+        
+        // Show success message if there were any failures
+        if (result.data.errors && result.data.errors.length > 0) {
+          alert(`Bulk delete completed with some errors:\n${result.data.errors.map(e => `• ${e.error}`).join('\n')}`);
+        }
+      } catch (err) {
+        console.error('Failed to bulk delete jobs:', err);
+        // Error will be handled by the useUserDataAPI hook and displayed in the error banner
+      }
+    }
+  };
+
   // Format date for display
   const formatDate = (dateStr) => {
     if (!dateStr) return 'Present';
@@ -184,9 +249,21 @@ const WorkHistoryManager = () => {
               {index < processedJobs.length - 1 && <div className="timeline-line"></div>}
             </div>
             <div className="timeline-content">
-              <div className="job-card" onClick={() => handleJobSelect(job)}>
+              <div className="job-card">
                 <div className="job-header">
-                  <h3 className="job-title">{job.title}</h3>
+                  <div className="job-title-section">
+                    <label className="job-checkbox">
+                      <input
+                        type="checkbox"
+                        checked={selectedJobs.has(job.id)}
+                        onChange={(e) => {
+                          e.stopPropagation();
+                          handleJobCheckbox(job.id, e.target.checked);
+                        }}
+                      />
+                    </label>
+                    <h3 className="job-title" onClick={() => handleJobSelect(job)}>{job.title}</h3>
+                  </div>
                   <span className="job-duration">
                     {calculateDuration(job.date_start, job.date_end)}
                   </span>
@@ -248,8 +325,20 @@ const WorkHistoryManager = () => {
     <div className="list-container">
       <div className="job-list">
         {processedJobs.map((job) => (
-          <div key={job.id} className="job-list-item" onClick={() => handleJobSelect(job)}>
-            <div className="job-info">
+          <div key={job.id} className="job-list-item">
+            <div className="job-checkbox-section">
+              <label className="job-checkbox">
+                <input
+                  type="checkbox"
+                  checked={selectedJobs.has(job.id)}
+                  onChange={(e) => {
+                    e.stopPropagation();
+                    handleJobCheckbox(job.id, e.target.checked);
+                  }}
+                />
+              </label>
+            </div>
+            <div className="job-info" onClick={() => handleJobSelect(job)}>
               <div className="job-title-org">
                 <h3>{job.title}</h3>
                 <span className="at-company">at {job.org}</span>
@@ -312,6 +401,29 @@ const WorkHistoryManager = () => {
         </div>
         
         <div className="header-actions">
+          {showBulkActions && (
+            <div className="bulk-actions">
+              <span className="selected-count">
+                {selectedJobs.size} selected
+              </span>
+              <button 
+                className="btn-danger"
+                onClick={handleBulkDelete}
+                disabled={loading}
+              >
+                Delete Selected
+              </button>
+              <button 
+                className="btn-secondary"
+                onClick={() => {
+                  setSelectedJobs(new Set());
+                  setShowBulkActions(false);
+                }}
+              >
+                Cancel
+              </button>
+            </div>
+          )}
           <button 
             className="btn-primary"
             onClick={handleCreateJob}
@@ -331,6 +443,18 @@ const WorkHistoryManager = () => {
             onChange={(e) => setSearchTerm(e.target.value)}
             className="search-input"
           />
+        </div>
+
+        <div className="bulk-select-controls">
+          <label className="select-all-label">
+            <input
+              type="checkbox"
+              checked={selectedJobs.size > 0 && selectedJobs.size === processedJobs.length}
+              onChange={(e) => handleSelectAll(e.target.checked)}
+              className="select-all-checkbox"
+            />
+            <span>Select All ({processedJobs.length})</span>
+          </label>
         </div>
 
         <div className="view-controls">

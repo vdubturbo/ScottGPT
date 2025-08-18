@@ -513,3 +513,128 @@
     flex: 1;
   }
 }
+
+/* Bulk Actions */
+.bulk-actions {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-right: 16px;
+  padding: 8px 16px;
+  background: #f8f9fa;
+  border: 1px solid #dee2e6;
+  border-radius: 6px;
+}
+
+.selected-count {
+  color: #495057;
+  font-weight: 500;
+  font-size: 14px;
+}
+
+.btn-danger {
+  background: #dc3545;
+  color: white;
+  border: none;
+  padding: 6px 12px;
+  border-radius: 4px;
+  font-size: 14px;
+  cursor: pointer;
+  transition: background-color 0.2s;
+}
+
+.btn-danger:hover {
+  background: #c82333;
+}
+
+.btn-danger:disabled {
+  background: #6c757d;
+  cursor: not-allowed;
+}
+
+.btn-secondary {
+  background: #6c757d;
+  color: white;
+  border: none;
+  padding: 6px 12px;
+  border-radius: 4px;
+  font-size: 14px;
+  cursor: pointer;
+  transition: background-color 0.2s;
+}
+
+.btn-secondary:hover {
+  background: #5a6268;
+}
+
+/* Bulk Select Controls */
+.bulk-select-controls {
+  display: flex;
+  align-items: center;
+}
+
+.select-all-label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  cursor: pointer;
+  font-size: 14px;
+  color: #495057;
+}
+
+.select-all-checkbox {
+  margin: 0;
+  cursor: pointer;
+}
+
+/* Job Checkboxes */
+.job-checkbox {
+  display: flex;
+  align-items: center;
+  cursor: pointer;
+  margin-right: 12px;
+}
+
+.job-checkbox input[type="checkbox"] {
+  margin: 0;
+  cursor: pointer;
+  transform: scale(1.1);
+}
+
+/* Timeline View Updates */
+.job-title-section {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex: 1;
+}
+
+.job-title-section .job-title {
+  margin: 0;
+  cursor: pointer;
+  flex: 1;
+}
+
+.job-title-section .job-title:hover {
+  color: #3498db;
+}
+
+/* List View Updates */
+.job-list-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.job-checkbox-section {
+  flex-shrink: 0;
+}
+
+.job-info {
+  flex: 1;
+  cursor: pointer;
+}
+
+.job-info:hover h3 {
+  color: #3498db;
+}
