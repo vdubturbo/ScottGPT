@@ -514,17 +514,37 @@ const ExportManager = () => {
   const handlePreview = async (format) => {
     try {
       const options = exportOptions[format] || {};
-      const preview = await previewExport(format, options);
+      let preview;
+      
+      try {
+        preview = await previewExport(format, options);
+      } catch (err) {
+        if (format === 'resume-data') {
+          // Fallback to JSON preview for resume-data
+          console.warn('Resume data preview failed, falling back to JSON preview:', err.message);
+          preview = await previewExport('json', options);
+        } else {
+          throw err;
+        }
+      }
+      
       setPreviewData(prev => ({ ...prev, [format]: preview }));
       
-      // Show preview modal or expand preview section
+      // Show preview in a proper modal or expanded section
       console.log(`${format} preview:`, preview);
       
-      // You could implement a modal here or expand an inline preview
-      alert(`Preview generated for ${format.toUpperCase()}!\nCheck console for details.`);
+      // Create a simple preview display
+      const previewContent = JSON.stringify(preview, null, 2);
+      const maxLength = 1000;
+      const truncatedContent = previewContent.length > maxLength 
+        ? previewContent.substring(0, maxLength) + '...\n[Content truncated]'
+        : previewContent;
+      
+      alert(`Preview for ${format.toUpperCase()}:\n\n${truncatedContent}`);
       
     } catch (err) {
       console.error(`Failed to preview ${format}:`, err);
+      alert(`Preview failed for ${format.toUpperCase()}: ${err.message}`);
     }
   };
 
@@ -539,29 +559,31 @@ const ExportManager = () => {
       }));
 
       const options = exportOptions[format] || {};
-      let result;
+      let url;
       let filename;
       let mimeType;
 
-      // Call appropriate export function based on format
+      // Build the direct API URL with parameters
+      const params = new URLSearchParams(options).toString();
+      
       switch (format) {
         case 'json':
-          result = await exportJSON(options);
+          url = `/api/user/export/json?${params}`;
           filename = `scottgpt-data-${new Date().toISOString().split('T')[0]}.json`;
           mimeType = 'application/json';
           break;
         case 'csv':
-          result = await exportCSV(options);
+          url = `/api/user/export/csv?${params}`;
           filename = `scottgpt-data-${new Date().toISOString().split('T')[0]}.csv`;
           mimeType = 'text/csv';
           break;
         case 'timeline':
-          result = await exportTimeline(options);
+          url = `/api/user/export/timeline?${params}`;
           filename = `scottgpt-timeline-${new Date().toISOString().split('T')[0]}.json`;
           mimeType = 'application/json';
           break;
         case 'resume-data':
-          result = await exportResumeData(options);
+          url = `/api/user/export/resume-data?${params}`;
           filename = `scottgpt-resume-data-${new Date().toISOString().split('T')[0]}.json`;
           mimeType = 'application/json';
           break;
@@ -571,31 +593,53 @@ const ExportManager = () => {
 
       setDownloadProgress(prev => ({
         ...prev,
-        [downloadId]: { status: 'processing', progress: 50 }
+        [downloadId]: { status: 'downloading', progress: 25 }
       }));
 
-      // Create and download file
-      let content;
-      if (typeof result === 'string') {
-        content = result;
-      } else {
-        content = JSON.stringify(result, null, 2);
+      // Fetch the file data
+      const response = await fetch(url);
+      if (!response.ok) {
+        throw new Error(`Export failed: ${response.statusText}`);
       }
 
+      setDownloadProgress(prev => ({
+        ...prev,
+        [downloadId]: { status: 'processing', progress: 75 }
+      }));
+
+      // Get the response data
+      let content;
+      if (mimeType === 'text/csv') {
+        content = await response.text();
+      } else {
+        const data = await response.json();
+        if (data.success && data.data) {
+          // Extract the actual data from the API wrapper
+          content = JSON.stringify(data.data, null, 2);
+        } else {
+          content = JSON.stringify(data, null, 2);
+        }
+      }
+
+      // Create and trigger download
       const blob = new Blob([content], { type: mimeType });
-      const url = window.URL.createObjectURL(blob);
+      const downloadUrl = window.URL.createObjectURL(blob);
       const link = document.createElement('a');
-      link.href = url;
+      link.href = downloadUrl;
       link.download = filename;
+      link.style.display = 'none';
       document.body.appendChild(link);
       link.click();
-      link.remove();
-      window.URL.revokeObjectURL(url);
+      document.body.removeChild(link);
+      window.URL.revokeObjectURL(downloadUrl);
 
       setDownloadProgress(prev => ({
         ...prev,
         [downloadId]: { status: 'completed', progress: 100 }
       }));
+
+      // Show success message
+      console.log(`✅ Downloaded: ${filename}`);
 
       // Remove progress after 3 seconds
       setTimeout(() => {
@@ -611,6 +655,14 @@ const ExportManager = () => {
         ...prev,
         [downloadId]: { status: 'error', error: err.message }
       }));
+      
+      // Remove error after 10 seconds
+      setTimeout(() => {
+        setDownloadProgress(prev => {
+          const { [downloadId]: removed, ...rest } = prev;
+          return rest;
+        });
+      }, 10000);
     }
   };
 
