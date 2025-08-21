@@ -24,15 +24,15 @@ class OpenAIProtectionService {
       isOpen: false,
       failureCount: 0,
       lastFailureTime: null,
-      threshold: 1, // Open after just 1 failure (maximum protection)
-      cooldownPeriod: 30 * 60 * 1000 // 30 minutes cooldown (was 10 minutes)
+      threshold: 3, // Open after 3 failures (reasonable protection)
+      cooldownPeriod: 5 * 60 * 1000 // 5 minutes cooldown
     };
 
-    // Rate limiting - ULTRA aggressive protection while rebuilding AI features
+    // Rate limiting - Reasonable protection for chat usage
     this.rateLimiter = {
       requests: [],
-      maxRequestsPerMinute: 0.1, // Only 1 request per 10 minutes (0.1 per minute)
-      windowMs: 10 * 60 * 1000 // 10 minute window for single request
+      maxRequestsPerMinute: 4, // 1 request per 15 seconds
+      windowMs: 1 * 60 * 1000 // 1 minute window
     };
 
     // Request deduplication
@@ -93,13 +93,13 @@ class OpenAIProtectionService {
         windowMinutes: this.rateLimiter.windowMs / (60 * 1000),
         minutesUntilNextAllowed: minutesUntilNextRequest,
         oldestRequestTime: oldestRequestTime ? new Date(oldestRequestTime).toISOString() : null,
-        message: `Ultra-aggressive rate limiting: Only 1 request per 10 minutes allowed. Wait ${minutesUntilNextRequest} minutes.`
+        message: `Rate limiting: Max 4 requests per minute (1 every 15 seconds). Wait ${minutesUntilNextRequest} minutes.`
       });
       return { 
         allowed: false, 
         reason: 'rate_limit_exceeded',
         minutesRemaining: minutesUntilNextRequest,
-        details: `Rate limit: 1 request per 10 minutes. Wait ${minutesUntilNextRequest} minutes.`
+        details: `Rate limit: Max 4 requests per minute. Wait ${minutesUntilNextRequest} minutes.`
       };
     }
 
@@ -250,12 +250,12 @@ class OpenAIProtectionService {
   }
 
   /**
-   * Check ultra-aggressive rate limiting (1 request per 10 minutes)
+   * Check rate limiting (4 requests per minute)
    */
   isWithinRateLimit() {
     const now = Date.now();
     
-    // Clean old requests outside the 10-minute window
+    // Clean old requests outside the 1-minute window
     const requestsBefore = this.rateLimiter.requests.length;
     this.rateLimiter.requests = this.rateLimiter.requests.filter(
       timestamp => now - timestamp < this.rateLimiter.windowMs
@@ -271,11 +271,11 @@ class OpenAIProtectionService {
       });
     }
     
-    // Ultra-aggressive: Allow only if NO requests in the last 10 minutes
-    const withinLimit = this.rateLimiter.requests.length === 0;
+    // Allow up to 4 requests per minute
+    const withinLimit = this.rateLimiter.requests.length < this.rateLimiter.maxRequestsPerMinute;
     
     if (!withinLimit) {
-      this.logger.warn('Rate limit check FAILED - Request exists within 10-minute window', {
+      this.logger.warn('Rate limit check FAILED - Too many requests within 1-minute window', {
         requestsInWindow: this.rateLimiter.requests.length,
         oldestRequestAge: now - Math.min(...this.rateLimiter.requests),
         oldestRequestTime: new Date(Math.min(...this.rateLimiter.requests)).toISOString()
@@ -343,9 +343,9 @@ class OpenAIProtectionService {
       reason: canMakeRequest.reason || null,
       details: canMakeRequest.details || null,
       minutesUntilAvailable: canMakeRequest.allowed ? 0 : (canMakeRequest.minutesRemaining || minutesUntilNext),
-      protectionLevel: 'ULTRA_AGGRESSIVE',
-      rateLimitConfig: '1 request per 10 minutes',
-      circuitBreakerConfig: '1 failure triggers 30min cooldown',
+      protectionLevel: 'REASONABLE',
+      rateLimitConfig: '4 requests per minute',
+      circuitBreakerConfig: '3 failures triggers 5min cooldown',
       timestamp: new Date().toISOString()
     };
   }
@@ -367,10 +367,10 @@ class OpenAIProtectionService {
     this.pendingRequests.clear();
     this.rateLimiter.requests = [];
     
-    this.logger.info('OpenAI protection stats reset - ULTRA AGGRESSIVE protection re-enabled', {
-      rateLimitConfig: '1 request per 10 minutes',
-      circuitBreakerConfig: '1 failure triggers 30min cooldown',
-      protectionLevel: 'ULTRA_AGGRESSIVE'
+    this.logger.info('OpenAI protection stats reset - REASONABLE protection re-enabled', {
+      rateLimitConfig: '4 requests per minute',
+      circuitBreakerConfig: '3 failures triggers 5min cooldown',
+      protectionLevel: 'REASONABLE'
     });
   }
 }

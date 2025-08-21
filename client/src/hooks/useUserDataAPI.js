@@ -32,8 +32,13 @@ export const useUserDataAPI = () => {
   }, []);
 
   // Work History API calls
-  const getWorkHistory = useCallback(() => {
-    return apiCall(() => axios.get(`${API_BASE}/work-history`));
+  const getWorkHistory = useCallback((options = {}) => {
+    const params = new URLSearchParams(options);
+    return apiCall(() => axios.get(`${API_BASE}/work-history?${params}`));
+  }, [apiCall]);
+
+  const getExistingCompanies = useCallback(() => {
+    return apiCall(() => axios.get(`${API_BASE}/work-history?groupByCompany=true`));
   }, [apiCall]);
 
   const getJobDetails = useCallback((id) => {
@@ -241,6 +246,7 @@ export const useUserDataAPI = () => {
     
     // Work History
     getWorkHistory,
+    getExistingCompanies,
     getJobDetails,
     updateJob,
     deleteJob,

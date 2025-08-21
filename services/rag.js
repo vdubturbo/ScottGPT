@@ -22,7 +22,7 @@ class RAGService {
     this.config = CONFIG.ai.openai;
     
     // AI Features Killswitch - CRITICAL SECURITY CONTROL
-    this.AI_ENABLED = false; // DISABLED to prevent unauthorized OpenAI API costs
+    this.AI_ENABLED = process.env.AI_ENABLED === 'true';
     this.AI_DISABLE_REASON = 'temporary-cost-protection';
     this.AI_DISABLE_MESSAGE = 'AI chat functionality temporarily disabled to prevent OpenAI API costs';
   }

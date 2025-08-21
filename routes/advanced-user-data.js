@@ -727,7 +727,7 @@ router.post('/validate', validationLimiter, async (req, res) => {
       });
 
       // Single job validation - much more efficient
-      const validation = validationService.validateJobData(jobData);
+      const validation = advancedValidationService.validateJobData(jobData);
       
       return res.json({
         success: true,

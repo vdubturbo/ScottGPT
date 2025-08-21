@@ -1,0 +1,124 @@
+/**
+ * CompanySelect Component Styles
+ */
+
+.company-select {
+  position: relative;
+  width: 100%;
+}
+
+.company-select input.dropdown-mode {
+  cursor: pointer;
+  background-color: #f8f9fa;
+  background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 20 20'%3e%3cpath stroke='%236b7280' stroke-linecap='round' stroke-linejoin='round' stroke-width='1.5' d='m6 8 4 4 4-4'/%3e%3c/svg%3e");
+  background-position: right 8px center;
+  background-repeat: no-repeat;
+  background-size: 16px 12px;
+  padding-right: 32px;
+}
+
+.company-select input.dropdown-mode:focus {
+  background-color: white;
+}
+
+.company-dropdown {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  right: 0;
+  background: white;
+  border: 1px solid #ddd;
+  border-top: none;
+  border-radius: 0 0 4px 4px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  z-index: 1000;
+  max-height: 200px;
+  overflow-y: auto;
+}
+
+.dropdown-header {
+  padding: 8px 12px;
+  font-size: 0.85em;
+  color: #666;
+  background-color: #f8f9fa;
+  border-bottom: 1px solid #eee;
+  font-weight: 500;
+}
+
+.company-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.company-option {
+  padding: 10px 12px;
+  cursor: pointer;
+  border-bottom: 1px solid #f0f0f0;
+  transition: background-color 0.15s ease;
+}
+
+.company-option:hover {
+  background-color: #f8f9fa;
+}
+
+.company-option:last-child {
+  border-bottom: none;
+}
+
+.company-name {
+  font-weight: 500;
+  color: #333;
+  margin-bottom: 2px;
+}
+
+.company-meta {
+  font-size: 0.8em;
+  color: #666;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.variations-hint {
+  color: #888;
+  font-style: italic;
+}
+
+.no-companies-message {
+  padding: 12px;
+  color: #666;
+  font-size: 0.9em;
+  font-style: italic;
+  text-align: center;
+  border: 1px solid #e0e0e0;
+  border-top: none;
+  border-radius: 0 0 4px 4px;
+  background-color: #f9f9f9;
+}
+
+.field-hint {
+  font-size: 0.85em;
+  color: #666;
+  margin-top: 4px;
+  font-style: italic;
+}
+
+/* Responsive adjustments */
+@media (max-width: 768px) {
+  .company-dropdown {
+    max-height: 150px;
+  }
+  
+  .company-option {
+    padding: 12px;
+  }
+  
+  .company-name {
+    font-size: 0.95em;
+  }
+  
+  .company-meta {
+    font-size: 0.75em;
+  }
+}

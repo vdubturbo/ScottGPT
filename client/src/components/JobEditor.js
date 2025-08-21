@@ -7,6 +7,7 @@ import { useUserDataAPI } from '../hooks/useUserDataAPI';
 import SkillsInput from './SkillsInput';
 import DateInput from './DateInput';
 import ValidationMessage from './ValidationMessage';
+import CompanySelect from './CompanySelect';
 import './JobEditor.css';
 
 const JobEditor = ({ job, onSave, onCancel }) => {
@@ -92,31 +93,31 @@ const JobEditor = ({ job, onSave, onCancel }) => {
     }
   }, [formData, isDirty, performValidation]);
 
-  // Auto-save functionality
-  useEffect(() => {
-    if (isDirty && job && validation.isValid) {
-      if (autoSaveTimeout) {
-        clearTimeout(autoSaveTimeout);
-      }
-      
-      const timeout = setTimeout(async () => {
-        try {
-          await updateJob(job.id, formData);
-          setIsDirty(false);
-        } catch (err) {
-          console.error('Auto-save failed:', err);
-        }
-      }, 3000); // Auto-save after 3 seconds of no changes
-      
-      setAutoSaveTimeout(timeout);
-    }
-    
-    return () => {
-      if (autoSaveTimeout) {
-        clearTimeout(autoSaveTimeout);
-      }
-    };
-  }, [formData, isDirty, job, validation.isValid, updateJob, autoSaveTimeout]);
+  // Auto-save functionality (DISABLED)
+  // useEffect(() => {
+  //   if (isDirty && job && validation.isValid) {
+  //     if (autoSaveTimeout) {
+  //       clearTimeout(autoSaveTimeout);
+  //     }
+  //     
+  //     const timeout = setTimeout(async () => {
+  //       try {
+  //         await updateJob(job.id, formData);
+  //         setIsDirty(false);
+  //       } catch (err) {
+  //         console.error('Auto-save failed:', err);
+  //       }
+  //     }, 3000); // Auto-save after 3 seconds of no changes
+  //     
+  //     setAutoSaveTimeout(timeout);
+  //   }
+  //   
+  //   return () => {
+  //     if (autoSaveTimeout) {
+  //       clearTimeout(autoSaveTimeout);
+  //     }
+  //   };
+  // }, [formData, isDirty, job, validation.isValid, updateJob, autoSaveTimeout]);
 
   // Handle form field changes
   const handleFieldChange = (field, value) => {
@@ -201,7 +202,6 @@ const JobEditor = ({ job, onSave, onCancel }) => {
           <h2>{job ? 'Edit Position' : 'Add New Position'}</h2>
           <div className="editor-status">
             {isDirty && <span className="unsaved-indicator">Unsaved changes</span>}
-            {autoSaveTimeout && <span className="autosave-indicator">Auto-saving...</span>}
           </div>
           <button className="close-button" onClick={onCancel}>×</button>
         </div>
@@ -239,14 +239,14 @@ const JobEditor = ({ job, onSave, onCancel }) => {
 
                 <div className="form-group">
                   <label htmlFor="org">Company *</label>
-                  <input
+                  <CompanySelect
                     id="org"
-                    type="text"
                     value={formData.org}
-                    onChange={(e) => handleFieldChange('org', e.target.value)}
+                    onChange={(value) => handleFieldChange('org', value)}
+                    isEditing={!!job}
                     placeholder="e.g., Tech Corp Inc."
                     className={validation.errors?.some(e => e.field === 'org') ? 'error' : ''}
-                    autoComplete="organization"
+                    required={true}
                   />
                   <ValidationMessage 
                     field="org" 
