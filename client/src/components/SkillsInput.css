@@ -7,15 +7,17 @@
 
 .skills-input {
   position: relative;
-  border: 2px solid #e1e5e9;
-  border-radius: 6px;
-  background: white;
-  transition: border-color 0.2s;
+  border: 2px solid #4a4a4a;
+  border-radius: 10px;
+  background: #2a2a2a;
+  transition: all 0.3s ease;
   min-height: 44px;
 }
 
 .skills-input:focus-within {
-  border-color: #3498db;
+  border-color: #8b5cf6;
+  background: #333333;
+  box-shadow: 0 0 0 3px rgba(139, 92, 246, 0.1);
 }
 
 .skills-tags {
@@ -93,37 +95,38 @@
   top: 100%;
   left: 0;
   right: 0;
-  background: white;
-  border: 2px solid #e1e5e9;
+  background: #2a2a2a;
+  border: 2px solid #4a4a4a;
   border-top: none;
-  border-radius: 0 0 6px 6px;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  border-radius: 0 0 10px 10px;
+  box-shadow: 0 8px 25px rgba(0, 0, 0, 0.4);
   max-height: 200px;
   overflow-y: auto;
   z-index: 100;
+  backdrop-filter: blur(10px);
 }
 
 .suggestion-item {
   display: block;
   width: 100%;
-  padding: 8px 12px;
+  padding: 0.75rem 1rem;
   border: none;
   background: none;
   text-align: left;
-  font-size: 14px;
+  font-size: 0.9rem;
   cursor: pointer;
-  transition: background-color 0.1s;
-  color: #2c3e50;
+  transition: all 0.3s ease;
+  color: #e0e0e0;
 }
 
 .suggestion-item:hover,
 .suggestion-item.selected {
-  background: #f8f9fa;
+  background: rgba(139, 92, 246, 0.2);
 }
 
 .suggestion-item.selected {
-  background: #e8f4f8;
-  color: #2980b9;
+  background: rgba(139, 92, 246, 0.3);
+  color: #c084fc;
 }
 
 /* Help Text */

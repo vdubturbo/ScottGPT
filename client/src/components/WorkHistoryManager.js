@@ -1,5 +1,5 @@
 /**
- * WorkHistoryManager - Main container component for work history management
+ * WorkHistoryManager - Main container component for work history management 
  */
 
 import React, { useState, useEffect, useCallback } from 'react';

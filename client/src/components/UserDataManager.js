@@ -2,7 +2,7 @@
  * UserDataManager - Main container component for user data management
  */
 
-import React, { useState } from 'react';
+import React, { useState } from 'react'; // Modern navigation update
 import WorkHistoryManager from './WorkHistoryManager';
 import DuplicateManager from './DuplicateManager';
 import DataQualityDashboard from './DataQualityDashboard';
@@ -28,25 +28,36 @@ const UserDataManager = () => {
         <p>Manage your work history, detect duplicates, and monitor data quality</p>
       </div>
 
-      <div className="manager-nav">
-        <button
-          className={activeView === 'history' ? 'active' : ''}
-          onClick={() => setActiveView('history')}
-        >
-          📝 Work History
-        </button>
-        <button
-          className="nav-action"
-          onClick={handleViewDuplicates}
-        >
-          🔍 Find Duplicates
-        </button>
-        <button
-          className="nav-action"
-          onClick={handleViewQuality}
-        >
-          📊 Data Quality
-        </button>
+      <div className="modern-nav-container">
+        <nav className="modern-nav">
+          <div className="nav-group primary-nav">
+            <button
+              className={`nav-item ${activeView === 'history' ? 'active' : ''}`}
+              onClick={() => setActiveView('history')}
+            >
+              <div className="nav-icon">📝</div>
+              <span className="nav-label">Work History</span>
+              <div className="nav-indicator"></div>
+            </button>
+          </div>
+          
+          <div className="nav-group secondary-nav">
+            <button
+              className="nav-item action-item"
+              onClick={handleViewDuplicates}
+            >
+              <div className="nav-icon">🔍</div>
+              <span className="nav-label">Find Duplicates</span>
+            </button>
+            <button
+              className="nav-item action-item"
+              onClick={handleViewQuality}
+            >
+              <div className="nav-icon">📊</div>
+              <span className="nav-label">Data Quality</span>
+            </button>
+          </div>
+        </nav>
       </div>
 
       <div className="manager-content">
