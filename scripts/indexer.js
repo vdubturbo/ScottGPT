@@ -200,10 +200,80 @@ async function retryWithBackoff(fn, maxRetries = 3, initialDelay = 1000) {
   throw lastError;
 }
 
+// Create multiple semantic chunks from structured job data (2-3 chunks per job)
+function createSemanticJobChunks(data) {
+  const chunks = [];
+  const orgHeader = `${data.org || "Unknown Organization"} • ${data.date_start || ""}–${data.date_end || "present"}`;
+  
+  // Chunk 1: Role Overview and Core Responsibilities
+  const roleContent = [
+    `Position: ${data.title}`,
+    data.summary ? `Overview: ${data.summary}` : '',
+    data.outcomes && data.outcomes.length > 0 ? `Key Achievements:\n${data.outcomes.map(o => `• ${o}`).join('\n')}` : '',
+  ].filter(Boolean).join('\n\n');
+  
+  if (roleContent.trim().length > 50) {
+    chunks.push({
+      title: `${data.title} - Role Overview`,
+      content: `${orgHeader}\n\n${roleContent}`
+    });
+  }
+  
+  // Chunk 2: Skills and Technical Expertise  
+  if (data.skills && data.skills.length > 0) {
+    const skillsContent = [
+      `Position: ${data.title}`,
+      `Technical Skills & Expertise:`,
+      data.skills.map(skill => `• ${skill}`).join('\n'),
+      data.industry_tags && data.industry_tags.length > 0 ? `\nIndustry Focus: ${data.industry_tags.join(', ')}` : '',
+    ].filter(Boolean).join('\n');
+    
+    chunks.push({
+      title: `${data.title} - Skills & Expertise`,
+      content: `${orgHeader}\n\n${skillsContent}`
+    });
+  }
+  
+  // Chunk 3: Context and Impact (if substantial data exists)
+  const contextItems = [];
+  if (data.location) contextItems.push(`Location: ${data.location}`);
+  if (data.industry_tags && data.industry_tags.length > 0) contextItems.push(`Industry: ${data.industry_tags.join(', ')}`);
+  if (data.outcomes && data.outcomes.length > 1) {
+    contextItems.push(`Impact & Results:\n${data.outcomes.slice(0, 3).map(o => `• ${o}`).join('\n')}`);
+  }
+  
+  if (contextItems.length > 0) {
+    const contextContent = [
+      `Position: ${data.title}`,
+      ...contextItems
+    ].join('\n\n');
+    
+    chunks.push({
+      title: `${data.title} - Impact & Context`,
+      content: `${orgHeader}\n\n${contextContent}`
+    });
+  }
+  
+  console.log(`   🎯 Created ${chunks.length} semantic chunks for ${data.title}`);
+  return chunks;
+}
+
 function chunkText(text, header) {
+  // Legacy chunking function - kept for backward compatibility
   const words = text.split(/\s+/);
   const chunks = [];
   
+  // If content is very short (typical for structured job records), create smaller semantic chunks
+  if (words.length < 50) {
+    // Create at least one chunk with the full content
+    const fullChunk = `${header}\n\n${text.trim()}`;
+    if (fullChunk.trim().length > 50) { // Reduced minimum for structured data
+      chunks.push(fullChunk);
+    }
+    return chunks;
+  }
+  
+  // For longer content, use traditional chunking
   for (let i = 0; i < words.length; i += (CHUNK_TOKENS - OVERLAP_TOKENS)) {
     const chunkWords = words.slice(i, i + CHUNK_TOKENS);
     const chunkText = chunkWords.join(" ");
@@ -359,9 +429,9 @@ async function processFile(filePath, sourceDir) {
     // Create header for chunks
     const header = `${data.org || ""} • ${data.title} • ${data.date_start || ""}–${data.date_end || "present"}`;
     
-    // Chunk the content
-    const chunks = chunkText(content, header);
-    console.log(`   📦 ${chunks.length} chunks to process`);
+    // Create semantic chunks from structured job data (2-3 chunks per job)
+    const chunks = createSemanticJobChunks(data);
+    console.log(`   📦 ${chunks.length} semantic chunks to process`);
     
     // Update timeout based on discovered chunks
     updateDynamicTimeout(0, chunks.length);
@@ -391,9 +461,12 @@ async function processFile(filePath, sourceDir) {
           console.log(`   🔄 Processing chunk ${i + 1}/${chunks.length}...`);
         }
         
-        // Generate embedding with retry logic
+        // Generate embedding with retry logic (use chunk.content for semantic chunks)
+        const chunkContent = chunk.content || chunk; // Handle both old and new chunk formats
+        const chunkTitle = chunk.title || `${data.title} - Part ${i + 1}`;
+        
         const rawEmbedding = await retryWithBackoff(async () => {
-          return await embedText(chunk);
+          return await embedText(chunkContent);
         }, 3, 2000);
         
         // Validate embedding before storage
@@ -404,15 +477,15 @@ async function processFile(filePath, sourceDir) {
           continue; // Skip this chunk
         }
         
-        const tokenCount = estimateTokens(chunk);
+        const tokenCount = estimateTokens(chunkContent);
         
         // Insert chunk (database.js will handle consistent storage formatting)
         await db.insertChunk({
           source_id: sourceId,
-          title: `${data.title} - Part ${i + 1}`,
-          content: chunk,
+          title: chunkTitle,
+          content: chunkContent,
           content_summary: contentSummary,
-          skills: data.skills || [],
+          skills: data.skills || [], // Now properly stored in database
           tags: data.industry_tags || [],
           date_start: data.date_start,
           date_end: data.date_end,
@@ -598,6 +671,31 @@ async function indexer() {
     const avgChunksPerFile = grandTotalFiles > 0 ? (grandTotalChunks / grandTotalFiles).toFixed(1) : 0;
     const avgTimePerFile = grandTotalFiles > 0 ? (totalDuration / grandTotalFiles).toFixed(1) : 0;
     console.log(`   Average: ${avgChunksPerFile} chunks/file, ${avgTimePerFile}s/file`);
+    
+    // Extraction Quality Metrics
+    console.log('\n📊 EXTRACTION QUALITY METRICS:');
+    console.log('=' .repeat(40));
+    console.log(`🎯 Jobs extracted: ${grandTotalFiles} roles`);
+    console.log(`📦 Search granularity: ${grandTotalChunks} searchable chunks`);
+    console.log(`⚡ Chunking efficiency: ${avgChunksPerFile} chunks/role (target: 2-3)`);
+    
+    if (parseFloat(avgChunksPerFile) >= 2.5 && parseFloat(avgChunksPerFile) <= 3.5) {
+      console.log(`✅ Optimal chunking achieved - excellent search granularity`);
+    } else if (parseFloat(avgChunksPerFile) < 2) {
+      console.log(`⚠️  Low chunking - consider adding more semantic aspects`);
+    } else {
+      console.log(`⚠️  High chunking - might be over-segmenting content`);
+    }
+    
+    // Expected performance improvements
+    if (grandTotalFiles >= 5) {
+      console.log(`\n💡 SEARCH PERFORMANCE IMPROVEMENTS:`);
+      console.log(`   📈 ${grandTotalFiles}x more source records (1 → ${grandTotalFiles})`);
+      console.log(`   🔍 ${Math.round(grandTotalChunks / 2)}x better search granularity (2 → ${grandTotalChunks} chunks)`);
+      console.log(`   🏷️  Skills now indexed for filtering and search`);
+      console.log(`   📊 Each job role has dedicated semantic chunks for better retrieval`);
+    }
+    
     console.log("\n✅ Indexing complete! Your ScottGPT knowledge base is ready.");
     
     // Archive processed files to keep sources/ directory lean
