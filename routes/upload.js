@@ -5,6 +5,7 @@ import path from 'path';
 import { exec } from 'child_process';
 import { promisify } from 'util';
 import { api as logger } from '../utils/logger.js';
+import { processBatchUploads, getCacheStats } from '../utils/upload-optimizer.js';
 import dotenv from 'dotenv';
 
 // Ensure environment variables are loaded
@@ -61,38 +62,80 @@ const upload = multer({
   }
 });
 
-// POST /api/upload - Upload files to incoming directory
+// POST /api/upload - Upload files with duplicate detection
 router.post('/', upload.array('files', 10), async (req, res) => {
+  const uploadStartTime = Date.now();
+  
   try {
     if (!req.files || req.files.length === 0) {
       return res.status(400).json({ error: 'No files uploaded' });
     }
 
-    const uploadedFiles = req.files.map(file => ({
-      originalName: file.originalname,
-      filename: file.filename,
+    console.log(`📤 [UPLOAD] Processing ${req.files.length} uploaded files...`);
+    
+    // Process uploads with duplicate detection
+    const deduplicationResults = await processBatchUploads(req.files);
+    const uploadDuration = Date.now() - uploadStartTime;
+
+    // Prepare response with detailed information
+    const uploadedFiles = deduplicationResults.unique.map(file => ({
+      originalName: file.originalName,
+      filename: path.basename(file.filePath),
       size: file.size,
-      mimetype: file.mimetype
+      hash: file.hash,
+      isDuplicate: false
     }));
 
-    logger.info('Files uploaded successfully', {
-      fileCount: uploadedFiles.length,
-      files: uploadedFiles.map(f => ({ name: f.originalName, size: f.size })),
+    const duplicateFiles = deduplicationResults.duplicates.map(file => ({
+      originalName: file.originalName,
+      size: file.size,
+      hash: file.hash,
+      isDuplicate: true,
+      message: file.message
+    }));
+
+    // Enhanced logging with performance metrics
+    logger.info('Files uploaded with deduplication', {
+      totalFiles: req.files.length,
+      uniqueFiles: deduplicationResults.stats.uniqueFiles,
+      duplicateFiles: deduplicationResults.stats.duplicateFiles,
+      totalSize: deduplicationResults.stats.totalSizeBytes,
+      duplicateSizeSkipped: deduplicationResults.stats.duplicateSizeBytes,
+      uploadDuration: `${uploadDuration}ms`,
       ip: req.ip
     });
+
+    // Response includes both uploaded and skipped files
+    const responseMessage = deduplicationResults.stats.duplicateFiles > 0
+      ? `${deduplicationResults.stats.uniqueFiles} unique files uploaded, ${deduplicationResults.stats.duplicateFiles} duplicates skipped`
+      : `${deduplicationResults.stats.uniqueFiles} files uploaded successfully`;
 
     res.json({
       success: true,
-      message: `${uploadedFiles.length} files uploaded successfully`,
-      files: uploadedFiles
+      message: responseMessage,
+      stats: {
+        totalSubmitted: req.files.length,
+        uniqueUploaded: deduplicationResults.stats.uniqueFiles,
+        duplicatesSkipped: deduplicationResults.stats.duplicateFiles,
+        totalSizeBytes: deduplicationResults.stats.totalSizeBytes,
+        duplicateSizeSavedBytes: deduplicationResults.stats.duplicateSizeBytes,
+        uploadDurationMs: uploadDuration
+      },
+      files: uploadedFiles,
+      duplicates: duplicateFiles.length > 0 ? duplicateFiles : undefined
     });
 
   } catch (error) {
+    const uploadDuration = Date.now() - uploadStartTime;
+    
     logger.error('File upload failed', {
       error: error.message,
       stack: error.stack,
+      uploadDuration: `${uploadDuration}ms`,
       ip: req.ip
     });
+    
+    console.error(`❌ [UPLOAD ERROR] ${error.message}`);
     res.status(500).json({ error: 'Failed to upload files' });
   }
 });
@@ -124,10 +167,282 @@ router.post('/clear', async (req, res) => {
   }
 });
 
-// POST /api/upload/process - Run the ingestion pipeline
+// Global process state management
+let isProcessingActive = false;
+let activeProcessAbortController = null;
+
+// Timeout utility function
+const createTimeoutPromise = (ms, stepName) => {
+  return new Promise((_, reject) => {
+    setTimeout(() => reject(new Error(`${stepName} timed out after ${ms}ms`)), ms);
+  });
+};
+
+// Progress utility with heartbeat
+const createProgressReporter = (sendProgress, stepName, timeoutMs) => {
+  const startTime = Date.now();
+  let heartbeatInterval;
+  
+  const start = () => {
+    sendProgress(`📍 [${new Date().toLocaleTimeString()}] Starting ${stepName}...`);
+    
+    // Send heartbeat every 5 seconds during long operations
+    heartbeatInterval = setInterval(() => {
+      const elapsed = Math.round((Date.now() - startTime) / 1000);
+      sendProgress(`💓 [${new Date().toLocaleTimeString()}] ${stepName} running... (${elapsed}s elapsed)`);
+    }, 5000);
+  };
+  
+  const end = () => {
+    if (heartbeatInterval) {
+      clearInterval(heartbeatInterval);
+      heartbeatInterval = null;
+    }
+    const elapsed = Math.round((Date.now() - startTime) / 1000);
+    sendProgress(`✅ [${new Date().toLocaleTimeString()}] ${stepName} completed in ${elapsed}s`);
+  };
+  
+  const error = (err) => {
+    if (heartbeatInterval) {
+      clearInterval(heartbeatInterval);
+      heartbeatInterval = null;
+    }
+    const elapsed = Math.round((Date.now() - startTime) / 1000);
+    sendProgress(`❌ [${new Date().toLocaleTimeString()}] ${stepName} failed after ${elapsed}s: ${err.message}`);
+  };
+  
+  return { start, end, error };
+};
+
+// POST /api/upload/process - Run the ingestion pipeline with Node.js direct execution
 router.post('/process', async (req, res) => {
+  // Check if already processing
+  if (isProcessingActive) {
+    return res.status(409).json({ 
+      error: 'Pipeline already running. Please wait for it to complete or use /api/upload/stop to terminate.' 
+    });
+  }
+
+  // Set processing state
+  isProcessingActive = true;
+  activeProcessAbortController = new AbortController();
+
+  // Set up streaming response first
+  res.writeHead(200, {
+    'Content-Type': 'text/plain',
+    'Cache-Control': 'no-cache',
+    'Connection': 'keep-alive',
+    'Access-Control-Allow-Origin': '*'
+  });
+
+  // Define sendProgress function outside try/catch so it's always available
+  const sendProgress = (message) => {
+    console.log(`[PIPELINE] ${message}`); // Also log to server console
+    try {
+      res.write(`${message}\n`);
+    } catch (writeError) {
+      console.error('Error writing to response:', writeError);
+    }
+  };
+
   try {
-    // Set up Server-Sent Events for real-time progress
+
+    sendProgress('🚀 [INIT] Pipeline starting - Node.js direct execution mode');
+    sendProgress(`📅 [INIT] Started at: ${new Date().toISOString()}`);
+
+    // Check if there are files to process
+    let incomingFiles;
+    try {
+      incomingFiles = await fs.readdir('incoming/');
+    } catch (error) {
+      if (error.code === 'ENOENT') {
+        sendProgress('❌ [INIT] No incoming directory found');
+        res.end();
+        return;
+      }
+      throw error;
+    }
+
+    const validFiles = incomingFiles.filter(f => /\.(pdf|docx|doc|txt|md)$/i.test(f));
+    
+    if (validFiles.length === 0) {
+      sendProgress('❌ [INIT] No valid files found in incoming directory');
+      sendProgress('   Please upload files first, then try processing again');
+      res.end();
+      return;
+    }
+
+    sendProgress(`📁 [INIT] Found ${validFiles.length} files: ${validFiles.join(', ')}`);
+
+    // Pipeline steps with timeouts
+    const steps = [
+      { name: 'Normalize', script: '../scripts/normalize.js', timeout: 30000 },
+      { name: 'Extract', script: '../scripts/extract.js', timeout: 120000 },
+      { name: 'Validate', script: '../scripts/validate.js', timeout: 30000 },
+      { name: 'Write', script: '../scripts/write.js', timeout: 30000 },
+      { name: 'Index', script: '../scripts/indexer.js', timeout: 180000 }
+    ];
+
+    // Execute each step
+    for (const step of steps) {
+      if (activeProcessAbortController.signal.aborted) {
+        sendProgress('❌ [ABORT] Pipeline terminated by user request');
+        break;
+      }
+
+      const reporter = createProgressReporter(sendProgress, step.name, step.timeout);
+      
+      try {
+        reporter.start();
+
+        // Create timeout promise
+        const timeoutPromise = createTimeoutPromise(step.timeout, step.name);
+        
+        // Execute the step with enhanced error handling
+        const stepPromise = (async () => {
+          let module;
+          try {
+            sendProgress(`📦 [${step.name.toUpperCase()}] Importing module: ${step.script}`);
+            module = await import(step.script);
+          } catch (importError) {
+            sendProgress(`❌ [${step.name.toUpperCase()}] Module import failed: ${importError.message}`);
+            throw new Error(`Failed to import ${step.name} script: ${importError.message}`);
+          }
+
+          if (typeof module.default === 'function') {
+            sendProgress(`🔧 [${step.name.toUpperCase()}] Executing step function`);
+            return await module.default();
+          } else {
+            throw new Error(`${step.name} script does not export a default function`);
+          }
+        })();
+
+        // Race between step execution and timeout
+        await Promise.race([stepPromise, timeoutPromise]);
+        
+        reporter.end();
+
+      } catch (error) {
+        reporter.error(error);
+        
+        // Log detailed error
+        sendProgress(`🔍 [ERROR] ${step.name} error details:`);
+        sendProgress(`   Message: ${error.message}`);
+        sendProgress(`   Stack: ${error.stack ? error.stack.split('\n')[1] : 'No stack trace'}`);
+        
+        throw error;
+      }
+    }
+
+    // Final cleanup - move files to processed/
+    const cleanupReporter = createProgressReporter(sendProgress, 'File Cleanup', 10000);
+    try {
+      cleanupReporter.start();
+      
+      // Ensure processed directory exists
+      await fs.mkdir('processed', { recursive: true });
+      
+      let movedCount = 0;
+      const currentFiles = await fs.readdir('incoming/');
+      
+      for (const file of currentFiles) {
+        if (file.startsWith('.')) continue; // Skip hidden files
+        if (/\.(pdf|docx|doc|txt|md)$/i.test(file)) {
+          const src = `incoming/${file}`;
+          const dest = `processed/${file}`;
+          await fs.rename(src, dest);
+          sendProgress(`   📁 Moved: ${file}`);
+          movedCount++;
+        }
+      }
+      
+      sendProgress(`📦 [CLEANUP] Archived ${movedCount} processed files`);
+      cleanupReporter.end();
+      
+    } catch (error) {
+      cleanupReporter.error(error);
+      sendProgress('⚠️  [CLEANUP] File cleanup failed, but pipeline processing succeeded');
+    }
+
+    // Success
+    sendProgress('🎉 [SUCCESS] Complete pipeline execution finished!');
+    sendProgress(`📊 [SUCCESS] Files processed and indexed successfully`);
+    sendProgress(`⏱️  [SUCCESS] Completed at: ${new Date().toISOString()}`);
+    
+    res.end();
+
+  } catch (error) {
+    sendProgress(`❌ [FATAL] Pipeline failed: ${error.message}`);
+    sendProgress(`🔍 [DEBUG] Error type: ${error.constructor.name}`);
+    sendProgress(`📋 [DEBUG] Files remain in incoming/ for retry`);
+    console.error('Pipeline error:', error);
+    res.end();
+    
+  } finally {
+    // Reset process state
+    isProcessingActive = false;
+    activeProcessAbortController = null;
+  }
+});
+
+// POST /api/upload/stop - Stop running pipeline process
+router.post('/stop', (req, res) => {
+  try {
+    if (!isProcessingActive) {
+      return res.json({ success: false, message: 'No pipeline process is currently running' });
+    }
+
+    if (activeProcessAbortController) {
+      activeProcessAbortController.abort();
+      console.log('[PIPELINE] Process termination requested by user');
+    }
+
+    // Force reset state after a short delay
+    setTimeout(() => {
+      isProcessingActive = false;
+      activeProcessAbortController = null;
+    }, 1000);
+
+    res.json({ success: true, message: 'Pipeline termination requested' });
+  } catch (error) {
+    console.error('Stop process error:', error);
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+// GET /api/upload/status - Get current pipeline status
+router.get('/status', (req, res) => {
+  res.json({
+    isProcessingActive,
+    hasAbortController: !!activeProcessAbortController,
+    timestamp: new Date().toISOString()
+  });
+});
+
+// Individual script testing endpoints
+router.post('/test-normalize', async (req, res) => {
+  await testIndividualStep(res, 'normalize', '../scripts/normalize.js', 30000);
+});
+
+router.post('/test-extract', async (req, res) => {
+  await testIndividualStep(res, 'extract', '../scripts/extract.js', 120000);
+});
+
+router.post('/test-validate', async (req, res) => {
+  await testIndividualStep(res, 'validate', '../scripts/validate.js', 30000);
+});
+
+router.post('/test-write', async (req, res) => {
+  await testIndividualStep(res, 'write', '../scripts/write.js', 30000);
+});
+
+router.post('/test-indexer', async (req, res) => {
+  await testIndividualStep(res, 'indexer', '../scripts/indexer.js', 180000);
+});
+
+// Utility function for individual step testing
+async function testIndividualStep(res, stepName, scriptPath, timeoutMs) {
+  try {
     res.writeHead(200, {
       'Content-Type': 'text/plain',
       'Cache-Control': 'no-cache',
@@ -136,117 +451,83 @@ router.post('/process', async (req, res) => {
     });
 
     const sendProgress = (message) => {
+      console.log(`[TEST-${stepName.toUpperCase()}] ${message}`);
       res.write(`${message}\n`);
-      // Note: Express doesn't have res.flush() - write() automatically flushes
     };
 
-    sendProgress('🚀 PIPELINE STARTING - Initializing ingestion process...');
+    sendProgress(`🧪 [TEST] Starting individual test of ${stepName} step`);
+    sendProgress(`📅 [TEST] Started at: ${new Date().toISOString()}`);
+    sendProgress(`⏱️  [TEST] Timeout: ${timeoutMs}ms`);
 
-    // Check if there are files to process
-    const incomingFiles = await fs.readdir('incoming/');
-    const validFiles = incomingFiles.filter(f => /\.(pdf|docx|doc|txt|md)$/i.test(f));
-    
-    if (validFiles.length === 0) {
-      sendProgress('❌ PIPELINE STOPPED - No valid files found in incoming directory');
-      sendProgress('   Please upload files first, then try processing again');
-      res.end();
-      return;
+    // Check prerequisites
+    try {
+      const incomingFiles = await fs.readdir('incoming/');
+      const validFiles = incomingFiles.filter(f => /\.(pdf|docx|doc|txt|md)$/i.test(f));
+      sendProgress(`📁 [TEST] Found ${validFiles.length} files in incoming/`);
+    } catch (error) {
+      sendProgress(`⚠️  [TEST] Warning: Could not check incoming files: ${error.message}`);
     }
 
-    sendProgress(`📁 FOUND ${validFiles.length} files to process: ${validFiles.map(f => f).join(', ')}`);
+    const reporter = createProgressReporter(sendProgress, `Test-${stepName}`, timeoutMs);
     
-    // Add a small delay to ensure the UI receives the initial status
-    await new Promise(resolve => setTimeout(resolve, 500));
+    try {
+      reporter.start();
 
-    // Use spawn instead of exec for better streaming
-    const { spawn } = await import('child_process');
-    
-    sendProgress('🔧 EXECUTING PIPELINE - Running ingestion script...');
-    
-    // Create a unique log file for this run
-    const logFile = `./logs/progress-${Date.now()}.log`;
-    await fs.writeFile(logFile, ''); // Create empty log file
-    
-    // Start tailing the log file for real-time updates
-    const tailChild = spawn('tail', ['-f', logFile]);
-    tailChild.stdout.on('data', (data) => {
-      const output = data.toString();
-      output.split('\n').forEach(line => {
-        if (line.trim()) {
-          sendProgress(`   ${line}`);
-        }
-      });
-    });
-    
-    // Run the main script with log output
-    const child = spawn('/bin/bash', ['./scripts/ingest.sh'], {
-      env: {
-        ...process.env,
-        OPENAI_API_KEY: process.env.OPENAI_API_KEY,
-        COHERE_API_KEY: process.env.COHERE_API_KEY,
-        SUPABASE_URL: process.env.SUPABASE_URL,
-        SUPABASE_SERVICE_ROLE_KEY: process.env.SUPABASE_SERVICE_ROLE_KEY,
-        PYTHONUNBUFFERED: '1',
-        PROGRESS_LOG: logFile
-      },
-      cwd: process.cwd(),
-      stdio: ['pipe', 'pipe', 'pipe']
-    });
-    
-    child.stdout.on('data', (data) => {
-      const output = data.toString();
-      // Send each line immediately as it arrives
-      output.split('\n').forEach(line => {
-        if (line.trim()) {
-          const cleanLine = line.replace(/^\s*[\[✓✗❌✅🔄📝⚡🎯]\s*/, '').trim();
-          sendProgress(`   ${cleanLine}`);
-        }
-      });
-    });
-    
-    child.stderr.on('data', (data) => {
-      const output = data.toString();
-      output.split('\n').forEach(line => {
-        if (line.trim()) {
-          sendProgress(`   ⚠️ ${line}`);
-        }
-      });
-    });
-    
-    child.on('close', async (code) => {
-      // Clean up the tail process
-      tailChild.kill();
+      // Create timeout promise
+      const timeoutPromise = createTimeoutPromise(timeoutMs, `Test-${stepName}`);
       
-      // Clean up the log file
-      try {
-        await fs.unlink(logFile);
-      } catch (error) {
-        // Ignore cleanup errors
-      }
+      // Execute the step with enhanced error handling
+      const stepPromise = (async () => {
+        let module;
+        try {
+          sendProgress(`📦 [TEST] Importing ${scriptPath}`);
+          module = await import(scriptPath);
+        } catch (importError) {
+          sendProgress(`❌ [TEST] Module import failed: ${importError.message}`);
+          sendProgress(`🔍 [TEST] Import path: ${scriptPath}`);
+          throw new Error(`Failed to import ${stepName} script: ${importError.message}`);
+        }
+        
+        if (typeof module.default === 'function') {
+          sendProgress(`🔧 [TEST] Executing ${stepName} function`);
+          return await module.default();
+        } else {
+          sendProgress(`❌ [TEST] Module does not export a default function`);
+          sendProgress(`🔍 [TEST] Available exports: ${Object.keys(module).join(', ')}`);
+          throw new Error(`${stepName} script does not export a default function`);
+        }
+      })();
+
+      // Race between step execution and timeout
+      const result = await Promise.race([stepPromise, timeoutPromise]);
       
-      if (code === 0) {
-        sendProgress('🎉 PIPELINE SUCCESS - All processing completed!');
-        sendProgress('   ✅ Files processed, extracted, and indexed successfully');
-        sendProgress('   📊 Knowledge base has been updated');
-      } else {
-        sendProgress(`❌ PIPELINE FAILED - Process exited with code ${code}`);
-        sendProgress('   Check logs above for error details');
+      reporter.end();
+      sendProgress(`🎉 [TEST] ${stepName} test completed successfully`);
+      
+      if (result !== undefined) {
+        sendProgress(`📊 [TEST] Result: ${JSON.stringify(result, null, 2)}`);
       }
-      res.end();
-    });
-    
-    child.on('error', (error) => {
-      sendProgress(`❌ PIPELINE ERROR - ${error.message}`);
-      sendProgress('   Check server logs and environment configuration');
-      res.end();
-    });
+
+    } catch (error) {
+      reporter.error(error);
+      
+      sendProgress(`❌ [TEST] ${stepName} test failed`);
+      sendProgress(`🔍 [ERROR] Message: ${error.message}`);
+      sendProgress(`🔍 [ERROR] Type: ${error.constructor.name}`);
+      if (error.stack) {
+        sendProgress(`🔍 [STACK] ${error.stack.split('\n').slice(0, 3).join('; ')}`);
+      }
+    }
+
+    sendProgress(`⏹️  [TEST] ${stepName} test completed at: ${new Date().toISOString()}`);
+    res.end();
 
   } catch (error) {
-    console.error('Process error:', error);
-    res.write(`❌ Pipeline failed: ${error.message}\n`);
+    console.error(`Individual test error (${stepName}):`, error);
+    res.write(`❌ Test setup failed: ${error.message}\n`);
     res.end();
   }
-});
+}
 
 // GET /api/upload/stats - Get database statistics
 router.get('/stats', async (req, res) => {
@@ -322,7 +603,7 @@ router.post('/test-indexer', async (req, res) => {
     sendProgress(`Environment: COHERE_API_KEY exists: ${!!execEnv.COHERE_API_KEY}`);
     
     try {
-      const { stdout, stderr } = await execAsync('node scripts/indexer.cjs', {
+      const { stdout, stderr } = await execAsync('node scripts/indexer.js', {
         env: execEnv,
         timeout: 120000,
         maxBuffer: 1024 * 1024 * 10
@@ -401,6 +682,90 @@ router.get('/incoming', async (req, res) => {
   } catch (error) {
     console.error('Incoming files error:', error);
     res.status(500).json({ error: 'Failed to list incoming files' });
+  }
+});
+
+// GET /api/upload/incoming - Debug endpoint to show files in incoming directory
+router.get('/incoming', async (req, res) => {
+  try {
+    const incomingDir = 'incoming/';
+    let files;
+    
+    try {
+      files = await fs.readdir(incomingDir);
+    } catch (error) {
+      if (error.code === 'ENOENT') {
+        return res.json({
+          success: true,
+          incoming: [],
+          message: 'Incoming directory does not exist'
+        });
+      }
+      throw error;
+    }
+    
+    // Get file details
+    const fileDetails = [];
+    for (const file of files) {
+      if (file.startsWith('.')) continue; // Skip hidden files
+      
+      const filePath = path.join(incomingDir, file);
+      try {
+        const stats = await fs.stat(filePath);
+        if (stats.isFile()) {
+          fileDetails.push({
+            name: file,
+            size: stats.size,
+            modified: stats.mtime,
+            isDocument: /\.(pdf|docx|doc|txt|md)$/i.test(file)
+          });
+        }
+      } catch (statError) {
+        // File might have been deleted between readdir and stat
+        console.warn(`Could not stat file ${file}:`, statError.message);
+      }
+    }
+    
+    res.json({
+      success: true,
+      incoming: fileDetails,
+      count: fileDetails.length,
+      validDocuments: fileDetails.filter(f => f.isDocument).length
+    });
+    
+  } catch (error) {
+    console.error('Incoming directory check error:', error);
+    res.status(500).json({ 
+      success: false,
+      error: 'Failed to check incoming directory' 
+    });
+  }
+});
+
+// GET /api/upload/cache-stats - Get upload cache statistics  
+router.get('/cache-stats', (req, res) => {
+  try {
+    const cacheStats = getCacheStats();
+    res.json({
+      success: true,
+      cache: cacheStats,
+      summary: {
+        totalCachedFiles: cacheStats.totalCachedFiles,
+        oldestEntry: cacheStats.cacheEntries.length > 0 
+          ? cacheStats.cacheEntries.reduce((oldest, entry) => 
+              entry.uploadedAt < oldest.uploadedAt ? entry : oldest
+            ).uploadedAt
+          : null,
+        newestEntry: cacheStats.cacheEntries.length > 0
+          ? cacheStats.cacheEntries.reduce((newest, entry) => 
+              entry.uploadedAt > newest.uploadedAt ? entry : newest
+            ).uploadedAt
+          : null
+      }
+    });
+  } catch (error) {
+    console.error('Cache stats error:', error);
+    res.status(500).json({ success: false, error: 'Failed to get cache statistics' });
   }
 });
 

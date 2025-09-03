@@ -21,6 +21,8 @@ function App() {
   const [processStatus, setProcessStatus] = useState('');
   const [isProcessActive, setIsProcessActive] = useState(false);
   const [activeTab, setActiveTab] = useState('chat');
+  const [activeAdminSection, setActiveAdminSection] = useState('overview');
+  const [incomingFiles, setIncomingFiles] = useState(null);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -47,6 +49,7 @@ function App() {
       setLoading(false);
     }
   };
+
 
   const handleFileSelect = (e) => {
     setSelectedFiles(Array.from(e.target.files));
@@ -208,6 +211,40 @@ function App() {
     }
   };
 
+  const loadIncomingFiles = async () => {
+    try {
+      const result = await axios.get('/api/upload/incoming');
+      setIncomingFiles(result.data);
+    } catch (error) {
+      console.error('Failed to load incoming files:', error);
+      setIncomingFiles({ success: false, error: error.message });
+    }
+  };
+
+  const testIndividualStep = async (stepName) => {
+    setProcessing(true);
+    setProcessLog(`🧪 Starting individual test of ${stepName} step...\n`);
+    
+    try {
+      const response = await fetch(`/api/upload/test-${stepName}`, { method: 'POST' });
+      const reader = response.body.getReader();
+      const decoder = new TextDecoder();
+
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        const chunk = decoder.decode(value, { stream: true });
+        if (chunk) {
+          setProcessLog(prev => prev + chunk);
+        }
+      }
+    } catch (error) {
+      setProcessLog(prev => prev + `\n❌ Test failed: ${error.message}`);
+    } finally {
+      setProcessing(false);
+    }
+  };
+
   // Load stats on component mount
   React.useEffect(() => {
     loadStats();
@@ -216,8 +253,7 @@ function App() {
   return (
     <div className="App">
       <header className="App-header">
-        <h1>ScottGPT</h1>
-        <p>Interactive Resume - Ask me anything about Scott's experience!</p>
+        <img src="/Logo3.png" alt="ScottGPT" className="app-logo" />
         
         <div className="tab-nav">
           <button 
@@ -231,24 +267,6 @@ function App() {
             onClick={() => setActiveTab('admin')}
           >
             ⚙️ Admin
-          </button>
-          <button 
-            className={`tab-button ${activeTab === 'data' ? 'active' : ''}`}
-            onClick={() => setActiveTab('data')}
-          >
-            📊 Data Management
-          </button>
-          <button 
-            className={`tab-button ${activeTab === 'tags' ? 'active' : ''}`}
-            onClick={() => setActiveTab('tags')}
-          >
-            🏷️ Tags
-          </button>
-          <button 
-            className={`tab-button ${activeTab === 'export' ? 'active' : ''}`}
-            onClick={() => setActiveTab('export')}
-          >
-            📥 Export
           </button>
         </div>
       </header>
@@ -343,154 +361,364 @@ function App() {
         )}
 
         {activeTab === 'admin' && (
-          <div className="admin-section">
-            {stats && (
-              <div className="stats-panel">
-                <h3>📊 Knowledge Base Statistics</h3>
-                <div className="stats-grid">
-                  <div className="stat-item">
-                    <span className="stat-label">Total Sources:</span>
-                    <span className="stat-value">{stats.total_sources}</span>
-                  </div>
-                  <div className="stat-item">
-                    <span className="stat-label">Total Content Chunks:</span>
-                    <span className="stat-value">{stats.total_chunks}</span>
-                  </div>
-                  {stats.source_breakdown && Object.keys(stats.source_breakdown).length > 0 && (
-                    <div className="stat-breakdown">
-                      <strong>Breakdown by type:</strong>
-                      {Object.entries(stats.source_breakdown).map(([type, count]) => (
-                        <div key={type} className="breakdown-item">
-                          {type}: {count}
+          <div className="admin-panel">
+            <div className="admin-sidebar">
+              <nav className="admin-nav">
+                <button
+                  className={`admin-nav-item ${activeAdminSection === 'overview' ? 'active' : ''}`}
+                  onClick={() => setActiveAdminSection('overview')}
+                >
+                  <span className="nav-icon">📊</span>
+                  <span className="nav-label">Overview</span>
+                </button>
+                <button
+                  className={`admin-nav-item ${activeAdminSection === 'upload' ? 'active' : ''}`}
+                  onClick={() => setActiveAdminSection('upload')}
+                >
+                  <span className="nav-icon">📁</span>
+                  <span className="nav-label">Upload</span>
+                </button>
+                <button
+                  className={`admin-nav-item ${activeAdminSection === 'process' ? 'active' : ''}`}
+                  onClick={() => setActiveAdminSection('process')}
+                >
+                  <span className="nav-icon">🔄</span>
+                  <span className="nav-label">Process</span>
+                </button>
+                <button
+                  className={`admin-nav-item ${activeAdminSection === 'data' ? 'active' : ''}`}
+                  onClick={() => setActiveAdminSection('data')}
+                >
+                  <span className="nav-icon">📊</span>
+                  <span className="nav-label">Data Management</span>
+                </button>
+                <button
+                  className={`admin-nav-item ${activeAdminSection === 'tags' ? 'active' : ''}`}
+                  onClick={() => setActiveAdminSection('tags')}
+                >
+                  <span className="nav-icon">🏷️</span>
+                  <span className="nav-label">Tags</span>
+                </button>
+                <button
+                  className={`admin-nav-item ${activeAdminSection === 'export' ? 'active' : ''}`}
+                  onClick={() => setActiveAdminSection('export')}
+                >
+                  <span className="nav-icon">📥</span>
+                  <span className="nav-label">Export</span>
+                </button>
+                <button
+                  className={`admin-nav-item ${activeAdminSection === 'debug' ? 'active' : ''}`}
+                  onClick={() => setActiveAdminSection('debug')}
+                >
+                  <span className="nav-icon">🔍</span>
+                  <span className="nav-label">Debug</span>
+                </button>
+              </nav>
+            </div>
+            
+            <div className="admin-content">
+              {activeAdminSection === 'overview' && (
+                <div className="admin-section">
+                  <h2>📊 System Overview</h2>
+                  {stats && (
+                    <div className="stats-panel">
+                      <h3>Knowledge Base Statistics</h3>
+                      <div className="stats-grid">
+                        <div className="stat-item">
+                          <span className="stat-label">Total Sources:</span>
+                          <span className="stat-value">{stats.total_sources}</span>
                         </div>
-                      ))}
+                        <div className="stat-item">
+                          <span className="stat-label">Total Content Chunks:</span>
+                          <span className="stat-value">{stats.total_chunks}</span>
+                        </div>
+                        {stats.source_breakdown && Object.keys(stats.source_breakdown).length > 0 && (
+                          <div className="stat-breakdown">
+                            <strong>Breakdown by type:</strong>
+                            {Object.entries(stats.source_breakdown).map(([type, count]) => (
+                              <div key={type} className="breakdown-item">
+                                {type}: {count}
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                      </div>
                     </div>
                   )}
                 </div>
-              </div>
-            )}
+              )}
 
-            <div className="upload-section">
-              <h3>📁 Upload Documents</h3>
-              <p>Supported formats: PDF, DOCX, DOC, TXT, MD</p>
-              
-              <div className="file-upload">
-                <input
-                  id="file-input"
-                  type="file"
-                  multiple
-                  accept=".pdf,.docx,.doc,.txt,.md"
-                  onChange={handleFileSelect}
-                  className="file-input"
-                />
-                <label htmlFor="file-input" className="file-label">
-                  📎 Select Files
-                </label>
-                
-                {selectedFiles.length > 0 && (
-                  <div className="selected-files">
-                    <p>Selected files ({selectedFiles.length}):</p>
-                    <ul>
-                      {selectedFiles.map((file, index) => (
-                        <li key={index}>
-                          {file.name} ({Math.round(file.size / 1024)} KB)
-                        </li>
-                      ))}
-                    </ul>
-                  </div>
-                )}
-                
-                <button
-                  onClick={handleUpload}
-                  disabled={uploading || selectedFiles.length === 0}
-                  className="upload-button"
-                >
-                  {uploading ? '⏳ Uploading...' : '📤 Upload Files'}
-                </button>
-              </div>
-            </div>
-
-            <div className="process-section">
-              <h3>🔄 Process Documents</h3>
-              <p>Run the AI ingestion pipeline to update the knowledge base</p>
-              
-              <button
-                onClick={handleProcess}
-                disabled={processing}
-                className="process-button"
-              >
-                {processing ? '⏳ Processing...' : '🚀 Process Documents'}
-              </button>
-              
-              {/* Progress indicator */}
-              {isProcessActive && (
-                <div className="progress-section">
-                  <div className="progress-bar">
-                    <div className="progress-bar-fill"></div>
-                  </div>
-                  <div className="progress-status">
-                    {processStatus || 'Processing...'}
+              {activeAdminSection === 'upload' && (
+                <div className="admin-section">
+                  <h2>📁 Upload Documents</h2>
+                  <p>Supported formats: PDF, DOCX, DOC, TXT, MD</p>
+                  
+                  <div className="upload-section">
+                    <div className="file-upload">
+                      <input
+                        id="file-input"
+                        type="file"
+                        multiple
+                        accept=".pdf,.docx,.doc,.txt,.md"
+                        onChange={handleFileSelect}
+                        className="file-input"
+                      />
+                      <label htmlFor="file-input" className="file-label">
+                        📎 Select Files
+                      </label>
+                      
+                      {selectedFiles.length > 0 && (
+                        <div className="selected-files">
+                          <p>Selected files ({selectedFiles.length}):</p>
+                          <ul>
+                            {selectedFiles.map((file, index) => (
+                              <li key={index}>
+                                {file.name} ({Math.round(file.size / 1024)} KB)
+                              </li>
+                            ))}
+                          </ul>
+                        </div>
+                      )}
+                      
+                      <button
+                        onClick={handleUpload}
+                        disabled={uploading || selectedFiles.length === 0}
+                        className="upload-button"
+                      >
+                        {uploading ? '⏳ Uploading...' : '📤 Upload Files'}
+                      </button>
+                    </div>
                   </div>
                 </div>
               )}
-              
-              <button
-                onClick={async () => {
-                  setProcessing(true);
-                  setProcessLog('🧪 Starting stream test...\n');
+
+              {activeAdminSection === 'process' && (
+                <div className="admin-section">
+                  <h2>🔄 Process Documents</h2>
+                  <p>Run the AI ingestion pipeline to update the knowledge base</p>
                   
-                  try {
-                    const response = await fetch('/api/upload/test-stream', { method: 'POST' });
-                    const reader = response.body.getReader();
-                    const decoder = new TextDecoder();
+                  <div className="process-section">
+                    <div className="process-controls">
+                      <button
+                        onClick={handleProcess}
+                        disabled={processing}
+                        className="process-button"
+                      >
+                        {processing ? '⏳ Processing...' : '🚀 Process Documents'}
+                      </button>
+                      
+                      {processing && (
+                        <button
+                          onClick={async () => {
+                            try {
+                              await axios.post('/api/upload/stop');
+                              setProcessing(false);
+                              setProcessLog(prev => prev + '\n❌ Pipeline stopped by user request\n');
+                            } catch (error) {
+                              console.error('Stop error:', error);
+                            }
+                          }}
+                          className="process-button"
+                          style={{marginLeft: '10px', backgroundColor: '#dc3545'}}
+                        >
+                          🛑 Stop Pipeline
+                        </button>
+                      )}
+                    </div>
+                    
+                    {/* Progress indicator */}
+                    {isProcessActive && (
+                      <div className="progress-section">
+                        <div className="progress-bar">
+                          <div className="progress-bar-fill"></div>
+                        </div>
+                        <div className="progress-status">
+                          {processStatus || 'Processing...'}
+                        </div>
+                      </div>
+                    )}
+                    
+                    <button
+                      onClick={async () => {
+                        setProcessing(true);
+                        setProcessLog('🧪 Starting stream test...\n');
+                        
+                        try {
+                          const response = await fetch('/api/upload/test-stream', { method: 'POST' });
+                          const reader = response.body.getReader();
+                          const decoder = new TextDecoder();
 
-                    while (true) {
-                      const { done, value } = await reader.read();
-                      if (done) break;
-                      const chunk = decoder.decode(value, { stream: true });
-                      if (chunk) {
-                        setProcessLog(prev => prev + chunk);
-                      }
-                    }
-                  } catch (error) {
-                    setProcessLog(prev => prev + `\n❌ Test failed: ${error.message}`);
-                  } finally {
-                    setProcessing(false);
-                  }
-                }}
-                disabled={processing}
-                className="process-button"
-                style={{marginLeft: '10px', backgroundColor: '#666'}}
-              >
-                🧪 Test Stream
-              </button>
+                          while (true) {
+                            const { done, value } = await reader.read();
+                            if (done) break;
+                            const chunk = decoder.decode(value, { stream: true });
+                            if (chunk) {
+                              setProcessLog(prev => prev + chunk);
+                            }
+                          }
+                        } catch (error) {
+                          setProcessLog(prev => prev + `\n❌ Test failed: ${error.message}`);
+                        } finally {
+                          setProcessing(false);
+                        }
+                      }}
+                      disabled={processing}
+                      className="process-button"
+                      style={{marginLeft: '10px', backgroundColor: '#666'}}
+                    >
+                      🧪 Test Stream
+                    </button>
 
-              {processLog && (
-                <div className="process-log">
-                  <h4>📋 Processing Log:</h4>
-                  <pre className="log-content">{processLog}</pre>
+                    {processLog && (
+                      <div className="process-log">
+                        <h4>📋 Processing Log:</h4>
+                        <pre className="log-content">{processLog}</pre>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
+
+              {activeAdminSection === 'data' && (
+                <div className="admin-section">
+                  <React.Suspense fallback={<div>Loading Data Management...</div>}>
+                    <UserDataManager />
+                  </React.Suspense>
+                </div>
+              )}
+
+              {activeAdminSection === 'tags' && (
+                <div className="admin-section">
+                  <React.Suspense fallback={<div>Loading Tags...</div>}>
+                    <TagManager />
+                  </React.Suspense>
+                </div>
+              )}
+
+              {activeAdminSection === 'export' && (
+                <div className="admin-section">
+                  <React.Suspense fallback={<div>Loading Export Tools...</div>}>
+                    <ExportManager />
+                  </React.Suspense>
+                </div>
+              )}
+
+              {activeAdminSection === 'debug' && (
+                <div className="admin-section">
+                  <h2>🔍 Debug Information</h2>
+                  
+                  <div className="debug-section">
+                    <h3>📁 Incoming Files</h3>
+                    <p>Files currently in the incoming/ directory waiting to be processed.</p>
+                    
+                    <button
+                      onClick={loadIncomingFiles}
+                      className="process-button"
+                      style={{marginBottom: '1rem', backgroundColor: '#6366f1'}}
+                    >
+                      🔄 Refresh Incoming Files
+                    </button>
+                    
+                    {incomingFiles && (
+                      <div className="incoming-files-panel">
+                        {incomingFiles.success ? (
+                          <>
+                            <div className="debug-stats">
+                              <span className="debug-stat">
+                                <strong>Total Files:</strong> {incomingFiles.count || 0}
+                              </span>
+                              <span className="debug-stat">
+                                <strong>Valid Documents:</strong> {incomingFiles.validDocuments || 0}
+                              </span>
+                            </div>
+                            
+                            {incomingFiles.incoming && incomingFiles.incoming.length > 0 ? (
+                              <div className="file-list">
+                                <h4>Files:</h4>
+                                {incomingFiles.incoming.map((file, index) => (
+                                  <div key={index} className="debug-file-item">
+                                    <span className="file-name">
+                                      {file.isDocument ? '📄' : '📁'} {file.name}
+                                    </span>
+                                    <span className="file-details">
+                                      {Math.round(file.size / 1024)} KB - {new Date(file.modified).toLocaleString()}
+                                    </span>
+                                  </div>
+                                ))}
+                              </div>
+                            ) : (
+                              <div className="no-files">
+                                <p>✅ No files in incoming/ directory</p>
+                                <p>Either no files have been uploaded, or they have been successfully processed and moved to processed/.</p>
+                              </div>
+                            )}
+                          </>
+                        ) : (
+                          <div className="error-panel">
+                            <p>❌ Error loading incoming files: {incomingFiles.error || 'Unknown error'}</p>
+                          </div>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                  
+                  <div className="debug-section">
+                    <h3>🧪 Individual Step Testing</h3>
+                    <p>Test each pipeline step individually to identify hanging issues.</p>
+                    
+                    <div className="step-test-buttons">
+                      <button
+                        onClick={() => testIndividualStep('normalize')}
+                        className="test-button"
+                        disabled={processing}
+                      >
+                        🔧 Test Normalize
+                      </button>
+                      
+                      <button
+                        onClick={() => testIndividualStep('extract')}
+                        className="test-button"
+                        disabled={processing}
+                      >
+                        🤖 Test Extract
+                      </button>
+                      
+                      <button
+                        onClick={() => testIndividualStep('validate')}
+                        className="test-button"
+                        disabled={processing}
+                      >
+                        ✅ Test Validate
+                      </button>
+                      
+                      <button
+                        onClick={() => testIndividualStep('write')}
+                        className="test-button"
+                        disabled={processing}
+                      >
+                        📝 Test Write
+                      </button>
+                      
+                      <button
+                        onClick={() => testIndividualStep('indexer')}
+                        className="test-button"
+                        disabled={processing}
+                      >
+                        🔗 Test Indexer
+                      </button>
+                    </div>
+                    
+                    {processLog && activeAdminSection === 'debug' && (
+                      <div className="test-log">
+                        <h4>📋 Test Output:</h4>
+                        <pre className="log-content">{processLog}</pre>
+                      </div>
+                    )}
+                  </div>
                 </div>
               )}
             </div>
           </div>
-        )}
-
-        {activeTab === 'data' && (
-          <React.Suspense fallback={<div>Loading Data Management...</div>}>
-            <UserDataManager />
-          </React.Suspense>
-        )}
-
-        {activeTab === 'tags' && (
-          <React.Suspense fallback={<div>Loading Tags...</div>}>
-            <TagManager />
-          </React.Suspense>
-        )}
-
-        {activeTab === 'export' && (
-          <React.Suspense fallback={<div>Loading Export Tools...</div>}>
-            <ExportManager />
-          </React.Suspense>
         )}
       </main>
     </div>
