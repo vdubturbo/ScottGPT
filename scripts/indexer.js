@@ -6,6 +6,7 @@ import { CohereClient } from 'cohere-ai';
 import { db, supabase } from '../config/database.js';
 import { validateEmbedding } from '../utils/embedding-utils.js';
 import CONFIG from '../config/app-config.js';
+import SkillDiscoveryService from '../services/skills.js';
 import { 
   retryOperation, 
   circuitBreakers, 
@@ -34,6 +35,9 @@ let totalFilesCount = 0;
 let totalChunksCount = 0;
 let currentTimeoutMs = BASE_TIMEOUT;
 let timeoutHandle = null;
+
+// Initialize skill discovery service
+let skillService = null;
 
 // Progress tracking
 let progressStats = {
@@ -344,8 +348,45 @@ async function generateSummary(content, title) {
   return summary ? `${summary}.` : `Summary of ${title}`;
 }
 
+async function processSkillsDiscovery(skills, context) {
+  if (!skillService) {
+    skillService = new SkillDiscoveryService();
+    await skillService.initialize();
+  }
+  
+  if (!Array.isArray(skills) || skills.length === 0) {
+    return [];
+  }
+  
+  const processedSkills = [];
+  
+  for (const skill of skills) {
+    if (skill && typeof skill === 'string' && skill.trim()) {
+      try {
+        const discovery = await skillService.discoverSkill(skill.trim(), context);
+        processedSkills.push(skill.trim());
+      } catch (error) {
+        console.warn(`⚠️ Failed to process skill "${skill}":`, error.message);
+        processedSkills.push(skill.trim()); // Still include the skill
+      }
+    }
+  }
+  
+  return processedSkills;
+}
+
 async function upsertSource(data) {
   try {
+    // Process skills discovery before upserting
+    const processedSkills = await processSkillsDiscovery(data.skills, {
+      file: data.id,
+      content: data.summary || '',
+      type: data.type,
+      title: data.title,
+      org: data.org
+    });
+    data.skills = processedSkills;
+    
     // Check if source already exists by ID (the actual unique constraint)
     const existing = await supabase
       .from("sources")
@@ -363,6 +404,7 @@ async function upsertSource(data) {
           date_start: data.date_start,
           date_end: data.date_end,
           industry_tags: data.industry_tags,
+          skills: data.skills,
           summary: data.summary,
           url: data.url,
           updated_at: new Date().toISOString()
@@ -384,6 +426,7 @@ async function upsertSource(data) {
         date_start: data.date_start,
         date_end: data.date_end,
         industry_tags: data.industry_tags,
+        skills: data.skills,
         summary: data.summary,
         url: data.url
       });

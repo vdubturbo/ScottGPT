@@ -31,8 +31,10 @@
 }
 
 .App-main {
-  padding: 2rem;
-  max-width: 800px;
+  padding: 1rem;
+  width: 100%;
+  margin: 0;
+  max-width: 1400px;
   margin: 0 auto;
 }
 
@@ -155,14 +157,16 @@
 .admin-panel {
   display: flex;
   width: 100%;
-  max-width: 1200px;
+  max-width: 1400px;
   margin: 0 auto;
+  padding: 0;
   background: rgba(20, 20, 20, 0.8);
   border-radius: 12px;
   overflow: hidden;
   backdrop-filter: blur(10px);
   border: 1px solid #3a3a3a;
   min-height: 600px;
+  box-sizing: border-box;
 }
 
 .admin-sidebar {
@@ -219,8 +223,12 @@
 
 .admin-content {
   flex: 1;
-  padding: 2rem;
+  padding: 0.5rem;
   overflow-y: auto;
+  width: 100% !important;
+  max-width: none !important;
+  margin: 0 !important;
+  box-sizing: border-box !important;
 }
 
 .admin-content h2 {
@@ -665,6 +673,7 @@
   .admin-panel {
     flex-direction: column;
     max-width: 100%;
+    margin: 0;
   }
   
   .admin-sidebar {

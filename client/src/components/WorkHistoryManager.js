@@ -8,7 +8,7 @@ import JobEditor from './JobEditor';
 import DuplicateAlert from './DuplicateAlert';
 import './WorkHistoryManager.css';
 
-const WorkHistoryManager = () => {
+const WorkHistoryManager = ({ onViewDuplicates }) => {
   const {
     loading,
     error,
@@ -24,7 +24,7 @@ const WorkHistoryManager = () => {
   const [duplicatesSummary, setDuplicatesSummary] = useState(null);
   const [selectedJob, setSelectedJob] = useState(null);
   const [showEditor, setShowEditor] = useState(false);
-  const [view, setView] = useState('timeline'); // timeline, list
+  const [view, setView] = useState('grid'); // grid, list
   const [sortBy, setSortBy] = useState('date_start');
   const [sortOrder, setSortOrder] = useState('desc');
   const [searchTerm, setSearchTerm] = useState('');
@@ -238,87 +238,84 @@ const WorkHistoryManager = () => {
     return `${years}y ${months}m`;
   };
 
-  // Render timeline view
-  const renderTimelineView = () => (
-    <div className="timeline-container">
-      <div className="timeline">
-        {processedJobs.map((job, index) => (
-          <div key={job.id} className="timeline-item">
-            <div className="timeline-marker">
-              <div className="timeline-dot"></div>
-              {index < processedJobs.length - 1 && <div className="timeline-line"></div>}
-            </div>
-            <div className="timeline-content">
-              <div className="job-card">
-                <div className="job-header">
-                  <div className="job-title-section">
-                    <label className="job-checkbox">
-                      <input
-                        type="checkbox"
-                        checked={selectedJobs.has(job.id)}
-                        onChange={(e) => {
-                          e.stopPropagation();
-                          handleJobCheckbox(job.id, e.target.checked);
-                        }}
-                      />
-                    </label>
-                    <h3 className="job-title" onClick={() => handleJobSelect(job)}>{job.title}</h3>
-                  </div>
-                  <span className="job-duration">
-                    {calculateDuration(job.date_start, job.date_end)}
-                  </span>
-                </div>
+  // Render grid view (replaces timeline)
+  const renderGridView = () => {
+    console.log('🎯 RENDERING GRID VIEW - NEW LAYOUT!');
+    return (
+    <div className="jobs-grid">
+      {processedJobs.map((job) => (
+        <div key={job.id} className="job-card">
+          <div className="job-header">
+            <div className="job-title-section">
+              <label className="job-checkbox">
+                <input
+                  type="checkbox"
+                  checked={selectedJobs.has(job.id)}
+                  onChange={(e) => {
+                    e.stopPropagation();
+                    handleJobCheckbox(job.id, e.target.checked);
+                  }}
+                />
+              </label>
+              <div className="job-title-info">
+                <h3 className="job-title" onClick={() => handleJobSelect(job)}>{job.title}</h3>
                 <div className="job-company">{job.org}</div>
-                <div className="job-dates">
-                  {formatDate(job.date_start)} - {formatDate(job.date_end)}
-                </div>
-                {job.location && (
-                  <div className="job-location">{job.location}</div>
-                )}
-                {job.description && (
-                  <div className="job-description">
-                    {job.description.slice(0, 150)}
-                    {job.description.length > 150 && '...'}
-                  </div>
-                )}
-                {job.skills && job.skills.length > 0 && (
-                  <div className="job-skills">
-                    {job.skills.slice(0, 5).map((skill, i) => (
-                      <span key={i} className="skill-tag">{skill}</span>
-                    ))}
-                    {job.skills.length > 5 && (
-                      <span className="skill-tag more">+{job.skills.length - 5} more</span>
-                    )}
-                  </div>
-                )}
-                <div className="job-actions">
-                  <button 
-                    className="btn-edit"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      handleJobSelect(job);
-                    }}
-                  >
-                    Edit
-                  </button>
-                  <button 
-                    className="btn-delete"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      handleJobDelete(job);
-                    }}
-                    title="Delete job"
-                  >
-                    Delete
-                  </button>
-                </div>
+              </div>
+            </div>
+            <div className="job-meta-right">
+              <span className="job-duration">
+                {calculateDuration(job.date_start, job.date_end)}
+              </span>
+              <div className="job-dates">
+                {formatDate(job.date_start)} - {formatDate(job.date_end)}
               </div>
             </div>
           </div>
-        ))}
-      </div>
+          {job.location && (
+            <div className="job-location">{job.location}</div>
+          )}
+          {job.description && (
+            <div className="job-description">
+              {job.description.slice(0, 200)}
+              {job.description.length > 200 && '...'}
+            </div>
+          )}
+          {job.skills && job.skills.length > 0 && (
+            <div className="job-skills">
+              {job.skills.slice(0, 10).map((skill, i) => (
+                <span key={i} className="skill-tag">{skill}</span>
+              ))}
+              {job.skills.length > 10 && (
+                <span className="skill-tag more">+{job.skills.length - 10} more</span>
+              )}
+            </div>
+          )}
+          <div className="job-actions">
+            <button 
+              className="btn-edit"
+              onClick={(e) => {
+                e.stopPropagation();
+                handleJobSelect(job);
+              }}
+            >
+              Edit
+            </button>
+            <button 
+              className="btn-delete"
+              onClick={(e) => {
+                e.stopPropagation();
+                handleJobDelete(job);
+              }}
+              title="Delete job"
+            >
+              Delete
+            </button>
+          </div>
+        </div>
+      ))}
     </div>
   );
+  };
 
   // Render list view
   const renderListView = () => (
@@ -424,13 +421,39 @@ const WorkHistoryManager = () => {
               </button>
             </div>
           )}
-          <button 
-            className="btn-primary"
-            onClick={handleCreateJob}
-            disabled={loading}
-          >
-            + Add Job
-          </button>
+          
+          <div className="action-buttons">
+            <button 
+              className="btn-secondary btn-tool"
+              onClick={() => {
+                if (onViewDuplicates) {
+                  onViewDuplicates();
+                } else {
+                  console.log('Duplicate detection requested');
+                }
+              }}
+              title="Find and manage duplicate entries"
+            >
+              🔍 Duplicates
+            </button>
+            <button 
+              className="btn-secondary btn-tool"
+              onClick={() => {
+                // Open data quality inline view
+                console.log('Data quality check requested');
+              }}
+              title="Check data quality and completeness"
+            >
+              📊 Quality
+            </button>
+            <button 
+              className="btn-primary"
+              onClick={handleCreateJob}
+              disabled={loading}
+            >
+              + Add Job
+            </button>
+          </div>
         </div>
       </div>
 
@@ -460,10 +483,10 @@ const WorkHistoryManager = () => {
         <div className="view-controls">
           <div className="view-toggle">
             <button
-              className={view === 'timeline' ? 'active' : ''}
-              onClick={() => setView('timeline')}
+              className={view === 'grid' ? 'active' : ''}
+              onClick={() => setView('grid')}
             >
-              Timeline
+              Grid
             </button>
             <button
               className={view === 'list' ? 'active' : ''}
@@ -519,7 +542,7 @@ const WorkHistoryManager = () => {
           </div>
         ) : (
           <>
-            {view === 'timeline' ? renderTimelineView() : renderListView()}
+            {view === 'grid' ? renderGridView() : renderListView()}
           </>
         )}
       </div>

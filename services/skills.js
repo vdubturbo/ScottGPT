@@ -1,5 +1,6 @@
 import fs from 'fs/promises';
 import path from 'path';
+import { supabase } from '../config/database.js';
 
 const SKILLS_CONFIG_PATH = 'config/skills.json';
 const DISCOVERED_SKILLS_PATH = 'logs/discovered-skills.json';
@@ -188,6 +189,13 @@ class SkillDiscoveryService {
     this.discoveredSkills.push(discoveredSkill);
     await this.saveDiscoveredSkills();
     
+    // Automatically insert skill into database for immediate availability
+    try {
+      await this.insertSkillToDatabase(skill, category.category, []);
+    } catch (error) {
+      console.warn(`⚠️ Failed to insert skill "${skill}" to database:`, error.message);
+    }
+    
     console.log(`🔍 New skill discovered: "${skill}" (${category.category}, ${category.priority} priority)`);
     if (similar.length > 0) {
       console.log(`   Similar existing skills: ${similar.map(s => s.skill).join(', ')}`);
@@ -357,6 +365,73 @@ class SkillDiscoveryService {
     };
     
     await fs.writeFile(DISCOVERED_SKILLS_PATH, JSON.stringify(data, null, 2));
+  }
+
+  /**
+   * Insert skill into database skills table
+   */
+  async insertSkillToDatabase(skillName, category = 'Other', aliases = []) {
+    try {
+      // Check if skill already exists
+      const { data: existing, error: selectError } = await supabase
+        .from('skills')
+        .select('name')
+        .eq('name', skillName)
+        .single();
+      
+      if (selectError && selectError.code !== 'PGRST116') { // PGRST116 = no rows found
+        throw selectError;
+      }
+      
+      if (existing) {
+        console.log(`⏭️  Skill "${skillName}" already exists in database`);
+        return existing;
+      }
+      
+      // Insert new skill
+      const { data, error } = await supabase
+        .from('skills')
+        .insert({
+          name: skillName,
+          category: category,
+          aliases: aliases,
+          created_at: new Date().toISOString()
+        })
+        .select('*')
+        .single();
+      
+      if (error) throw error;
+      
+      console.log(`✅ Added skill "${skillName}" to database (${category})`);
+      return data;
+    } catch (error) {
+      console.error(`❌ Failed to insert skill "${skillName}":`, error);
+      throw error;
+    }
+  }
+
+  /**
+   * Bulk insert discovered skills to database
+   */
+  async bulkInsertSkillsToDatabase(skillsList = null) {
+    const skillsToInsert = skillsList || this.discoveredSkills;
+    const inserted = [];
+    const failed = [];
+    
+    for (const discoveredSkill of skillsToInsert) {
+      try {
+        const skillName = typeof discoveredSkill === 'string' ? discoveredSkill : discoveredSkill.skill;
+        const category = typeof discoveredSkill === 'object' ? discoveredSkill.category : 'Other';
+        
+        await this.insertSkillToDatabase(skillName, category, []);
+        inserted.push(skillName);
+      } catch (error) {
+        failed.push({ skill: discoveredSkill, error: error.message });
+      }
+    }
+    
+    console.log(`📊 Bulk insert results: ${inserted.length} successful, ${failed.length} failed`);
+    return { inserted, failed };
   }
 
   /**

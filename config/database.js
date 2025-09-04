@@ -71,6 +71,7 @@ class OptimizedDatabase {
         date_start: sourceData.date_start,
         date_end: sourceData.date_end,
         industry_tags: sourceData.industry_tags,
+        skills: sourceData.skills,
         summary: sourceData.summary,
         url: sourceData.url,
         created_at: new Date().toISOString()
