@@ -376,14 +376,7 @@ function App() {
                   onClick={() => setActiveAdminSection('upload')}
                 >
                   <span className="nav-icon">📁</span>
-                  <span className="nav-label">Upload</span>
-                </button>
-                <button
-                  className={`admin-nav-item ${activeAdminSection === 'process' ? 'active' : ''}`}
-                  onClick={() => setActiveAdminSection('process')}
-                >
-                  <span className="nav-icon">🔄</span>
-                  <span className="nav-label">Process</span>
+                  <span className="nav-label">Upload & Process</span>
                 </button>
                 <button
                   className={`admin-nav-item ${activeAdminSection === 'data' ? 'active' : ''}`}
@@ -432,6 +425,10 @@ function App() {
                           <span className="stat-label">Total Content Chunks:</span>
                           <span className="stat-value">{stats.total_chunks}</span>
                         </div>
+                        <div className="stat-item">
+                          <span className="stat-label">Total Skills:</span>
+                          <span className="stat-value">{stats.total_skills || 0}</span>
+                        </div>
                         {stats.source_breakdown && Object.keys(stats.source_breakdown).length > 0 && (
                           <div className="stat-breakdown">
                             <strong>Breakdown by type:</strong>
@@ -450,131 +447,135 @@ function App() {
 
               {activeAdminSection === 'upload' && (
                 <div className="admin-section">
-                  <h2>📁 Upload Documents</h2>
-                  <p>Supported formats: PDF, DOCX, DOC, TXT, MD</p>
+                  <h2>📁 Upload & Process Documents</h2>
                   
-                  <div className="upload-section">
-                    <div className="file-upload">
-                      <input
-                        id="file-input"
-                        type="file"
-                        multiple
-                        accept=".pdf,.docx,.doc,.txt,.md"
-                        onChange={handleFileSelect}
-                        className="file-input"
-                      />
-                      <label htmlFor="file-input" className="file-label">
-                        📎 Select Files
-                      </label>
-                      
-                      {selectedFiles.length > 0 && (
-                        <div className="selected-files">
-                          <p>Selected files ({selectedFiles.length}):</p>
-                          <ul>
-                            {selectedFiles.map((file, index) => (
-                              <li key={index}>
-                                {file.name} ({Math.round(file.size / 1024)} KB)
-                              </li>
-                            ))}
-                          </ul>
-                        </div>
-                      )}
-                      
-                      <button
-                        onClick={handleUpload}
-                        disabled={uploading || selectedFiles.length === 0}
-                        className="upload-button"
-                      >
-                        {uploading ? '⏳ Uploading...' : '📤 Upload Files'}
-                      </button>
+                  {/* Upload Section */}
+                  <div className="subsection">
+                    <h3>📤 Upload Files</h3>
+                    <p>Supported formats: PDF, DOCX, DOC, TXT, MD</p>
+                    
+                    <div className="upload-section">
+                      <div className="file-upload">
+                        <input
+                          id="file-input"
+                          type="file"
+                          multiple
+                          accept=".pdf,.docx,.doc,.txt,.md"
+                          onChange={handleFileSelect}
+                          className="file-input"
+                        />
+                        <label htmlFor="file-input" className="file-label">
+                          📎 Select Files
+                        </label>
+                        
+                        {selectedFiles.length > 0 && (
+                          <div className="selected-files">
+                            <p>Selected files ({selectedFiles.length}):</p>
+                            <ul>
+                              {selectedFiles.map((file, index) => (
+                                <li key={index}>
+                                  {file.name} ({Math.round(file.size / 1024)} KB)
+                                </li>
+                              ))}
+                            </ul>
+                          </div>
+                        )}
+                        
+                        <button
+                          onClick={handleUpload}
+                          disabled={uploading || selectedFiles.length === 0}
+                          className="upload-button"
+                        >
+                          {uploading ? '⏳ Uploading...' : '📤 Upload Files'}
+                        </button>
+                      </div>
                     </div>
                   </div>
-                </div>
-              )}
 
-              {activeAdminSection === 'process' && (
-                <div className="admin-section">
-                  <h2>🔄 Process Documents</h2>
-                  <p>Run the AI ingestion pipeline to update the knowledge base</p>
-                  
-                  <div className="process-section">
-                    <div className="process-controls">
+                  {/* Process Section */}
+                  <div className="subsection">
+                    <h3>🔄 Process Documents</h3>
+                    <p>Run the AI ingestion pipeline to update the knowledge base</p>
+                    
+                    <div className="process-section">
+                      <div className="process-controls">
+                        <button
+                          onClick={handleProcess}
+                          disabled={processing}
+                          className="process-button"
+                        >
+                          {processing ? '⏳ Processing...' : '🚀 Process Documents'}
+                        </button>
+                        
+                        {processing && (
+                          <button
+                            onClick={async () => {
+                              try {
+                                await axios.post('/api/upload/stop');
+                                setProcessing(false);
+                                setProcessLog(prev => prev + '\n❌ Pipeline stopped by user request\n');
+                              } catch (error) {
+                                console.error('Stop error:', error);
+                              }
+                            }}
+                            className="process-button"
+                            style={{marginLeft: '10px', backgroundColor: '#dc3545'}}
+                          >
+                            🛑 Stop Pipeline
+                          </button>
+                        )}
+                      </div>
+                      
+                      {/* Progress indicator */}
+                      {isProcessActive && (
+                        <div className="progress-section">
+                          <div className="progress-bar">
+                            <div className="progress-bar-fill"></div>
+                          </div>
+                          <div className="progress-status">
+                            {processStatus || 'Processing...'}
+                          </div>
+                        </div>
+                      )}
+                      
                       <button
-                        onClick={handleProcess}
+                        onClick={async () => {
+                          setProcessing(true);
+                          setProcessLog('🧪 Starting stream test...\n');
+                          
+                          try {
+                            const response = await fetch('/api/upload/test-stream', { method: 'POST' });
+                            const reader = response.body.getReader();
+                            const decoder = new TextDecoder();
+
+                            while (true) {
+                              const { done, value } = await reader.read();
+                              if (done) break;
+                              const chunk = decoder.decode(value, { stream: true });
+                              if (chunk) {
+                                setProcessLog(prev => prev + chunk);
+                              }
+                            }
+                          } catch (error) {
+                            setProcessLog(prev => prev + `\n❌ Test failed: ${error.message}`);
+                          } finally {
+                            setProcessing(false);
+                          }
+                        }}
                         disabled={processing}
                         className="process-button"
+                        style={{marginLeft: '10px', backgroundColor: '#666'}}
                       >
-                        {processing ? '⏳ Processing...' : '🚀 Process Documents'}
+                        🧪 Test Stream
                       </button>
-                      
-                      {processing && (
-                        <button
-                          onClick={async () => {
-                            try {
-                              await axios.post('/api/upload/stop');
-                              setProcessing(false);
-                              setProcessLog(prev => prev + '\n❌ Pipeline stopped by user request\n');
-                            } catch (error) {
-                              console.error('Stop error:', error);
-                            }
-                          }}
-                          className="process-button"
-                          style={{marginLeft: '10px', backgroundColor: '#dc3545'}}
-                        >
-                          🛑 Stop Pipeline
-                        </button>
+
+                      {processLog && (
+                        <div className="process-log">
+                          <h4>📋 Processing Log:</h4>
+                          <pre className="log-content">{processLog}</pre>
+                        </div>
                       )}
                     </div>
-                    
-                    {/* Progress indicator */}
-                    {isProcessActive && (
-                      <div className="progress-section">
-                        <div className="progress-bar">
-                          <div className="progress-bar-fill"></div>
-                        </div>
-                        <div className="progress-status">
-                          {processStatus || 'Processing...'}
-                        </div>
-                      </div>
-                    )}
-                    
-                    <button
-                      onClick={async () => {
-                        setProcessing(true);
-                        setProcessLog('🧪 Starting stream test...\n');
-                        
-                        try {
-                          const response = await fetch('/api/upload/test-stream', { method: 'POST' });
-                          const reader = response.body.getReader();
-                          const decoder = new TextDecoder();
-
-                          while (true) {
-                            const { done, value } = await reader.read();
-                            if (done) break;
-                            const chunk = decoder.decode(value, { stream: true });
-                            if (chunk) {
-                              setProcessLog(prev => prev + chunk);
-                            }
-                          }
-                        } catch (error) {
-                          setProcessLog(prev => prev + `\n❌ Test failed: ${error.message}`);
-                        } finally {
-                          setProcessing(false);
-                        }
-                      }}
-                      disabled={processing}
-                      className="process-button"
-                      style={{marginLeft: '10px', backgroundColor: '#666'}}
-                    >
-                      🧪 Test Stream
-                    </button>
-
-                    {processLog && (
-                      <div className="process-log">
-                        <h4>📋 Processing Log:</h4>
-                        <pre className="log-content">{processLog}</pre>
-                      </div>
-                    )}
                   </div>
                 </div>
               )}

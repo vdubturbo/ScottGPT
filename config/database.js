@@ -367,14 +367,16 @@ class OptimizedDatabase {
   // Existing methods remain the same for compatibility
   async getStats() {
     try {
-      const [sourcesResult, chunksResult] = await Promise.all([
+      const [sourcesResult, chunksResult, uniqueSkills] = await Promise.all([
         this.supabase.from('sources').select('id', { count: 'exact' }),
-        this.supabase.from('content_chunks').select('id', { count: 'exact' })
+        this.supabase.from('content_chunks').select('id', { count: 'exact' }),
+        this.getUniqueSkills()
       ]);
 
       return {
         total_sources: sourcesResult.count || 0,
         total_chunks: chunksResult.count || 0,
+        total_skills: uniqueSkills.length,
         source_breakdown: [],
         performance: this.getPerformanceStats()
       };
@@ -383,6 +385,7 @@ class OptimizedDatabase {
       return {
         total_sources: 0,
         total_chunks: 0,
+        total_skills: 0,
         source_breakdown: [],
         performance: this.getPerformanceStats()
       };

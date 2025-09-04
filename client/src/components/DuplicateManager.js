@@ -3,6 +3,7 @@
  */
 
 import React, { useState, useEffect, useCallback } from 'react';
+import ReactDOM from 'react-dom';
 import { useUserDataAPI } from '../hooks/useUserDataAPI';
 import MergePreview from './MergePreview';
 import './DuplicateManager.css';
@@ -451,7 +452,7 @@ const DuplicateManager = ({ onClose }) => {
     </div>
   );
 
-  return (
+  return ReactDOM.createPortal(
     <div className="duplicate-manager-overlay">
       <div className="duplicate-manager">
         <div className="manager-header">
@@ -504,7 +505,8 @@ const DuplicateManager = ({ onClose }) => {
           />
         )}
       </div>
-    </div>
+    </div>,
+    document.body
   );
 };
 

@@ -23,11 +23,32 @@ const DateInput = ({
       setDateValue('');
     } else {
       setIsCurrent(false);
-      // Convert date to YYYY-MM format for input
-      const date = new Date(value);
-      if (!isNaN(date.getTime())) {
-        const year = date.getFullYear();
-        const month = (date.getMonth() + 1).toString().padStart(2, '0');
+      // Handle different date formats and convert to YYYY-MM for input
+      let dateToUse;
+      
+      if (typeof value === 'string') {
+        // Handle YYYY-MM-DD format (from database)
+        if (value.match(/^\d{4}-\d{2}-\d{2}$/)) {
+          const [year, month] = value.split('-');
+          setDateValue(`${year}-${month}`);
+          return;
+        }
+        // Handle YYYY-MM format
+        else if (value.match(/^\d{4}-\d{2}$/)) {
+          setDateValue(value);
+          return;
+        }
+        // Handle other string formats
+        else {
+          dateToUse = new Date(value);
+        }
+      } else {
+        dateToUse = new Date(value);
+      }
+      
+      if (dateToUse && !isNaN(dateToUse.getTime())) {
+        const year = dateToUse.getFullYear();
+        const month = (dateToUse.getMonth() + 1).toString().padStart(2, '0');
         setDateValue(`${year}-${month}`);
       } else {
         setDateValue('');
@@ -41,7 +62,7 @@ const DateInput = ({
     setDateValue(newValue);
     
     if (newValue) {
-      // Convert YYYY-MM to date string
+      // Convert YYYY-MM to YYYY-MM-01 format (database expects YYYY-MM-DD)
       const [year, month] = newValue.split('-');
       const dateStr = `${year}-${month}-01`;
       onChange(dateStr);
@@ -68,11 +89,31 @@ const DateInput = ({
   const formatDateForDisplay = (dateStr) => {
     if (!dateStr) return '';
     try {
-      const date = new Date(dateStr);
-      return date.toLocaleDateString('en-US', { 
-        year: 'numeric', 
-        month: 'long' 
-      });
+      let date;
+      
+      // Handle YYYY-MM-DD format
+      if (typeof dateStr === 'string' && dateStr.match(/^\d{4}-\d{2}-\d{2}$/)) {
+        const [year, month] = dateStr.split('-');
+        date = new Date(year, month - 1); // month is 0-indexed in Date constructor
+      } 
+      // Handle YYYY-MM format
+      else if (typeof dateStr === 'string' && dateStr.match(/^\d{4}-\d{2}$/)) {
+        const [year, month] = dateStr.split('-');
+        date = new Date(year, month - 1);
+      }
+      // Handle other formats
+      else {
+        date = new Date(dateStr);
+      }
+      
+      if (!isNaN(date.getTime())) {
+        return date.toLocaleDateString('en-US', { 
+          year: 'numeric', 
+          month: 'long' 
+        });
+      }
+      
+      return dateStr;
     } catch {
       return dateStr;
     }

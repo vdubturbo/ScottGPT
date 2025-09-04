@@ -3,6 +3,7 @@
  */
 
 import React, { useState, useEffect, useCallback } from 'react';
+import ReactDOM from 'react-dom';
 import { useUserDataAPI } from '../hooks/useUserDataAPI';
 import SkillsInput from './SkillsInput';
 import DateInput from './DateInput';
@@ -195,7 +196,7 @@ const JobEditor = ({ job, onSave, onCancel }) => {
   // Check if form has required fields
   const hasRequiredFields = formData.title.trim() && formData.org.trim();
 
-  return (
+  return ReactDOM.createPortal(
     <div className="job-editor-overlay">
       <div className="job-editor">
         <div className="editor-header">
@@ -452,7 +453,8 @@ const JobEditor = ({ job, onSave, onCancel }) => {
           </div>
         )}
       </div>
-    </div>
+    </div>,
+    document.body
   );
 };
 

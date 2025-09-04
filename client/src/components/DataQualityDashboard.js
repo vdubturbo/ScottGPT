@@ -3,6 +3,7 @@
  */
 
 import React, { useState, useEffect, useCallback } from 'react';
+import ReactDOM from 'react-dom';
 import { useUserDataAPI } from '../hooks/useUserDataAPI';
 import './DataQualityDashboard.css';
 
@@ -226,7 +227,7 @@ const DataQualityDashboard = ({ onClose }) => {
   // Keep a minimal debug for now
   console.log('Data Quality Dashboard rendering with score:', overallScore);
 
-  return (
+  return ReactDOM.createPortal(
     <div className="data-quality-overlay">
       <div className="data-quality-dashboard">
         <div className="dashboard-header">
@@ -483,7 +484,8 @@ const DataQualityDashboard = ({ onClose }) => {
           )}
         </div>
       </div>
-    </div>
+    </div>,
+    document.body
   );
 };
 

@@ -14,7 +14,6 @@ const WorkHistoryManager = ({ onViewDuplicates }) => {
     error,
     clearError,
     getWorkHistory,
-    detectDuplicates,
     getDuplicatesSummary,
     deleteJob,
     bulkDeleteJobs
