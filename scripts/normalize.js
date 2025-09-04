@@ -86,12 +86,9 @@ async function normalize() {
         }
       }
       
-      // Move the original file to processed directory after successful conversion
-      const processedDir = 'processed';
-      await fs.mkdir(processedDir, { recursive: true });
-      const processedPath = path.join(processedDir, f);
-      await fs.rename(src, processedPath);
-      console.log(`📦 Moved to processed: ${f}`);
+      // Keep original file in incoming/ until entire pipeline completes
+      // Files will be moved to processed/ by the final cleanup step in ingest.sh
+      console.log(`📋 Keeping original file ${f} in incoming/ for pipeline completion`);
       
       processed++;
     } catch (error) {

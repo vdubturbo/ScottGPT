@@ -210,12 +210,21 @@ export const APP_CONFIG = {
 
   // Content Processing Configuration
   content: {
-    // Chunking Parameters
+    // Chunking Parameters - Optimized for RAG performance
     chunking: {
-      chunkTokens: 400,        // Target tokens per chunk
-      overlapTokens: 100,      // Overlap between chunks
-      minChunkLength: 100,     // Minimum characters for valid chunk
-      maxChunkLength: 2000,    // Maximum characters per chunk
+      chunkTokens: 225,        // Target tokens per chunk (200-250 range)
+      overlapTokens: 45,       // ~20% overlap for better context preservation  
+      minChunkLength: 120,     // Minimum tokens for valid chunk (raised from 100 chars)
+      maxChunkLength: 300,     // Maximum tokens per chunk for focused retrieval
+      minChunkChars: 400,      // Minimum characters to avoid tiny fragments
+      
+      // Quality targets
+      quality: {
+        optimalMinTokens: 120, // Minimum for optimal chunks
+        optimalMaxTokens: 300, // Maximum for optimal chunks
+        targetRange: [200, 250], // Preferred token range
+        consolidationThreshold: 100 // Merge chunks under this size
+      },
       
       // Tokenization
       tokenization: {

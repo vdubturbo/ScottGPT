@@ -2,6 +2,7 @@ import fs from 'fs/promises';
 import path from 'path';
 import crypto from 'crypto';
 import OpenAI from 'openai';
+import yaml from 'js-yaml';
 import 'dotenv/config';
 
 const client = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
@@ -40,7 +41,13 @@ CONSOLIDATION GUIDELINES:
 - Role progression (e.g., "Developer" → "Senior Developer" at same company) = separate extractions
 - Same role described in different sections = consolidate into ONE extraction
 
-FORMAT - Use this exact format for each DISTINCT position:
+CRITICAL YAML FORMAT RULES:
+1. YAML frontmatter MUST contain ONLY key-value pairs - NO markdown formatting
+2. All markdown content (headers, lists, etc.) goes AFTER the closing --- delimiter
+3. YAML section ends with ---, then markdown content begins
+4. Never put ## headers or other markdown inside the YAML frontmatter
+
+FORMAT - Use this EXACT format for each DISTINCT position:
 
 ---
 id: unique-identifier-based-on-company-and-role
@@ -92,6 +99,79 @@ QUALITY CHECK BEFORE OUTPUTTING:
 4. Is this substantial enough to warrant its own extraction?
 
 Output ONLY distinct positions, separated by "---NEXT_EXTRACTION---".`;
+
+// Validate YAML frontmatter structure
+function validateYAMLExtraction(extractionText) {
+  try {
+    if (!extractionText.includes('---')) {
+      return { isValid: false, error: 'Missing YAML frontmatter delimiters' };
+    }
+    
+    // Split by --- but handle the specific case where content starts with ---
+    const lines = extractionText.split('\n');
+    let yamlStartIndex = -1;
+    let yamlEndIndex = -1;
+    
+    // Find YAML frontmatter boundaries
+    for (let i = 0; i < lines.length; i++) {
+      if (lines[i].trim() === '---') {
+        if (yamlStartIndex === -1) {
+          yamlStartIndex = i;
+        } else {
+          yamlEndIndex = i;
+          break;
+        }
+      }
+    }
+    
+    if (yamlStartIndex === -1 || yamlEndIndex === -1) {
+      return { isValid: false, error: 'Missing YAML frontmatter delimiters (--- ... ---)' };
+    }
+    
+    const yamlSection = lines.slice(yamlStartIndex + 1, yamlEndIndex).join('\n').trim();
+    const contentSection = lines.slice(yamlEndIndex + 1).join('\n').trim();
+    
+    // Validate YAML section
+    try {
+      const parsed = yaml.load(yamlSection);
+      if (!parsed || typeof parsed !== 'object') {
+        return { isValid: false, error: 'YAML frontmatter must be an object' };
+      }
+      
+      // Check for required fields
+      const requiredFields = ['id', 'type', 'title', 'org'];
+      for (const field of requiredFields) {
+        if (!parsed[field]) {
+          return { isValid: false, error: `Missing required field: ${field}` };
+        }
+      }
+      
+      // Check for markdown content in YAML section
+      if (yamlSection.includes('##') || yamlSection.includes('#') || yamlSection.includes('- ') && yamlSection.includes('\n- ')) {
+        return { isValid: false, error: 'Markdown formatting found in YAML frontmatter' };
+      }
+      
+      return { 
+        isValid: true, 
+        parsed,
+        yamlSection,
+        contentSection 
+      };
+      
+    } catch (yamlError) {
+      return { 
+        isValid: false, 
+        error: `YAML parsing error: ${yamlError.message}` 
+      };
+    }
+    
+  } catch (error) {
+    return { 
+      isValid: false, 
+      error: `Validation error: ${error.message}` 
+    };
+  }
+}
 
 // Fuzzy string matching for deduplication
 function calculateSimilarity(str1, str2) {
@@ -513,12 +593,28 @@ async function extract() {
             const rawExtractions = extractedContent.split('---NEXT_EXTRACTION---');
             console.log(`🔍 Found ${rawExtractions.length} potential extractions`);
             
-            // Filter and clean extractions
-            const validRawExtractions = rawExtractions
-              .map(e => e.trim())
-              .filter(e => e && e.includes('---') && e.length > 100);
+            // Filter and validate extractions with YAML validation
+            const validRawExtractions = [];
+            let yamlValidationErrors = 0;
             
-            console.log(`🔧 Pre-deduplication: ${validRawExtractions.length} valid extractions`);
+            for (const extraction of rawExtractions) {
+              const trimmed = extraction.trim();
+              if (!trimmed || !trimmed.includes('---') || trimmed.length < 100) {
+                continue;
+              }
+              
+              // Validate YAML structure
+              const validation = validateYAMLExtraction(trimmed);
+              if (validation.isValid) {
+                validRawExtractions.push(trimmed);
+              } else {
+                console.log(`❌ [YAML ERROR] ${validation.error}`);
+                console.log(`   Content preview: ${trimmed.substring(0, 200)}...`);
+                yamlValidationErrors++;
+              }
+            }
+            
+            console.log(`🔧 Pre-deduplication: ${validRawExtractions.length} valid extractions (${yamlValidationErrors} YAML errors fixed)`);
             
             // Apply deduplication logic
             const uniqueExtractions = deduplicateExtractions(validRawExtractions);

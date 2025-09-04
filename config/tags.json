@@ -1,5 +1,6 @@
 {
   "controlled_vocabulary": [
+    "AI",
     "AI Product",
     "Cloud Computing",
     "Compliance",
@@ -11,7 +12,8 @@
     "Hospitality",
     "IoT",
     "Regulated Industries",
-    "Technical Leadership"
+    "Technical Leadership",
+    "Technology"
   ],
   "synonyms": {}
 }

@@ -4,9 +4,23 @@ set -euo pipefail
 # Force unbuffered output for real-time streaming
 export PYTHONUNBUFFERED=1
 
-# Function to log progress in real-time
+# Error handling - preserve files in incoming/ on failure
+cleanup_on_error() {
+    local exit_code=$?
+    if [ $exit_code -ne 0 ]; then
+        echo "❌ Pipeline failed with exit code $exit_code"
+        echo "📁 Files preserved in incoming/ directory for retry"
+        echo "🔍 Check the error messages above for troubleshooting"
+    fi
+    exit $exit_code
+}
+
+# Set up error trap
+trap cleanup_on_error ERR
+
+# Function to log progress - simplified for direct output
 log_progress() {
-    echo "$1" | tee -a "${PROGRESS_LOG:-/dev/null}"
+    echo "$1"
 }
 
 log_progress "🚀 Starting ScottGPT ingestion pipeline..."
@@ -35,7 +49,7 @@ fi
 # Check for required environment variables
 log_progress "🔑 Checking environment variables..."
 
-required_vars=("OPENAI_API_KEY" "COHERE_API_KEY" "SUPABASE_URL" "SUPABASE_ANON_KEY")
+required_vars=("OPENAI_API_KEY" "COHERE_API_KEY" "SUPABASE_URL" "SUPABASE_ANON_KEY" "SUPABASE_SERVICE_ROLE_KEY")
 missing_vars=()
 
 for var in "${required_vars[@]}"; do
@@ -139,14 +153,43 @@ else
     log_progress "✅ Pipeline verification: ${source_count} source files created"
 fi
 
-# Files were already moved during normalization step
-log_progress "📦 Files moved during processing (see normalization step)"
-processed_count="N/A - moved during processing"
+# Files will be moved after complete pipeline success
+processed_count="Will be determined during final cleanup"
+
+# Move processed files to final location now that pipeline succeeded
+log_progress "📦 Moving successfully processed files to archive..."
+if [ -d "incoming" ]; then
+    # Ensure processed directory exists
+    mkdir -p processed
+    
+    moved_count=0
+    for file in incoming/*; do
+        # Skip if no files match (when glob doesn't find anything)
+        [ -e "$file" ] || continue
+        
+        # Skip .DS_Store and other hidden files
+        filename=$(basename "$file")
+        if [[ "$filename" != .* ]] && [[ "$filename" =~ \.(pdf|docx|doc|txt|md)$ ]]; then
+            mv "$file" "processed/"
+            log_progress "   📁 Moved: $filename"
+            moved_count=$((moved_count + 1))
+        fi
+    done
+    
+    if [ "$moved_count" -gt 0 ]; then
+        log_progress "✅ Successfully archived $moved_count processed files"
+    else
+        log_progress "ℹ️  No files to archive (already processed or no valid documents)"
+    fi
+else
+    log_progress "⚠️  No incoming directory found - files may have been processed already"
+fi
 
 # Final summary
 log_progress "✅ ScottGPT ingestion complete!"
 log_progress "📊 Final Summary:"
 log_progress "   - Source files created: ${source_count}"
 log_progress "   - Input files processed: ${processed_count}"
+log_progress "   - Files archived: ${moved_count:-0}"
 log_progress "   - Temporary files preserved in .work/ for debugging"
 log_progress "📋 Next: Check the database for new chunks and sources"

@@ -816,3 +816,246 @@
 {"error":"ENOENT: no such file or directory, stat '/Users/slovett/projects/ScottGPT/client/build/index.html'","ip":"127.0.0.1","level":"error","message":"Unhandled application error","method":"GET","stack":"Error: ENOENT: no such file or directory, stat '/Users/slovett/projects/ScottGPT/client/build/index.html'","timestamp":"2025-08-29 09:35:37","url":"/favicon.ico"}
 {"error":"ENOENT: no such file or directory, stat '/Users/slovett/projects/ScottGPT/client/build/index.html'","ip":"127.0.0.1","level":"error","message":"Unhandled application error","method":"GET","stack":"Error: ENOENT: no such file or directory, stat '/Users/slovett/projects/ScottGPT/client/build/index.html'","timestamp":"2025-08-29 09:41:20","url":"/favicon.ico"}
 {"error":"ENOENT: no such file or directory, stat '/Users/slovett/projects/ScottGPT/client/build/index.html'","ip":"127.0.0.1","level":"error","message":"Unhandled application error","method":"GET","stack":"Error: ENOENT: no such file or directory, stat '/Users/slovett/projects/ScottGPT/client/build/index.html'","timestamp":"2025-08-29 09:45:45","url":"/favicon.ico"}
+{"level":"info","message":"Environment validation handled by centralized configuration","timestamp":"2025-09-02 15:32:50"}
+{"level":"info","message":"ScottGPT server started successfully","port":3005,"timestamp":"2025-09-02 15:32:51"}
+{"count":0,"level":"info","message":"Retrieved pending tags","service":"API","timestamp":"2025-09-02 15:33:10"}
+{"count":12,"level":"info","message":"Retrieved approved tags","service":"API","timestamp":"2025-09-02 15:33:10"}
+{"count":0,"level":"info","message":"Retrieved pending tags","service":"API","timestamp":"2025-09-02 15:33:10"}
+{"count":12,"level":"info","message":"Retrieved approved tags","service":"API","timestamp":"2025-09-02 15:33:10"}
+{"level":"info","message":"Environment validation handled by centralized configuration","timestamp":"2025-09-02 15:43:52"}
+{"date":"Tue Sep 02 2025 15:43:52 GMT-0400 (Eastern Daylight Time)","error":{"address":"::","code":"EADDRINUSE","errno":-48,"port":3005,"syscall":"listen"},"exception":true,"level":"error","message":"uncaughtException: listen EADDRINUSE: address already in use :::3005\nError: listen EADDRINUSE: address already in use :::3005\n    at Server.setupListenHandle [as _listen2] (node:net:1939:16)\n    at listenInCluster (node:net:1996:12)\n    at Server.listen (node:net:2101:7)\n    at app.listen (/Users/scottlovett/ScottGPT/node_modules/express/lib/application.js:635:24)\n    at startServer (file:///Users/scottlovett/ScottGPT/server.js:114:7)","os":{"loadavg":[5.27099609375,4.45751953125,3.92431640625],"uptime":29075},"process":{"argv":["/Users/scottlovett/.nvm/versions/node/v24.1.0/bin/node","/Users/scottlovett/ScottGPT/server.js"],"cwd":"/Users/scottlovett/ScottGPT","execPath":"/Users/scottlovett/.nvm/versions/node/v24.1.0/bin/node","gid":20,"memoryUsage":{"arrayBuffers":578495,"external":4331531,"heapTotal":60358656,"heapUsed":32754136,"rss":112197632},"pid":36822,"uid":501,"version":"v24.1.0"},"stack":"Error: listen EADDRINUSE: address already in use :::3005\n    at Server.setupListenHandle [as _listen2] (node:net:1939:16)\n    at listenInCluster (node:net:1996:12)\n    at Server.listen (node:net:2101:7)\n    at app.listen (/Users/scottlovett/ScottGPT/node_modules/express/lib/application.js:635:24)\n    at startServer (file:///Users/scottlovett/ScottGPT/server.js:114:7)","timestamp":"2025-09-02 15:43:52","trace":[{"column":16,"file":"node:net","function":"Server.setupListenHandle [as _listen2]","line":1939,"method":"setupListenHandle [as _listen2]","native":false},{"column":12,"file":"node:net","function":"listenInCluster","line":1996,"method":null,"native":false},{"column":7,"file":"node:net","function":"Server.listen","line":2101,"method":"listen","native":false},{"column":24,"file":"/Users/scottlovett/ScottGPT/node_modules/express/lib/application.js","function":"app.listen","line":635,"method":"listen","native":false},{"column":7,"file":"file:///Users/scottlovett/ScottGPT/server.js","function":"startServer","line":114,"method":null,"native":false}]}
+{"level":"info","message":"Environment validation handled by centralized configuration","timestamp":"2025-09-03 09:02:32"}
+{"level":"info","message":"ScottGPT server started successfully","port":3005,"timestamp":"2025-09-03 09:02:32"}
+{"level":"info","message":"Environment validation handled by centralized configuration","timestamp":"2025-09-03 13:09:58"}
+{"date":"Wed Sep 03 2025 13:09:58 GMT-0400 (Eastern Daylight Time)","error":{"address":"::","code":"EADDRINUSE","errno":-48,"port":3005,"syscall":"listen"},"exception":true,"level":"error","message":"uncaughtException: listen EADDRINUSE: address already in use :::3005\nError: listen EADDRINUSE: address already in use :::3005\n    at Server.setupListenHandle [as _listen2] (node:net:1939:16)\n    at listenInCluster (node:net:1996:12)\n    at Server.listen (node:net:2101:7)\n    at app.listen (/Users/scottlovett/ScottGPT/node_modules/express/lib/application.js:635:24)\n    at startServer (file:///Users/scottlovett/ScottGPT/server.js:114:7)","os":{"loadavg":[3.98193359375,3.26025390625,3.22021484375],"uptime":106241},"process":{"argv":["/Users/scottlovett/.nvm/versions/node/v24.1.0/bin/node","/Users/scottlovett/ScottGPT/server.js"],"cwd":"/Users/scottlovett/ScottGPT","execPath":"/Users/scottlovett/.nvm/versions/node/v24.1.0/bin/node","gid":20,"memoryUsage":{"arrayBuffers":729758,"external":4482794,"heapTotal":60358656,"heapUsed":34069928,"rss":111591424},"pid":88883,"uid":501,"version":"v24.1.0"},"stack":"Error: listen EADDRINUSE: address already in use :::3005\n    at Server.setupListenHandle [as _listen2] (node:net:1939:16)\n    at listenInCluster (node:net:1996:12)\n    at Server.listen (node:net:2101:7)\n    at app.listen (/Users/scottlovett/ScottGPT/node_modules/express/lib/application.js:635:24)\n    at startServer (file:///Users/scottlovett/ScottGPT/server.js:114:7)","timestamp":"2025-09-03 13:09:58","trace":[{"column":16,"file":"node:net","function":"Server.setupListenHandle [as _listen2]","line":1939,"method":"setupListenHandle [as _listen2]","native":false},{"column":12,"file":"node:net","function":"listenInCluster","line":1996,"method":null,"native":false},{"column":7,"file":"node:net","function":"Server.listen","line":2101,"method":"listen","native":false},{"column":24,"file":"/Users/scottlovett/ScottGPT/node_modules/express/lib/application.js","function":"app.listen","line":635,"method":"listen","native":false},{"column":7,"file":"file:///Users/scottlovett/ScottGPT/server.js","function":"startServer","line":114,"method":null,"native":false}]}
+{"level":"info","message":"Environment validation handled by centralized configuration","timestamp":"2025-09-03 13:10:15"}
+{"level":"info","message":"ScottGPT server started successfully","port":3005,"timestamp":"2025-09-03 13:10:15"}
+{"count":0,"level":"info","message":"Retrieved pending tags","service":"API","timestamp":"2025-09-03 13:14:59"}
+{"count":12,"level":"info","message":"Retrieved approved tags","service":"API","timestamp":"2025-09-03 13:14:59"}
+{"count":0,"level":"info","message":"Retrieved pending tags","service":"API","timestamp":"2025-09-03 13:14:59"}
+{"count":12,"level":"info","message":"Retrieved approved tags","service":"API","timestamp":"2025-09-03 13:14:59"}
+{"level":"info","message":"Environment validation handled by centralized configuration","timestamp":"2025-09-03 16:11:42"}
+{"level":"info","message":"ScottGPT server started successfully","port":3005,"timestamp":"2025-09-03 16:11:42"}
+{"fileCount":1,"files":[{"name":"Lovett Resume-August2025AI.docx","size":46989}],"ip":"127.0.0.1","level":"info","message":"Files uploaded successfully","service":"API","timestamp":"2025-09-03 16:14:30"}
+{"level":"info","message":"Environment validation handled by centralized configuration","timestamp":"2025-09-03 16:18:56"}
+{"level":"info","message":"ScottGPT server started successfully","port":3005,"timestamp":"2025-09-03 16:18:56"}
+{"fileCount":1,"files":[{"name":"Scott_Lovett_Updated_Application_Data_Sheet.docx","size":37879}],"ip":"127.0.0.1","level":"info","message":"Files uploaded successfully","service":"API","timestamp":"2025-09-03 16:19:46"}
+{"level":"info","message":"Environment validation handled by centralized configuration","timestamp":"2025-09-03 16:20:31"}
+{"level":"info","message":"ScottGPT server started successfully","port":3005,"timestamp":"2025-09-03 16:20:31"}
+{"level":"info","message":"Environment validation handled by centralized configuration","timestamp":"2025-09-03 16:22:57"}
+{"level":"info","message":"ScottGPT server started successfully","port":3005,"timestamp":"2025-09-03 16:22:57"}
+{"level":"info","message":"Environment validation handled by centralized configuration","timestamp":"2025-09-03 16:23:20"}
+{"level":"info","message":"ScottGPT server started successfully","port":3005,"timestamp":"2025-09-03 16:23:21"}
+{"fileCount":1,"files":[{"name":"Lovett Resume-August2025AI.docx","size":46989}],"ip":"127.0.0.1","level":"info","message":"Files uploaded successfully","service":"API","timestamp":"2025-09-03 16:24:46"}
+{"level":"info","message":"Environment validation handled by centralized configuration","timestamp":"2025-09-03 16:28:49"}
+{"level":"info","message":"ScottGPT server started successfully","port":3005,"timestamp":"2025-09-03 16:28:50"}
+{"level":"info","message":"Environment validation handled by centralized configuration","timestamp":"2025-09-03 16:29:13"}
+{"level":"info","message":"ScottGPT server started successfully","port":3005,"timestamp":"2025-09-03 16:29:13"}
+{"level":"info","message":"Environment validation handled by centralized configuration","timestamp":"2025-09-03 16:30:05"}
+{"level":"info","message":"ScottGPT server started successfully","port":3005,"timestamp":"2025-09-03 16:30:05"}
+{"fileCount":1,"files":[{"name":"Lovett Resume-August2025AI.docx","size":46989}],"ip":"127.0.0.1","level":"info","message":"Files uploaded successfully","service":"API","timestamp":"2025-09-03 16:32:46"}
+{"level":"info","message":"Environment validation handled by centralized configuration","timestamp":"2025-09-03 16:33:54"}
+{"level":"info","message":"ScottGPT server started successfully","port":3005,"timestamp":"2025-09-03 16:33:55"}
+{"level":"info","message":"Environment validation handled by centralized configuration","timestamp":"2025-09-03 16:34:58"}
+{"level":"info","message":"ScottGPT server started successfully","port":3005,"timestamp":"2025-09-03 16:34:58"}
+{"level":"info","message":"Environment validation handled by centralized configuration","timestamp":"2025-09-03 16:35:35"}
+{"level":"info","message":"ScottGPT server started successfully","port":3005,"timestamp":"2025-09-03 16:35:35"}
+{"level":"info","message":"Environment validation handled by centralized configuration","timestamp":"2025-09-03 16:36:56"}
+{"level":"info","message":"ScottGPT server started successfully","port":3005,"timestamp":"2025-09-03 16:36:56"}
+{"level":"info","message":"Environment validation handled by centralized configuration","timestamp":"2025-09-03 16:37:24"}
+{"level":"info","message":"ScottGPT server started successfully","port":3005,"timestamp":"2025-09-03 16:37:24"}
+{"fileCount":1,"files":[{"name":"ATS Resume- Lovett Aug.docx","size":19857}],"ip":"127.0.0.1","level":"info","message":"Files uploaded successfully","service":"API","timestamp":"2025-09-03 16:40:06"}
+{"date":"Wed Sep 03 2025 16:40:13 GMT-0400 (Eastern Daylight Time)","error":{},"level":"error","message":"unhandledRejection: sendProgress is not defined\nReferenceError: sendProgress is not defined\n    at file:///Users/scottlovett/ScottGPT/routes/upload.js:317:5","os":{"loadavg":[3.35986328125,3.38671875,3.2958984375],"uptime":118856},"process":{"argv":["/Users/scottlovett/.nvm/versions/node/v24.1.0/bin/node","/Users/scottlovett/ScottGPT/server.js"],"cwd":"/Users/scottlovett/ScottGPT","execPath":"/Users/scottlovett/.nvm/versions/node/v24.1.0/bin/node","gid":20,"memoryUsage":{"arrayBuffers":360088,"external":4126963,"heapTotal":33554432,"heapUsed":30440728,"rss":77348864},"pid":26328,"uid":501,"version":"v24.1.0"},"rejection":true,"stack":"ReferenceError: sendProgress is not defined\n    at file:///Users/scottlovett/ScottGPT/routes/upload.js:317:5","timestamp":"2025-09-03 16:40:13","trace":[{"column":5,"file":"file:///Users/scottlovett/ScottGPT/routes/upload.js","function":null,"line":317,"method":null,"native":false}]}
+{"level":"info","message":"Environment validation handled by centralized configuration","timestamp":"2025-09-03 16:41:11"}
+{"level":"info","message":"ScottGPT server started successfully","port":3005,"timestamp":"2025-09-03 16:41:11"}
+{"level":"info","message":"Environment validation handled by centralized configuration","timestamp":"2025-09-03 16:41:19"}
+{"level":"info","message":"ScottGPT server started successfully","port":3005,"timestamp":"2025-09-03 16:41:19"}
+{"level":"info","message":"Environment validation handled by centralized configuration","timestamp":"2025-09-03 16:41:31"}
+{"level":"info","message":"ScottGPT server started successfully","port":3005,"timestamp":"2025-09-03 16:41:31"}
+{"level":"info","message":"Environment validation handled by centralized configuration","timestamp":"2025-09-03 16:41:43"}
+{"level":"info","message":"ScottGPT server started successfully","port":3005,"timestamp":"2025-09-03 16:41:43"}
+{"level":"info","message":"Environment validation handled by centralized configuration","timestamp":"2025-09-03 16:41:50"}
+{"level":"info","message":"ScottGPT server started successfully","port":3005,"timestamp":"2025-09-03 16:41:50"}
+{"fileCount":1,"files":[{"name":"ATS Resume- Lovett Aug.docx","size":19857}],"ip":"127.0.0.1","level":"info","message":"Files uploaded successfully","service":"API","timestamp":"2025-09-03 16:43:29"}
+{"level":"info","message":"Environment validation handled by centralized configuration","timestamp":"2025-09-03 16:47:59"}
+{"level":"info","message":"ScottGPT server started successfully","port":3005,"timestamp":"2025-09-03 16:48:00"}
+{"level":"info","message":"Environment validation handled by centralized configuration","timestamp":"2025-09-03 16:50:35"}
+{"level":"info","message":"ScottGPT server started successfully","port":3005,"timestamp":"2025-09-03 16:50:35"}
+{"level":"info","message":"Environment validation handled by centralized configuration","timestamp":"2025-09-03 16:51:12"}
+{"level":"info","message":"ScottGPT server started successfully","port":3005,"timestamp":"2025-09-03 16:51:12"}
+{"level":"info","message":"Environment validation handled by centralized configuration","timestamp":"2025-09-03 16:51:30"}
+{"level":"info","message":"ScottGPT server started successfully","port":3005,"timestamp":"2025-09-03 16:51:31"}
+{"level":"info","message":"Environment validation handled by centralized configuration","timestamp":"2025-09-03 16:51:59"}
+{"level":"info","message":"ScottGPT server started successfully","port":3005,"timestamp":"2025-09-03 16:52:00"}
+{"level":"info","message":"Environment validation handled by centralized configuration","timestamp":"2025-09-03 16:52:42"}
+{"level":"info","message":"ScottGPT server started successfully","port":3005,"timestamp":"2025-09-03 16:52:43"}
+{"level":"info","message":"Environment validation handled by centralized configuration","timestamp":"2025-09-03 16:53:16"}
+{"level":"info","message":"ScottGPT server started successfully","port":3005,"timestamp":"2025-09-03 16:53:16"}
+{"level":"info","message":"Environment validation handled by centralized configuration","timestamp":"2025-09-03 16:53:21"}
+{"level":"info","message":"ScottGPT server started successfully","port":3005,"timestamp":"2025-09-03 16:53:22"}
+{"level":"info","message":"Environment validation handled by centralized configuration","timestamp":"2025-09-03 16:53:44"}
+{"level":"info","message":"ScottGPT server started successfully","port":3005,"timestamp":"2025-09-03 16:53:45"}
+{"level":"info","message":"Environment validation handled by centralized configuration","timestamp":"2025-09-03 16:53:51"}
+{"level":"info","message":"ScottGPT server started successfully","port":3005,"timestamp":"2025-09-03 16:53:51"}
+{"count":0,"level":"info","message":"Retrieved pending tags","service":"API","timestamp":"2025-09-03 16:58:01"}
+{"count":12,"level":"info","message":"Retrieved approved tags","service":"API","timestamp":"2025-09-03 16:58:01"}
+{"count":0,"level":"info","message":"Retrieved pending tags","service":"API","timestamp":"2025-09-03 16:58:01"}
+{"count":12,"level":"info","message":"Retrieved approved tags","service":"API","timestamp":"2025-09-03 16:58:01"}
+{"level":"info","message":"Environment validation handled by centralized configuration","timestamp":"2025-09-03 17:02:12"}
+{"level":"info","message":"ScottGPT server started successfully","port":3005,"timestamp":"2025-09-03 17:02:12"}
+{"level":"info","message":"Environment validation handled by centralized configuration","timestamp":"2025-09-03 17:02:44"}
+{"level":"info","message":"ScottGPT server started successfully","port":3005,"timestamp":"2025-09-03 17:02:44"}
+{"level":"info","message":"Environment validation handled by centralized configuration","timestamp":"2025-09-03 17:04:10"}
+{"level":"info","message":"ScottGPT server started successfully","port":3005,"timestamp":"2025-09-03 17:04:10"}
+{"level":"info","message":"Environment validation handled by centralized configuration","timestamp":"2025-09-03 17:04:44"}
+{"level":"info","message":"ScottGPT server started successfully","port":3005,"timestamp":"2025-09-03 17:04:45"}
+{"duplicateFiles":0,"duplicateSizeSkipped":0,"ip":"127.0.0.1","level":"info","message":"Files uploaded with deduplication","service":"API","timestamp":"2025-09-03 17:05:00","totalFiles":1,"totalSize":19857,"uniqueFiles":1,"uploadDuration":"5ms"}
+{"level":"info","message":"Environment validation handled by centralized configuration","timestamp":"2025-09-03 17:15:02"}
+{"level":"info","message":"ScottGPT server started successfully","port":3005,"timestamp":"2025-09-03 17:15:03"}
+{"level":"info","message":"Environment validation handled by centralized configuration","timestamp":"2025-09-03 17:15:12"}
+{"level":"info","message":"ScottGPT server started successfully","port":3005,"timestamp":"2025-09-03 17:15:12"}
+{"level":"info","message":"Environment validation handled by centralized configuration","timestamp":"2025-09-03 17:15:32"}
+{"level":"info","message":"ScottGPT server started successfully","port":3005,"timestamp":"2025-09-03 17:15:32"}
+{"level":"info","message":"Environment validation handled by centralized configuration","timestamp":"2025-09-03 17:18:32"}
+{"level":"info","message":"ScottGPT server started successfully","port":3005,"timestamp":"2025-09-03 17:18:32"}
+{"level":"info","message":"Environment validation handled by centralized configuration","timestamp":"2025-09-03 17:19:52"}
+{"level":"info","message":"ScottGPT server started successfully","port":3005,"timestamp":"2025-09-03 17:19:52"}
+{"level":"info","message":"Environment validation handled by centralized configuration","timestamp":"2025-09-03 17:19:56"}
+{"level":"info","message":"ScottGPT server started successfully","port":3005,"timestamp":"2025-09-03 17:19:57"}
+{"level":"info","message":"Environment validation handled by centralized configuration","timestamp":"2025-09-03 17:20:07"}
+{"level":"info","message":"ScottGPT server started successfully","port":3005,"timestamp":"2025-09-03 17:20:07"}
+{"level":"info","message":"Environment validation handled by centralized configuration","timestamp":"2025-09-03 17:20:17"}
+{"level":"info","message":"ScottGPT server started successfully","port":3005,"timestamp":"2025-09-03 17:20:17"}
+{"level":"info","message":"Environment validation handled by centralized configuration","timestamp":"2025-09-03 17:24:15"}
+{"level":"info","message":"ScottGPT server started successfully","port":3005,"timestamp":"2025-09-03 17:24:16"}
+{"level":"info","message":"Environment validation handled by centralized configuration","timestamp":"2025-09-03 17:25:33"}
+{"level":"info","message":"ScottGPT server started successfully","port":3005,"timestamp":"2025-09-03 17:25:33"}
+{"level":"info","message":"Environment validation handled by centralized configuration","timestamp":"2025-09-03 17:26:44"}
+{"level":"info","message":"ScottGPT server started successfully","port":3005,"timestamp":"2025-09-03 17:26:45"}
+{"count":2,"level":"info","message":"Retrieved pending tags","service":"API","timestamp":"2025-09-03 17:30:46"}
+{"count":12,"level":"info","message":"Retrieved approved tags","service":"API","timestamp":"2025-09-03 17:30:46"}
+{"count":12,"level":"info","message":"Retrieved approved tags","service":"API","timestamp":"2025-09-03 17:30:46"}
+{"count":2,"level":"info","message":"Retrieved pending tags","service":"API","timestamp":"2025-09-03 17:30:46"}
+{"approved":["Technology","AI"],"count":2,"ip":"127.0.0.1","level":"info","message":"Tags approved","service":"API","timestamp":"2025-09-03 17:30:51"}
+{"count":0,"level":"info","message":"Retrieved pending tags","service":"API","timestamp":"2025-09-03 17:30:51"}
+{"count":14,"level":"info","message":"Retrieved approved tags","service":"API","timestamp":"2025-09-03 17:30:51"}
+{"level":"info","message":"Environment validation handled by centralized configuration","timestamp":"2025-09-03 17:30:54"}
+{"level":"info","message":"ScottGPT server started successfully","port":3005,"timestamp":"2025-09-03 17:30:54"}
+{"level":"info","message":"Environment validation handled by centralized configuration","timestamp":"2025-09-04 07:46:00"}
+{"level":"info","message":"ScottGPT server started successfully","port":3005,"timestamp":"2025-09-04 07:46:01"}
+{"level":"info","message":"Environment validation handled by centralized configuration","timestamp":"2025-09-04 07:53:21"}
+{"date":"Thu Sep 04 2025 07:53:22 GMT-0400 (Eastern Daylight Time)","error":{"address":"::","code":"EADDRINUSE","errno":-48,"port":3005,"syscall":"listen"},"exception":true,"level":"error","message":"uncaughtException: listen EADDRINUSE: address already in use :::3005\nError: listen EADDRINUSE: address already in use :::3005\n    at Server.setupListenHandle [as _listen2] (node:net:1939:16)\n    at listenInCluster (node:net:1996:12)\n    at Server.listen (node:net:2101:7)\n    at app.listen (/Users/scottlovett/ScottGPT/node_modules/express/lib/application.js:635:24)\n    at startServer (file:///Users/scottlovett/ScottGPT/server.js:114:7)","os":{"loadavg":[3.92724609375,4.5966796875,4.1982421875],"uptime":173645},"process":{"argv":["/Users/scottlovett/.nvm/versions/node/v24.1.0/bin/node","/Users/scottlovett/ScottGPT/server.js"],"cwd":"/Users/scottlovett/ScottGPT","execPath":"/Users/scottlovett/.nvm/versions/node/v24.1.0/bin/node","gid":20,"memoryUsage":{"arrayBuffers":734687,"external":4487723,"heapTotal":60358656,"heapUsed":34305632,"rss":112115712},"pid":71258,"uid":501,"version":"v24.1.0"},"stack":"Error: listen EADDRINUSE: address already in use :::3005\n    at Server.setupListenHandle [as _listen2] (node:net:1939:16)\n    at listenInCluster (node:net:1996:12)\n    at Server.listen (node:net:2101:7)\n    at app.listen (/Users/scottlovett/ScottGPT/node_modules/express/lib/application.js:635:24)\n    at startServer (file:///Users/scottlovett/ScottGPT/server.js:114:7)","timestamp":"2025-09-04 07:53:22","trace":[{"column":16,"file":"node:net","function":"Server.setupListenHandle [as _listen2]","line":1939,"method":"setupListenHandle [as _listen2]","native":false},{"column":12,"file":"node:net","function":"listenInCluster","line":1996,"method":null,"native":false},{"column":7,"file":"node:net","function":"Server.listen","line":2101,"method":"listen","native":false},{"column":24,"file":"/Users/scottlovett/ScottGPT/node_modules/express/lib/application.js","function":"app.listen","line":635,"method":"listen","native":false},{"column":7,"file":"file:///Users/scottlovett/ScottGPT/server.js","function":"startServer","line":114,"method":null,"native":false}]}
+{"level":"info","message":"Environment validation handled by centralized configuration","timestamp":"2025-09-04 07:59:53"}
+{"level":"info","message":"ScottGPT server started successfully","port":3005,"timestamp":"2025-09-04 07:59:54"}
+{"count":14,"level":"info","message":"Retrieved approved tags","service":"API","timestamp":"2025-09-04 08:17:00"}
+{"count":0,"level":"info","message":"Retrieved pending tags","service":"API","timestamp":"2025-09-04 08:17:00"}
+{"count":14,"level":"info","message":"Retrieved approved tags","service":"API","timestamp":"2025-09-04 08:17:00"}
+{"count":0,"level":"info","message":"Retrieved pending tags","service":"API","timestamp":"2025-09-04 08:17:00"}
+{"level":"info","message":"Environment validation handled by centralized configuration","timestamp":"2025-09-04 08:19:08"}
+{"level":"info","message":"ScottGPT server started successfully","port":3005,"timestamp":"2025-09-04 08:19:09"}
+{"count":14,"level":"info","message":"Retrieved approved tags","service":"API","timestamp":"2025-09-04 08:20:30"}
+{"count":0,"level":"info","message":"Retrieved pending tags","service":"API","timestamp":"2025-09-04 08:20:30"}
+{"count":14,"level":"info","message":"Retrieved approved tags","service":"API","timestamp":"2025-09-04 08:20:30"}
+{"count":0,"level":"info","message":"Retrieved pending tags","service":"API","timestamp":"2025-09-04 08:20:30"}
+{"count":14,"level":"info","message":"Retrieved approved tags","service":"API","timestamp":"2025-09-04 08:24:18"}
+{"count":0,"level":"info","message":"Retrieved pending tags","service":"API","timestamp":"2025-09-04 08:24:18"}
+{"count":14,"level":"info","message":"Retrieved approved tags","service":"API","timestamp":"2025-09-04 08:24:18"}
+{"count":0,"level":"info","message":"Retrieved pending tags","service":"API","timestamp":"2025-09-04 08:24:18"}
+{"level":"info","message":"Environment validation handled by centralized configuration","timestamp":"2025-09-04 08:32:07"}
+{"level":"info","message":"ScottGPT server started successfully","port":3005,"timestamp":"2025-09-04 08:32:08"}
+{"level":"info","message":"Environment validation handled by centralized configuration","timestamp":"2025-09-04 08:32:29"}
+{"level":"info","message":"ScottGPT server started successfully","port":3005,"timestamp":"2025-09-04 08:32:29"}
+{"level":"info","message":"Environment validation handled by centralized configuration","timestamp":"2025-09-04 08:38:03"}
+{"level":"info","message":"ScottGPT server started successfully","port":3005,"timestamp":"2025-09-04 08:38:03"}
+{"level":"info","message":"Environment validation handled by centralized configuration","timestamp":"2025-09-04 08:39:08"}
+{"level":"info","message":"ScottGPT server started successfully","port":3005,"timestamp":"2025-09-04 08:39:08"}
+{"level":"info","message":"Environment validation handled by centralized configuration","timestamp":"2025-09-04 08:39:37"}
+{"level":"info","message":"ScottGPT server started successfully","port":3005,"timestamp":"2025-09-04 08:39:37"}
+{"level":"info","message":"Environment validation handled by centralized configuration","timestamp":"2025-09-04 08:39:48"}
+{"level":"info","message":"ScottGPT server started successfully","port":3005,"timestamp":"2025-09-04 08:39:49"}
+{"level":"info","message":"Environment validation handled by centralized configuration","timestamp":"2025-09-04 08:48:33"}
+{"level":"info","message":"ScottGPT server started successfully","port":3005,"timestamp":"2025-09-04 08:48:33"}
+{"level":"info","message":"Environment validation handled by centralized configuration","timestamp":"2025-09-04 08:53:43"}
+{"level":"info","message":"ScottGPT server started successfully","port":3005,"timestamp":"2025-09-04 08:53:44"}
+{"level":"info","message":"Environment validation handled by centralized configuration","timestamp":"2025-09-04 08:54:33"}
+{"level":"info","message":"ScottGPT server started successfully","port":3005,"timestamp":"2025-09-04 08:54:33"}
+{"level":"info","message":"Environment validation handled by centralized configuration","timestamp":"2025-09-04 08:54:54"}
+{"level":"info","message":"ScottGPT server started successfully","port":3005,"timestamp":"2025-09-04 08:54:55"}
+{"level":"info","message":"Environment validation handled by centralized configuration","timestamp":"2025-09-04 08:55:10"}
+{"level":"info","message":"ScottGPT server started successfully","port":3005,"timestamp":"2025-09-04 08:55:10"}
+{"level":"info","message":"Environment validation handled by centralized configuration","timestamp":"2025-09-04 08:55:30"}
+{"level":"info","message":"ScottGPT server started successfully","port":3005,"timestamp":"2025-09-04 08:55:30"}
+{"level":"info","message":"Environment validation handled by centralized configuration","timestamp":"2025-09-04 08:55:58"}
+{"level":"info","message":"ScottGPT server started successfully","port":3005,"timestamp":"2025-09-04 08:55:59"}
+{"level":"info","message":"Environment validation handled by centralized configuration","timestamp":"2025-09-04 08:56:07"}
+{"level":"info","message":"ScottGPT server started successfully","port":3005,"timestamp":"2025-09-04 08:56:08"}
+{"level":"info","message":"Environment validation handled by centralized configuration","timestamp":"2025-09-04 08:56:17"}
+{"level":"info","message":"ScottGPT server started successfully","port":3005,"timestamp":"2025-09-04 08:56:17"}
+{"level":"info","message":"Environment validation handled by centralized configuration","timestamp":"2025-09-04 08:58:33"}
+{"level":"info","message":"ScottGPT server started successfully","port":3005,"timestamp":"2025-09-04 08:58:33"}
+{"level":"info","message":"Environment validation handled by centralized configuration","timestamp":"2025-09-04 08:58:42"}
+{"level":"info","message":"ScottGPT server started successfully","port":3005,"timestamp":"2025-09-04 08:58:43"}
+{"level":"info","message":"Environment validation handled by centralized configuration","timestamp":"2025-09-04 08:58:56"}
+{"level":"info","message":"ScottGPT server started successfully","port":3005,"timestamp":"2025-09-04 08:58:56"}
+{"level":"info","message":"Environment validation handled by centralized configuration","timestamp":"2025-09-04 08:59:24"}
+{"level":"info","message":"ScottGPT server started successfully","port":3005,"timestamp":"2025-09-04 08:59:25"}
+{"level":"info","message":"Environment validation handled by centralized configuration","timestamp":"2025-09-04 08:59:42"}
+{"level":"info","message":"ScottGPT server started successfully","port":3005,"timestamp":"2025-09-04 08:59:42"}
+{"level":"info","message":"Environment validation handled by centralized configuration","timestamp":"2025-09-04 08:59:59"}
+{"level":"info","message":"ScottGPT server started successfully","port":3005,"timestamp":"2025-09-04 09:00:00"}
+{"level":"info","message":"Environment validation handled by centralized configuration","timestamp":"2025-09-04 09:00:22"}
+{"level":"info","message":"ScottGPT server started successfully","port":3005,"timestamp":"2025-09-04 09:00:23"}
+{"level":"info","message":"Environment validation handled by centralized configuration","timestamp":"2025-09-04 09:00:46"}
+{"level":"info","message":"ScottGPT server started successfully","port":3005,"timestamp":"2025-09-04 09:00:46"}
+{"level":"info","message":"Environment validation handled by centralized configuration","timestamp":"2025-09-04 09:00:50"}
+{"level":"info","message":"ScottGPT server started successfully","port":3005,"timestamp":"2025-09-04 09:00:51"}
+{"level":"info","message":"Environment validation handled by centralized configuration","timestamp":"2025-09-04 09:01:28"}
+{"level":"info","message":"ScottGPT server started successfully","port":3005,"timestamp":"2025-09-04 09:01:29"}
+{"level":"info","message":"Environment validation handled by centralized configuration","timestamp":"2025-09-04 09:01:38"}
+{"level":"info","message":"ScottGPT server started successfully","port":3005,"timestamp":"2025-09-04 09:01:38"}
+{"duplicateFiles":0,"duplicateSizeSkipped":0,"ip":"127.0.0.1","level":"info","message":"Files uploaded with deduplication","service":"API","timestamp":"2025-09-04 09:03:40","totalFiles":1,"totalSize":15953,"uniqueFiles":1,"uploadDuration":"2ms"}
+{"level":"info","message":"Environment validation handled by centralized configuration","timestamp":"2025-09-04 09:05:56"}
+{"level":"info","message":"ScottGPT server started successfully","port":3005,"timestamp":"2025-09-04 09:05:57"}
+{"duplicateFiles":1,"duplicateSizeSkipped":15953,"ip":"127.0.0.1","level":"info","message":"Files uploaded with deduplication","service":"API","timestamp":"2025-09-04 09:12:12","totalFiles":1,"totalSize":15953,"uniqueFiles":0,"uploadDuration":"4ms"}
+{"level":"info","message":"Environment validation handled by centralized configuration","timestamp":"2025-09-04 09:12:29"}
+{"level":"info","message":"ScottGPT server started successfully","port":3005,"timestamp":"2025-09-04 09:12:30"}
+{"duplicateFiles":1,"duplicateSizeSkipped":15953,"ip":"127.0.0.1","level":"info","message":"Files uploaded with deduplication","service":"API","timestamp":"2025-09-04 09:12:39","totalFiles":1,"totalSize":15953,"uniqueFiles":0,"uploadDuration":"5ms"}
+{"duplicateFiles":1,"duplicateSizeSkipped":15953,"ip":"127.0.0.1","level":"info","message":"Files uploaded with deduplication","service":"API","timestamp":"2025-09-04 09:14:06","totalFiles":1,"totalSize":15953,"uniqueFiles":0,"uploadDuration":"5ms"}
+{"duplicateFiles":1,"duplicateSizeSkipped":15953,"ip":"127.0.0.1","level":"info","message":"Files uploaded with deduplication","service":"API","timestamp":"2025-09-04 09:15:26","totalFiles":1,"totalSize":15953,"uniqueFiles":0,"uploadDuration":"5ms"}
+{"duplicateFiles":0,"duplicateSizeSkipped":0,"ip":"127.0.0.1","level":"info","message":"Files uploaded with deduplication","service":"API","timestamp":"2025-09-04 09:17:20","totalFiles":1,"totalSize":15953,"uniqueFiles":1,"uploadDuration":"5ms"}
+{"duplicateFiles":0,"duplicateSizeSkipped":0,"ip":"127.0.0.1","level":"info","message":"Files uploaded with deduplication","service":"API","timestamp":"2025-09-04 09:27:02","totalFiles":1,"totalSize":15953,"uniqueFiles":1,"uploadDuration":"7ms"}
+{"level":"info","message":"Environment validation handled by centralized configuration","timestamp":"2025-09-04 09:29:42"}
+{"level":"info","message":"ScottGPT server started successfully","port":3005,"timestamp":"2025-09-04 09:29:43"}
+{"level":"info","message":"Environment validation handled by centralized configuration","timestamp":"2025-09-04 09:29:52"}
+{"level":"info","message":"ScottGPT server started successfully","port":3005,"timestamp":"2025-09-04 09:29:52"}
+{"level":"info","message":"Environment validation handled by centralized configuration","timestamp":"2025-09-04 09:30:06"}
+{"level":"info","message":"ScottGPT server started successfully","port":3005,"timestamp":"2025-09-04 09:30:06"}
+{"level":"info","message":"Environment validation handled by centralized configuration","timestamp":"2025-09-04 09:30:21"}
+{"level":"info","message":"ScottGPT server started successfully","port":3005,"timestamp":"2025-09-04 09:30:22"}
+{"level":"info","message":"Environment validation handled by centralized configuration","timestamp":"2025-09-04 09:31:28"}
+{"level":"info","message":"ScottGPT server started successfully","port":3005,"timestamp":"2025-09-04 09:31:28"}
+{"level":"info","message":"Environment validation handled by centralized configuration","timestamp":"2025-09-04 09:31:33"}
+{"level":"info","message":"ScottGPT server started successfully","port":3005,"timestamp":"2025-09-04 09:31:33"}
+{"duplicateFiles":0,"duplicateSizeSkipped":0,"ip":"127.0.0.1","level":"info","message":"Files uploaded with deduplication","service":"API","timestamp":"2025-09-04 09:44:16","totalFiles":1,"totalSize":37603,"uniqueFiles":1,"uploadDuration":"4ms"}
+{"level":"info","message":"Environment validation handled by centralized configuration","timestamp":"2025-09-04 09:52:51"}
+{"level":"info","message":"ScottGPT server started successfully","port":3005,"timestamp":"2025-09-04 09:52:52"}
+{"level":"info","message":"Environment validation handled by centralized configuration","timestamp":"2025-09-04 09:53:06"}
+{"level":"info","message":"ScottGPT server started successfully","port":3005,"timestamp":"2025-09-04 09:53:06"}
+{"level":"info","message":"Environment validation handled by centralized configuration","timestamp":"2025-09-04 09:53:18"}
+{"level":"info","message":"ScottGPT server started successfully","port":3005,"timestamp":"2025-09-04 09:53:19"}
+{"level":"info","message":"Environment validation handled by centralized configuration","timestamp":"2025-09-04 10:02:37"}
+{"level":"info","message":"ScottGPT server started successfully","port":3005,"timestamp":"2025-09-04 10:02:37"}
+{"level":"info","message":"Environment validation handled by centralized configuration","timestamp":"2025-09-04 10:02:49"}
+{"level":"info","message":"ScottGPT server started successfully","port":3005,"timestamp":"2025-09-04 10:02:49"}
+{"level":"info","message":"Environment validation handled by centralized configuration","timestamp":"2025-09-04 10:03:18"}
+{"level":"info","message":"ScottGPT server started successfully","port":3005,"timestamp":"2025-09-04 10:03:18"}
+{"level":"info","message":"Environment validation handled by centralized configuration","timestamp":"2025-09-04 10:08:23"}
+{"level":"info","message":"ScottGPT server started successfully","port":3005,"timestamp":"2025-09-04 10:08:23"}
+{"level":"info","message":"Environment validation handled by centralized configuration","timestamp":"2025-09-04 10:12:52"}
+{"level":"info","message":"ScottGPT server started successfully","port":3005,"timestamp":"2025-09-04 10:12:53"}
+{"level":"info","message":"Environment validation handled by centralized configuration","timestamp":"2025-09-04 10:13:19"}
+{"level":"info","message":"ScottGPT server started successfully","port":3005,"timestamp":"2025-09-04 10:13:20"}
+{"duplicateFiles":0,"duplicateSizeSkipped":0,"ip":"127.0.0.1","level":"info","message":"Files uploaded with deduplication","service":"API","timestamp":"2025-09-04 10:13:32","totalFiles":1,"totalSize":48922,"uniqueFiles":1,"uploadDuration":"5ms"}
+{"level":"info","message":"Environment validation handled by centralized configuration","timestamp":"2025-09-04 10:15:32"}
+{"level":"info","message":"ScottGPT server started successfully","port":3005,"timestamp":"2025-09-04 10:15:32"}
+{"duplicateFiles":0,"duplicateSizeSkipped":0,"ip":"127.0.0.1","level":"info","message":"Files uploaded with deduplication","service":"API","timestamp":"2025-09-04 10:32:38","totalFiles":1,"totalSize":25697,"uniqueFiles":1,"uploadDuration":"15ms"}

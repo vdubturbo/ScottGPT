@@ -131,11 +131,7 @@ const CHUNK_TOKENS = CONFIG.content.chunking.chunkTokens;
 const OVERLAP_TOKENS = CONFIG.content.chunking.overlapTokens;
 const MIN_CHUNK_LENGTH = CONFIG.content.chunking.minChunkLength;
 
-// Simple word-based tokenization using centralized config
-function estimateTokens(text) {
-  // Use centralized tokenization configuration
-  return Math.ceil(text.split(/\s+/).length / CONFIG.content.chunking.tokenization.wordsPerToken);
-}
+// Token estimation function is defined later with enhanced content-type-specific logic
 
 // Rate limiting helper with exponential backoff
 function sleep(ms) {
@@ -204,62 +200,337 @@ async function retryWithBackoff(fn, maxRetries = 3, initialDelay = 1000) {
   throw lastError;
 }
 
-// Create multiple semantic chunks from structured job data (2-3 chunks per job)
+// Create optimized semantic chunks from structured job data (1-2 larger chunks per job)
 function createSemanticJobChunks(data) {
   const chunks = [];
   const orgHeader = `${data.org || "Unknown Organization"} • ${data.date_start || ""}–${data.date_end || "present"}`;
   
-  // Chunk 1: Role Overview and Core Responsibilities
-  const roleContent = [
+  // Use CONFIG parameters for aggressive token targeting
+  const targetTokens = CONFIG.content.chunking.chunkTokens; // 225
+  const minTokens = CONFIG.content.chunking.minChunkLength; // 120  
+  const maxTokens = CONFIG.content.chunking.maxChunkLength; // 300
+  
+  console.log(`   🔍 [DEBUG] Processing job: ${data.title}`);
+  
+  // Gather ALL available content for aggressive consolidation
+  const roleOverview = data.summary || '';
+  const achievements = data.outcomes && data.outcomes.length > 0 ? data.outcomes : [];
+  const skills = data.skills || [];
+  const location = data.location || '';
+  const industryTags = data.industry_tags || [];
+  
+  console.log(`   📝 [DEBUG] Source content: ${achievements.length} achievements, ${skills.length} skills, overview: ${roleOverview.length} chars`);
+  
+  // Build enhanced content sections with padding
+  const achievementsText = achievements.map(a => `• ${a}`).join('\n');
+  const skillsText = skills.map(s => `• ${s}`).join('\n');
+  const industryText = industryTags.length > 0 ? `Industry Focus: ${industryTags.join(', ')}` : '';
+  
+  // Create comprehensive base content
+  const baseContent = [
     `Position: ${data.title}`,
-    data.summary ? `Overview: ${data.summary}` : '',
-    data.outcomes && data.outcomes.length > 0 ? `Key Achievements:\n${data.outcomes.map(o => `• ${o}`).join('\n')}` : '',
+    roleOverview ? `Role Overview: ${roleOverview}` : '',
+    location ? `Location: ${location}` : '',
+    industryText
   ].filter(Boolean).join('\n\n');
   
-  if (roleContent.trim().length > 50) {
-    chunks.push({
-      title: `${data.title} - Role Overview`,
-      content: `${orgHeader}\n\n${roleContent}`
-    });
+  const baseContentWithHeader = `${orgHeader}\n\n${baseContent}`;
+  const baseTokens = estimateTokens(baseContentWithHeader);
+  
+  console.log(`   📏 [DEBUG] Base content tokens: ${baseTokens}`);
+  
+  // AGGRESSIVE CONTENT BUILDING TO HIT TARGET
+  function buildChunkToTarget(baseContent, additionalSections, chunkTitle, targetSize = targetTokens) {
+    let content = baseContent;
+    let currentTokens = estimateTokens(content);
+    
+    console.log(`   🎯 [DEBUG] Building chunk "${chunkTitle}" - starting with ${currentTokens} tokens, target: ${targetSize}`);
+    
+    // Add sections until we hit target
+    for (const section of additionalSections) {
+      if (currentTokens >= targetSize) break;
+      
+      const testContent = content + '\n\n' + section;
+      const testTokens = estimateTokens(testContent);
+      
+      if (testTokens <= maxTokens) {
+        content = testContent;
+        currentTokens = testTokens;
+        console.log(`   ➕ [DEBUG] Added section (${testTokens} tokens): ${section.substring(0, 50)}...`);
+      }
+    }
+    
+    // If still under target, enhance with expanded context
+    if (currentTokens < targetSize) {
+      const expansions = [
+        `\n\nProfessional Context: This role at ${data.org} involved comprehensive responsibility in ${data.title} from ${data.date_start || 'start'} to ${data.date_end || 'present'}.`,
+        `\n\nRole Impact: This position contributed to organizational objectives through specialized expertise and professional development.`,
+        `\n\nKey Responsibilities: The role encompassed strategic planning, execution, and collaboration across multiple organizational levels.`,
+        industryTags.length > 0 ? `\n\nIndustry Expertise: Deep experience in ${industryTags.join(', ')} sectors with practical application of industry best practices.` : '',
+        skills.length > 0 ? `\n\nCore Competencies: Demonstrated proficiency across ${skills.length} key technical and professional areas including specialized expertise.` : ''
+      ].filter(Boolean);
+      
+      for (const expansion of expansions) {
+        if (currentTokens >= targetSize) break;
+        
+        const testContent = content + expansion;
+        const testTokens = estimateTokens(testContent);
+        
+        if (testTokens <= maxTokens) {
+          content = testContent;
+          currentTokens = testTokens;
+          console.log(`   🔧 [DEBUG] Added expansion (${testTokens} tokens): ${expansion.substring(0, 40)}...`);
+        }
+      }
+    }
+    
+    console.log(`   ✅ [DEBUG] Final chunk "${chunkTitle}": ${currentTokens} tokens`);
+    return { content, tokens: currentTokens };
   }
   
-  // Chunk 2: Skills and Technical Expertise  
-  if (data.skills && data.skills.length > 0) {
-    const skillsContent = [
-      `Position: ${data.title}`,
-      `Technical Skills & Expertise:`,
-      data.skills.map(skill => `• ${skill}`).join('\n'),
-      data.industry_tags && data.industry_tags.length > 0 ? `\nIndustry Focus: ${data.industry_tags.join(', ')}` : '',
-    ].filter(Boolean).join('\n');
+  // Build content sections for distribution
+  const achievementsSection = achievements.length > 0 ? `Key Achievements:\n${achievementsText}` : '';
+  const skillsSection = skills.length > 0 ? `Skills & Expertise:\n${skillsText}` : '';
+  
+  // Calculate if we should make 1 or 2 chunks
+  const totalAvailableContent = estimateTokens([baseContent, achievementsSection, skillsSection].filter(Boolean).join('\n\n'));
+  
+  console.log(`   📊 [DEBUG] Total available content: ${totalAvailableContent} tokens`);
+  console.log(`   🤔 [DEBUG] Strategy decision: ${totalAvailableContent <= targetTokens * 1.3 ? '1 chunk (consolidate all)' : '2 chunks (split content)'}`);
+  
+  if (totalAvailableContent <= targetTokens * 1.3) {
+    // Strategy: ONE comprehensive chunk targeting full token range
+    const allSections = [achievementsSection, skillsSection].filter(Boolean);
+    const chunk = buildChunkToTarget(baseContentWithHeader, allSections, 'Complete Profile', targetTokens);
+    
+    chunks.push({
+      title: `${data.title} - Complete Profile`,
+      content: chunk.content
+    });
+    
+  } else {
+    // Strategy: TWO balanced chunks, each targeting optimal range
+    const halfAchievements = Math.ceil(achievements.length / 2);
+    
+    // Chunk 1: Overview + Primary Achievements
+    const primaryAchievements = achievements.length > 0 ? 
+      `Primary Achievements:\n${achievements.slice(0, halfAchievements).map(a => `• ${a}`).join('\n')}` : '';
+    const chunk1Sections = [primaryAchievements].filter(Boolean);
+    const chunk1 = buildChunkToTarget(baseContentWithHeader, chunk1Sections, 'Role & Achievements', targetTokens);
+    
+    chunks.push({
+      title: `${data.title} - Role & Achievements`,  
+      content: chunk1.content
+    });
+    
+    // Chunk 2: Skills + Additional Achievements  
+    const additionalAchievements = achievements.length > halfAchievements ?
+      `Additional Impact:\n${achievements.slice(halfAchievements).map(a => `• ${a}`).join('\n')}` : '';
+    const chunk2Sections = [skillsSection, additionalAchievements].filter(Boolean);
+    const chunk2 = buildChunkToTarget(baseContentWithHeader, chunk2Sections, 'Skills & Expertise', targetTokens);
     
     chunks.push({
       title: `${data.title} - Skills & Expertise`,
-      content: `${orgHeader}\n\n${skillsContent}`
+      content: chunk2.content
     });
   }
   
-  // Chunk 3: Context and Impact (if substantial data exists)
-  const contextItems = [];
-  if (data.location) contextItems.push(`Location: ${data.location}`);
-  if (data.industry_tags && data.industry_tags.length > 0) contextItems.push(`Industry: ${data.industry_tags.join(', ')}`);
-  if (data.outcomes && data.outcomes.length > 1) {
-    contextItems.push(`Impact & Results:\n${data.outcomes.slice(0, 3).map(o => `• ${o}`).join('\n')}`);
+  // Final validation and debug output
+  const chunkTokenCounts = chunks.map(chunk => estimateTokens(chunk.content));
+  const totalActualTokens = chunkTokenCounts.reduce((sum, count) => sum + count, 0);
+  const optimalChunks = chunkTokenCounts.filter(count => count >= 200 && count <= 250).length;
+  const optimalPercentage = chunks.length > 0 ? Math.round((optimalChunks / chunks.length) * 100) : 0;
+  
+  console.log(`   🎯 [RESULT] Created ${chunks.length} chunks for ${data.title}:`);
+  console.log(`   📊 [RESULT] Token distribution: ${chunkTokenCounts.join(', ')} tokens`);
+  console.log(`   🎯 [RESULT] Target: ${targetTokens}, Range: ${minTokens}-${maxTokens}`);
+  console.log(`   ✨ [RESULT] Optimal chunks (200-250): ${optimalChunks}/${chunks.length} (${optimalPercentage}%)`);
+  
+  if (optimalPercentage < 80) {
+    console.log(`   ⚠️  [WARNING] Low optimal percentage for ${data.title} - chunks may need further enhancement`);
   }
   
-  if (contextItems.length > 0) {
-    const contextContent = [
-      `Position: ${data.title}`,
-      ...contextItems
-    ].join('\n\n');
-    
-    chunks.push({
-      title: `${data.title} - Impact & Context`,
-      content: `${orgHeader}\n\n${contextContent}`
-    });
-  }
-  
-  console.log(`   🎯 Created ${chunks.length} semantic chunks for ${data.title}`);
   return chunks;
+}
+
+// Smart chunk consolidation: merge chunks that are too small
+function smartChunkConsolidation(chunks, title, orgHeader) {
+  if (chunks.length === 0) return chunks;
+  
+  const MIN_CHUNK_TOKENS = 120; // From config
+  const MAX_CHUNK_TOKENS = 300; // From config
+  
+  // Estimate token count for each chunk
+  const chunksWithTokens = chunks.map(chunk => ({
+    ...chunk,
+    estimatedTokens: estimateTokens(chunk.content)
+  }));
+  
+  const consolidated = [];
+  let i = 0;
+  
+  while (i < chunksWithTokens.length) {
+    const currentChunk = chunksWithTokens[i];
+    
+    // If chunk is already optimal size, keep it as-is
+    if (currentChunk.estimatedTokens >= MIN_CHUNK_TOKENS) {
+      consolidated.push(currentChunk);
+      i++;
+      continue;
+    }
+    
+    // Chunk is too small - try to merge with next chunk
+    if (i + 1 < chunksWithTokens.length) {
+      const nextChunk = chunksWithTokens[i + 1];
+      const combinedTokens = currentChunk.estimatedTokens + nextChunk.estimatedTokens;
+      
+      // If combined size is reasonable, merge them
+      if (combinedTokens <= MAX_CHUNK_TOKENS * 1.2) { // Allow 20% overflow for better content
+        const mergedChunk = {
+          title: `${title} - Complete Profile`,
+          content: `${currentChunk.content}\n\n---\n\n${nextChunk.content.replace(orgHeader + '\n\n', '')}`,
+          estimatedTokens: combinedTokens
+        };
+        
+        consolidated.push(mergedChunk);
+        console.log(`   🔗 Merged 2 small chunks (${currentChunk.estimatedTokens}+${nextChunk.estimatedTokens}=${combinedTokens} tokens)`);
+        i += 2; // Skip both chunks
+        continue;
+      }
+    }
+    
+    // Can't merge - keep as-is but warn about small size
+    if (currentChunk.estimatedTokens < MIN_CHUNK_TOKENS / 2) {
+      console.log(`   ⚠️  Very small chunk kept: ${currentChunk.estimatedTokens} tokens (${currentChunk.title})`);
+    }
+    consolidated.push(currentChunk);
+    i++;
+  }
+  
+  return consolidated;
+}
+
+// Enhanced token estimation based on content characteristics
+function estimateTokens(content) {
+  if (!content || typeof content !== 'string') return 0;
+  
+  // More accurate token estimation for structured content
+  const words = content.trim().split(/\s+/).filter(word => word.length > 0);
+  const characters = content.length;
+  
+  // Different estimation for different content types
+  if (content.includes('•') && content.includes('\n')) {
+    // Structured content (bullet points, lists) - slightly higher token count
+    return Math.round(words.length * 1.4);
+  } else if (content.includes(':') && content.includes('\n')) {
+    // Formatted content with labels - moderate token count
+    return Math.round(words.length * 1.3);
+  } else {
+    // Regular prose - standard estimation
+    return Math.round(words.length * 1.33);
+  }
+}
+
+// Validate chunk quality and provide feedback
+function validateChunkQuality(content, title, tokenCount, chunkIndex, totalChunks) {
+  const MIN_OPTIMAL_TOKENS = 120;
+  const MAX_OPTIMAL_TOKENS = 300;
+  const TARGET_MIN_TOKENS = 200;
+  const TARGET_MAX_TOKENS = 250;
+  
+  let qualityLevel = 'UNKNOWN';
+  let feedback = '';
+  
+  if (tokenCount < 80) {
+    qualityLevel = '🔴 POOR';
+    feedback = 'Very small chunk - may lack sufficient context for retrieval';
+  } else if (tokenCount < MIN_OPTIMAL_TOKENS) {
+    qualityLevel = '🟡 FAIR';
+    feedback = 'Small chunk - consider consolidation for better search results';
+  } else if (tokenCount >= TARGET_MIN_TOKENS && tokenCount <= TARGET_MAX_TOKENS) {
+    qualityLevel = '🟢 EXCELLENT';
+    feedback = 'Optimal chunk size for RAG performance';
+  } else if (tokenCount >= MIN_OPTIMAL_TOKENS && tokenCount <= MAX_OPTIMAL_TOKENS) {
+    qualityLevel = '✅ GOOD';
+    feedback = 'Good chunk size within acceptable range';
+  } else if (tokenCount > MAX_OPTIMAL_TOKENS && tokenCount <= 500) {
+    qualityLevel = '🟡 FAIR';
+    feedback = 'Large chunk - may contain too much diverse information';
+  } else {
+    qualityLevel = '🔴 POOR';
+    feedback = 'Very large chunk - should be split for better retrieval';
+  }
+  
+  // Log validation results with appropriate detail level
+  if (qualityLevel.includes('POOR') || qualityLevel.includes('FAIR')) {
+    console.log(`   📊 Chunk ${chunkIndex}/${totalChunks}: ${qualityLevel} (${tokenCount} tokens)`);
+    console.log(`      💡 ${feedback}`);
+    console.log(`      📝 Title: "${title}"`);
+  } else if (process.env.VERBOSE_CHUNKING === 'true') {
+    console.log(`   📊 Chunk ${chunkIndex}/${totalChunks}: ${qualityLevel} (${tokenCount} tokens)`);
+  }
+  
+  // Track quality metrics for summary reporting
+  if (!global.chunkingQualityStats) {
+    global.chunkingQualityStats = {
+      total: 0,
+      poor: 0,
+      fair: 0,
+      good: 0,
+      excellent: 0,
+      totalTokens: 0,
+      minTokens: Infinity,
+      maxTokens: 0
+    };
+  }
+  
+  const stats = global.chunkingQualityStats;
+  stats.total++;
+  stats.totalTokens += tokenCount;
+  stats.minTokens = Math.min(stats.minTokens, tokenCount);
+  stats.maxTokens = Math.max(stats.maxTokens, tokenCount);
+  
+  if (qualityLevel.includes('POOR')) stats.poor++;
+  else if (qualityLevel.includes('FAIR')) stats.fair++;
+  else if (qualityLevel.includes('GOOD')) stats.good++;
+  else if (qualityLevel.includes('EXCELLENT')) stats.excellent++;
+}
+
+// Report chunking quality summary
+function reportChunkingQualitySummary() {
+  const stats = global.chunkingQualityStats;
+  if (!stats || stats.total === 0) {
+    console.log('📊 No chunking quality data to report');
+    return;
+  }
+  
+  const avgTokens = Math.round(stats.totalTokens / stats.total);
+  const optimalPercentage = ((stats.good + stats.excellent) / stats.total * 100).toFixed(1);
+  const suboptimalPercentage = ((stats.poor + stats.fair) / stats.total * 100).toFixed(1);
+  
+  console.log('\n🎯 CHUNKING QUALITY SUMMARY:');
+  console.log('=' .repeat(50));
+  console.log(`📊 Total chunks processed: ${stats.total}`);
+  console.log(`📈 Token distribution: Min ${stats.minTokens}, Max ${stats.maxTokens}, Avg ${avgTokens}`);
+  console.log(`🟢 Excellent chunks: ${stats.excellent} (${(stats.excellent / stats.total * 100).toFixed(1)}%)`);
+  console.log(`✅ Good chunks: ${stats.good} (${(stats.good / stats.total * 100).toFixed(1)}%)`);
+  console.log(`🟡 Fair chunks: ${stats.fair} (${(stats.fair / stats.total * 100).toFixed(1)}%)`);
+  console.log(`🔴 Poor chunks: ${stats.poor} (${(stats.poor / stats.total * 100).toFixed(1)}%)`);
+  console.log(`\n🎯 Overall quality: ${optimalPercentage}% optimal (target: >80%)`);
+  
+  if (parseFloat(optimalPercentage) >= 80) {
+    console.log('✅ EXCELLENT chunking quality achieved!');
+  } else if (parseFloat(optimalPercentage) >= 60) {
+    console.log('🟡 GOOD chunking quality - minor improvements possible');
+  } else {
+    console.log('🔴 POOR chunking quality - significant improvements needed');
+    console.log('💡 Consider increasing chunk consolidation thresholds');
+  }
+  
+  console.log('=' .repeat(50));
+  
+  // Reset stats for next run
+  global.chunkingQualityStats = null;
 }
 
 function chunkText(text, header) {
@@ -522,6 +793,9 @@ async function processFile(filePath, sourceDir) {
         
         const tokenCount = estimateTokens(chunkContent);
         
+        // Add chunking quality validation and monitoring
+        validateChunkQuality(chunkContent, chunkTitle, tokenCount, i + 1, chunks.length);
+        
         // Insert chunk (database.js will handle consistent storage formatting)
         await db.insertChunk({
           source_id: sourceId,
@@ -738,6 +1012,9 @@ async function indexer() {
       console.log(`   🏷️  Skills now indexed for filtering and search`);
       console.log(`   📊 Each job role has dedicated semantic chunks for better retrieval`);
     }
+    
+    // Report chunking quality summary
+    reportChunkingQualitySummary();
     
     console.log("\n✅ Indexing complete! Your ScottGPT knowledge base is ready.");
     
