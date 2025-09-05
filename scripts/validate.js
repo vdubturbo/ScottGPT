@@ -118,16 +118,20 @@ function validateDates(dateStart, dateEnd) {
   }
   
   if (dateEnd) {
-    const endDate = new Date(dateEnd);
-    if (isNaN(endDate.getTime())) {
-      errors.push(`Invalid date_end: ${dateEnd}`);
-    }
+    // Allow various current indicators and null values
+    const currentIndicators = ['CURRENT', 'current', 'null', 'NULL', 'present', 'PRESENT'];
+    const isCurrentRole = currentIndicators.includes(String(dateEnd).trim()) || dateEnd === null;
     
-    if (dateStart && dateEnd) {
-      const start = new Date(dateStart);
-      const end = new Date(dateEnd);
-      if (start > end) {
-        errors.push('date_start cannot be after date_end');
+    if (!isCurrentRole) {
+      const endDate = new Date(dateEnd);
+      if (isNaN(endDate.getTime())) {
+        errors.push(`Invalid date_end: ${dateEnd}`);
+      } else if (dateStart) {
+        const start = new Date(dateStart);
+        const end = new Date(dateEnd);
+        if (start > end) {
+          errors.push('date_start cannot be after date_end');
+        }
       }
     }
   }
@@ -246,9 +250,17 @@ async function validate() {
         errors.push('Missing or invalid \'org\' field');
       }
       
-      // Date validation
+      // Date validation and normalization
       const dateErrors = validateDates(data.date_start, data.date_end);
       errors.push(...dateErrors);
+      
+      // Normalize date_end for current roles
+      if (data.date_end) {
+        const currentIndicators = ['CURRENT', 'current', 'present', 'PRESENT'];
+        if (currentIndicators.includes(String(data.date_end).trim())) {
+          data.date_end = null; // Normalize to null for current roles
+        }
+      }
       
       // Normalize and validate skills/tags
       data.skills = await normalizeSkills(data.skills, {

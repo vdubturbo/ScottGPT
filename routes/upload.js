@@ -6,7 +6,7 @@ import { exec } from 'child_process';
 import { promisify } from 'util';
 import rateLimit from 'express-rate-limit';
 import { api as logger } from '../utils/logger.js';
-import { processBatchUploads, getCacheStats } from '../utils/upload-optimizer.js';
+import { processBatchUploads, clearUploadCache, getCacheStats as getUploadCacheStats, loadUploadCache } from '../utils/upload-optimizer.js';
 import processLogger from '../utils/process-logger.js';
 import CONFIG from '../config/app-config.js';
 import dotenv from 'dotenv';
@@ -41,6 +41,7 @@ const ensureDirectoryExists = async (dirPath) => {
   await ensureDirectoryExists('incoming');
   await ensureDirectoryExists('processed');
   await ensureDirectoryExists('logs');
+  await loadUploadCache();
 })();
 
 // Configure multer for file uploads
@@ -476,6 +477,54 @@ router.get('/logs', (req, res) => {
   });
 });
 
+// GET /api/upload/cache-stats - Get upload cache statistics
+router.get('/cache-stats', (req, res) => {
+  try {
+    const cacheStats = getUploadCacheStats();
+    
+    res.json({
+      success: true,
+      cache: cacheStats,
+      timestamp: new Date().toISOString()
+    });
+  } catch (error) {
+    console.error('Cache stats error:', error);
+    res.status(500).json({ 
+      success: false, 
+      error: 'Failed to get cache statistics',
+      details: error.message 
+    });
+  }
+});
+
+// POST /api/upload/clear-cache - Clear the upload deduplication cache
+router.post('/clear-cache', async (req, res) => {
+  try {
+    const result = await clearUploadCache();
+    
+    res.json({
+      success: true,
+      message: `Upload cache cleared successfully (was ${result.previousSize} files)`,
+      result: result,
+      timestamp: new Date().toISOString()
+    });
+    
+    logger.info('Upload cache cleared', {
+      previousSize: result.previousSize,
+      timestamp: new Date().toISOString(),
+      ip: req.ip
+    });
+    
+  } catch (error) {
+    console.error('Clear cache error:', error);
+    res.status(500).json({ 
+      success: false, 
+      error: 'Failed to clear upload cache',
+      details: error.message 
+    });
+  }
+});
+
 // Individual script testing endpoints
 router.post('/test-normalize', async (req, res) => {
   await testIndividualStep(res, 'normalize', '../scripts/normalize.js', 30000);
@@ -869,7 +918,7 @@ router.get('/incoming', async (req, res) => {
 // GET /api/upload/cache-stats - Get upload cache statistics  
 router.get('/cache-stats', (req, res) => {
   try {
-    const cacheStats = getCacheStats();
+    const cacheStats = getUploadCacheStats();
     res.json({
       success: true,
       cache: cacheStats,

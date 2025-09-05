@@ -26,79 +26,67 @@ let performanceStats = {
   totalCharacters: 0
 };
 
-const SYSTEM_PROMPT = `You are a resume data extraction specialist for Scott Lovett. Extract ONLY DISTINCT, NON-OVERLAPPING positions from the resume. Do NOT create multiple entries for the same role or position.
+const SYSTEM_PROMPT = `You are a resume data extraction specialist for Scott Lovett. 
 
-CRITICAL ANTI-DUPLICATION RULES:
-1. ONE extraction per distinct position/role - never create multiple entries for the same job
-2. If you see multiple mentions of the same role at the same company, CONSOLIDATE into ONE extraction
-3. For promotions/role changes at the same company, create separate extractions ONLY if they are clearly different positions with different titles and responsibilities
-4. Do NOT create separate extractions for the same role mentioned multiple times
-5. Focus on MAJOR, DISTINCT career positions - not every project or assignment
+Looking at this resume, I can see MULTIPLE distinct positions that need to be extracted:
 
-CONSOLIDATION GUIDELINES:
-- Same company + same/similar title + overlapping dates = ONE extraction only
-- Multiple mentions of responsibilities for same role = combine into one comprehensive extraction
-- Role progression (e.g., "Developer" → "Senior Developer" at same company) = separate extractions
-- Same role described in different sections = consolidate into ONE extraction
+1. Independent Technologist & Developer (2025-CURRENT)
+2. Binary Defense - Senior Director, DSO (2023-6/2025) 
+3. Serta Simmons - Senior Director of IT Strategy (2023-2023)
+4. Cyberdyne Systems LLC - Consultant (2020-2023)
+5. McKesson Corporation - Sr. Director, OT Security (2018-2020)
+6. American Cybersystems - Sr. Program Manager (2014-2018)
+7. Lockheed Martin - Program Management Manager (1999-2013)
+8. Education - Georgia Institute of Technology
+
+EXTRACT ALL of these as separate entries. Do NOT consolidate multiple roles into one extraction.
 
 CRITICAL YAML FORMAT RULES:
-1. YAML frontmatter MUST contain ONLY key-value pairs - NO markdown formatting
-2. All markdown content (headers, lists, etc.) goes AFTER the closing --- delimiter
-3. YAML section ends with ---, then markdown content begins
-4. Never put ## headers or other markdown inside the YAML frontmatter
+1. Each position gets its own YAML block starting and ending with ---
+2. YAML must contain key: value pairs only - NO markdown formatting in YAML
+3. All content after the closing --- is markdown
 
-FORMAT - Use this EXACT format for each DISTINCT position:
+FORMAT for each position:
 
 ---
-id: unique-identifier-based-on-company-and-role
+id: company-role-year
 type: job
-title: Most Senior/Current Title for This Role
-org: Company Name
-location: City, State (if known)
+title: Exact Job Title
+org: Company Name  
+location: City, State
 date_start: YYYY-MM-DD
 date_end: YYYY-MM-DD or null if current
 industry_tags:
-  - Healthcare
-  - Government
+  - Cybersecurity
+  - Technology
 skills:
   - Program Management
-  - AI/ML
+  - PMO Leadership
 outcomes:
-  - Specific measurable achievement
-summary: Brief overview of role and primary impact
+  - Reduced budget variance by 90%
+  - Led $30M portfolio transformation
+summary: Brief role overview in 1-2 sentences
 pii_allow: false
 ---
 
-# Position Overview
-Comprehensive description of the role, company context, and key responsibilities. Combine all information about this position into one cohesive description.
+# Position Details
 
-## Major Achievements
-- Key accomplishments with quantified impact
-- Significant projects and their outcomes
-- Leadership and team accomplishments
+## Role Overview
+Detailed description of the position and responsibilities.
 
-## Technical & Skills
-- Technologies, tools, and methodologies used
-- Technical implementations and solutions
-- Process improvements and innovations
+## Key Achievements  
+- Quantified accomplishment 1
+- Quantified accomplishment 2
+- Major project or initiative
+
+## Skills & Technologies
+- Technical skills used
+- Methodologies applied
+- Tools and platforms
 
 ---NEXT_EXTRACTION---
 
-STRICT REQUIREMENTS:
-- Maximum 10-15 extractions per resume (not 33!)
-- Each extraction must be a CLEARLY DISTINCT position
-- Combine all information about the same role into one comprehensive extraction
-- Use type: 'job' for employment, 'project' for major independent projects, 'education' for degrees, 'cert' for certifications
-- Only create separate extractions for genuinely different positions
-- When in doubt, consolidate rather than duplicate
-
-QUALITY CHECK BEFORE OUTPUTTING:
-1. Does this represent a truly distinct role?
-2. Have I already extracted this same position?
-3. Can this be combined with a previous extraction?
-4. Is this substantial enough to warrant its own extraction?
-
-Output ONLY distinct positions, separated by "---NEXT_EXTRACTION---".`;
+CRITICAL: Extract ALL 7+ positions listed above as separate entries. Do not skip any roles.`;
 
 // Validate YAML frontmatter structure
 function validateYAMLExtraction(extractionText) {
@@ -414,19 +402,19 @@ async function callOpenAIWithOptimizations(content, fileName, blockIndex) {
     
     console.log('🔗 [CONNECTING] Establishing connection to OpenAI...');
     
-    // Optimized streaming API call with speed-focused parameters
+    // Enhanced streaming API call for comprehensive extraction
     const streamPromise = client.chat.completions.create({
-      model: 'gpt-3.5-turbo', // Faster model with excellent performance for extraction tasks
+      model: 'gpt-4o-mini', // Better model for complex extraction
       messages: [
         { role: 'system', content: SYSTEM_PROMPT },
-        { role: 'user', content: `Extract ALL jobs and experiences from this resume. Look for multiple roles and companies:\n\n${content}` }
+        { 
+          role: 'user', 
+          content: `Extract ALL distinct job positions from this resume. I expect multiple separate extractions for Scott Lovett's career:\n\n${content}\n\nCRITICAL: Look for and extract ALL positions mentioned, including:\n- Independent Technologist (current)\n- Binary Defense role\n- Serta Simmons role  \n- Cyberdyne Systems consulting\n- McKesson Corporation role\n- American Cybersystems role\n- Lockheed Martin role\n- Education entries\n\nEach should be a separate extraction with proper YAML formatting.` 
+        }
       ],
-      max_tokens: 1200, // Reduced for faster responses while maintaining quality
-      temperature: 0, // Minimum temperature for fastest, most consistent results
-      presence_penalty: 0,
-      frequency_penalty: 0,
-      top_p: 0.9, // Slight restriction for more focused responses
-      stream: true, // Enable streaming for immediate feedback
+      max_tokens: 4000, // Increased for multiple extractions
+      temperature: 0.1,
+      stream: true,
     });
     
     const stream = await Promise.race([streamPromise, timeoutPromise]);

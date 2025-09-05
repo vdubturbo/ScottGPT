@@ -19,13 +19,14 @@ function App() {
   const [processLog, setProcessLog] = useState('');
   const [stats, setStats] = useState(null);
   const [processStatus, setProcessStatus] = useState('');
-  const [isProcessActive, setIsProcessActive] = useState(false);
   const logRef = React.useRef(null);
   const [activeTab, setActiveTab] = useState('chat');
   const [activeAdminSection, setActiveAdminSection] = useState('overview');
   const [incomingFiles, setIncomingFiles] = useState(null);
   const [isDragging, setIsDragging] = useState(false);
   const [uploadResult, setUploadResult] = useState(null);
+  const [cacheStats, setCacheStats] = useState(null);
+  const [showDeveloperTools, setShowDeveloperTools] = useState(false);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -151,14 +152,13 @@ function App() {
 
   const handleProcess = async () => {
     setProcessing(true);
-    setIsProcessActive(true);
+    // setIsProcessActive(true);
     setProcessLog('🚀 Starting pipeline processing...\n');
     setProcessStatus('🚀 Initializing processing pipeline...');
     
     let lastLogId = 0;
     let pollInterval;
     let pollTimeout;
-    const startTime = Date.now();
     
     try {
       // Start the process
@@ -181,7 +181,7 @@ function App() {
         if (pollInterval) {
           clearInterval(pollInterval);
           setProcessing(false);
-          setIsProcessActive(false);
+          // setIsProcessActive(false);
           setProcessStatus('⚠️ Polling timed out - process may still be running');
           setProcessLog(prev => prev + '\n⚠️ POLLING TIMED OUT - Check server logs for process status\n');
         }
@@ -224,7 +224,7 @@ function App() {
             clearInterval(pollInterval);
             clearTimeout(pollTimeout);
             setProcessing(false);
-            setIsProcessActive(false);
+            // setIsProcessActive(false);
             setProcessStatus('✅ Processing completed');
             
             // Show completion message
@@ -245,7 +245,7 @@ function App() {
       setProcessStatus(`❌ Processing failed: ${error.message}`);
       console.error('Processing error:', error);
       setProcessing(false);
-      setIsProcessActive(false);
+      // setIsProcessActive(false);
       
       // Clean up timeouts
       if (pollInterval) clearInterval(pollInterval);
@@ -253,6 +253,51 @@ function App() {
     }
     
     // Cleanup function will be handled by the polling interval check
+  };
+
+  // Load cache statistics
+  const loadCacheStats = async () => {
+    try {
+      const response = await fetch('/api/upload/cache-stats');
+      const data = await response.json();
+      setCacheStats(data);
+    } catch (error) {
+      console.error('Failed to load cache stats:', error);
+      setCacheStats({ success: false, error: error.message });
+    }
+  };
+
+  // Clear upload cache with confirmation
+  const handleClearCache = async () => {
+    const confirmed = window.confirm(
+      "⚠️ Clear Upload Cache?\n\n" +
+      "This will clear the file deduplication cache, allowing previously uploaded files to be uploaded again.\n\n" +
+      "This action cannot be undone. Continue?"
+    );
+    
+    if (!confirmed) return;
+    
+    try {
+      const response = await fetch('/api/upload/clear-cache', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' }
+      });
+      
+      const result = await response.json();
+      
+      if (result.success) {
+        alert('✅ ' + result.message);
+        console.log('Cache cleared:', result);
+        // Refresh cache stats
+        await loadCacheStats();
+      } else {
+        alert('❌ Failed to clear cache: ' + result.error);
+        console.error('Cache clear failed:', result);
+      }
+    } catch (error) {
+      alert('❌ Error clearing cache: ' + error.message);
+      console.error('Cache clear error:', error);
+    }
   };
 
   const loadStats = async () => {
@@ -639,7 +684,7 @@ function App() {
                               try {
                                 await axios.post('/api/upload/stop');
                                 setProcessing(false);
-                                setIsProcessActive(false);
+                                // setIsProcessActive(false);
                                 setProcessLog(prev => prev + '\n❌ Pipeline stopped by user request\n');
                               } catch (error) {
                                 console.error('Stop error:', error);
@@ -746,7 +791,7 @@ function App() {
                                     
                                     if (!logsData.status.isActive && processing) {
                                       setProcessing(false);
-                                      setIsProcessActive(false);
+                                      // setIsProcessActive(false);
                                       setProcessStatus('✅ Processing completed');
                                       await loadStats();
                                     }
@@ -775,6 +820,90 @@ function App() {
                         </div>
                       </div>
                     )}
+
+                    {/* Developer Tools Section */}
+                    <div className="developer-tools">
+                      <div className="dev-tools-header">
+                        <button
+                          onClick={() => {
+                            setShowDeveloperTools(!showDeveloperTools);
+                            if (!showDeveloperTools && !cacheStats) {
+                              loadCacheStats();
+                            }
+                          }}
+                          className="btn btn-outline btn-small"
+                        >
+                          🔧 {showDeveloperTools ? 'Hide' : 'Show'} Developer Tools
+                        </button>
+                      </div>
+                      
+                      {showDeveloperTools && (
+                        <div className="dev-tools-content">
+                          <div className="cache-management">
+                            <h4>Upload Cache Management</h4>
+                            <p className="dev-tools-description">
+                              The upload cache prevents duplicate file uploads by tracking file hashes. 
+                              Clear it during development to re-upload previously processed files.
+                            </p>
+                            
+                            {cacheStats && cacheStats.success && (
+                              <div className="cache-stats">
+                                <div className="stat-grid">
+                                  <div className="stat-item">
+                                    <span className="stat-label">Cached Files:</span>
+                                    <span className="stat-value">{cacheStats.cache.totalCachedFiles}</span>
+                                  </div>
+                                  <div className="stat-item">
+                                    <span className="stat-label">Memory Size:</span>
+                                    <span className="stat-value">~{Math.round(cacheStats.cache.memorySize / 1024)} KB</span>
+                                  </div>
+                                  <div className="stat-item">
+                                    <span className="stat-label">Last Updated:</span>
+                                    <span className="stat-value">
+                                      {new Date(cacheStats.timestamp).toLocaleString()}
+                                    </span>
+                                  </div>
+                                </div>
+                              </div>
+                            )}
+                            
+                            {cacheStats && !cacheStats.success && (
+                              <div className="cache-error">
+                                <p>❌ Error loading cache stats: {cacheStats.error}</p>
+                              </div>
+                            )}
+                            
+                            <div className="cache-actions">
+                              <button 
+                                onClick={loadCacheStats}
+                                className="btn btn-secondary btn-small"
+                              >
+                                📊 Refresh Stats
+                              </button>
+                              
+                              <button 
+                                onClick={handleClearCache}
+                                className="btn btn-warning btn-small"
+                                disabled={!cacheStats || !cacheStats.success}
+                              >
+                                🗑️ Clear Cache
+                                {cacheStats && cacheStats.success && cacheStats.cache.totalCachedFiles > 0 
+                                  ? ` (${cacheStats.cache.totalCachedFiles} files)` 
+                                  : ''
+                                }
+                              </button>
+                            </div>
+                            
+                            <div className="dev-tools-note">
+                              <p>
+                                <strong>Note:</strong> This is a development tool. In production, 
+                                cache clearing should be done server-side if needed.
+                              </p>
+                            </div>
+                          </div>
+                        </div>
+                      )}
+                    </div>
                   </div>
                 </div>
               )}

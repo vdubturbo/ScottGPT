@@ -35,6 +35,35 @@ export async function saveUploadCache() {
   }
 }
 
+// Clear upload cache (for development/testing)
+export async function clearUploadCache() {
+  try {
+    const oldSize = uploadCache.size;
+    uploadCache.clear();
+    
+    // Try to delete the cache file
+    try {
+      await fs.unlink(UPLOAD_CACHE_FILE);
+      console.log(`🗑️  Deleted cache file: ${UPLOAD_CACHE_FILE}`);
+    } catch (unlinkError) {
+      if (unlinkError.code !== 'ENOENT') {
+        console.warn('⚠️  Warning: Could not delete cache file:', unlinkError.message);
+      }
+    }
+    
+    console.log(`🧹 Upload cache cleared (was ${oldSize} entries)`);
+    return {
+      success: true,
+      previousSize: oldSize,
+      cleared: true
+    };
+  } catch (error) {
+    console.error('❌ Failed to clear upload cache:', error);
+    throw error;
+  }
+}
+
+
 // Generate file hash for duplicate detection
 export function generateFileHash(buffer) {
   return crypto.createHash('sha256').update(buffer).digest('hex').substring(0, 16);
@@ -182,13 +211,3 @@ export function getCacheStats() {
   };
 }
 
-// Clear cache (for debugging)
-export async function clearUploadCache() {
-  uploadCache.clear();
-  try {
-    await fs.unlink(UPLOAD_CACHE_FILE);
-    console.log('🗑️  Upload cache cleared');
-  } catch (error) {
-    console.log('✅ Cache file already cleared');
-  }
-}

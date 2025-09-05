@@ -57,6 +57,7 @@ processed/
 archives/
 sources/
 logs/pending-tags.json
+.cleanup-backup/
 
 # Ingestion pipeline files
 logs/*.log
