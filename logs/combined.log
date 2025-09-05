@@ -1331,3 +1331,5 @@
 {"level":"info","message":"ScottGPT server started successfully","port":3005,"timestamp":"2025-09-05 17:46:55"}
 {"level":"info","message":"Environment validation handled by centralized configuration","timestamp":"2025-09-05 17:58:02"}
 {"level":"info","message":"ScottGPT server started successfully","port":3005,"timestamp":"2025-09-05 17:58:03"}
+{"level":"info","message":"Environment validation handled by centralized configuration","timestamp":"2025-09-05 18:37:16"}
+{"level":"info","message":"ScottGPT server started successfully","port":3005,"timestamp":"2025-09-05 18:37:16"}

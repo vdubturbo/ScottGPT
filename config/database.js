@@ -214,16 +214,10 @@ class OptimizedDatabase {
     } = options;
 
     console.log(`🚀 Using optimized pgvector search (threshold: ${threshold})`);
-    console.log(`🔍 DEBUG: Query embedding analysis:`);
-    console.log(`   - Type: ${typeof queryEmbedding}`);
-    console.log(`   - Length: ${queryEmbedding?.length}`);
-    console.log(`   - First few values: ${queryEmbedding?.slice(0, 5)}`);
-    console.log(`   - Last few values: ${queryEmbedding?.slice(-5)}`);
-    
     const startTime = Date.now();
 
     try {
-      // ✅ REAL FIX: Pass array directly to RPC, let PostgreSQL handle conversion
+      // Validate query embedding format
       if (!Array.isArray(queryEmbedding)) {
         throw new Error(`Query embedding must be an array, got ${typeof queryEmbedding}`);
       }
@@ -233,11 +227,9 @@ class OptimizedDatabase {
         throw new Error(`Invalid query embedding dimensions: ${queryEmbedding.length}, expected 1024`);
       }
       
-      console.log(`📞 Calling fast_similarity_search with ${queryEmbedding.length}D array`);
-      
       const { data, error } = await this.supabase
         .rpc('fast_similarity_search', {
-          query_embedding: queryEmbedding,  // Pass array directly
+          query_embedding: queryEmbedding,
           similarity_threshold: threshold,
           max_results: limit * 2,
           filter_skills: skills.length > 0 ? skills : null,
@@ -247,29 +239,13 @@ class OptimizedDatabase {
         });
 
       if (error) {
-        console.error('❌ RPC Error Details:');
-        console.error('   Message:', error.message);
-        console.error('   Code:', error.code);
-        console.error('   Details:', error.details);
-        
-        if (error.message.includes('different vector dimensions') || error.message.includes('vector')) {
-        console.error('🔍 Vector Error Analysis:');
-        console.error(`   - Query embedding length: ${queryEmbedding?.length}`);
-        console.error(`   - This suggests the stored vectors have wrong dimensions or format`);
-        console.error(`   - Check if the migration to fix vector storage was run`);
-        }
-        
-        throw error;
-      }
-
-      console.log(`📊 Function returned: ${data?.length || 0} results`);
-      if (data && data.length > 0) {
-        console.log(`🎯 Top similarity: ${data[0].similarity}`);
-      }
-
-      if (error) {
         console.error('❌ Optimized search failed:', error);
         throw error;
+      }
+
+      console.log(`📊 pgvector returned: ${data?.length || 0} results`);
+      if (data && data.length > 0) {
+        console.log(`🎯 Top similarity: ${data[0].similarity} (should be ~0.3-0.8 range)`);
       }
 
       const queryTime = Date.now() - startTime;
@@ -278,12 +254,13 @@ class OptimizedDatabase {
       console.log(`⚡ pgvector search: ${queryTime}ms, ${data.length} results`);
       
       // Convert to format expected by application
+      // ✅ No distance-to-similarity conversion needed - SQL function now returns similarities
       const results = data.map(chunk => ({
         ...chunk,
         // Add computed fields for compatibility
         recency_score: chunk.date_end ? 
           Math.max(0, 1.0 - (Date.now() - new Date(chunk.date_end).getTime()) / (365 * 24 * 60 * 60 * 1000 * 2)) : 0.5,
-        combined_score: chunk.similarity,
+        combined_score: chunk.similarity, // Already a similarity from SQL function
         sources: {
           id: chunk.source_id,
           type: chunk.source_type,
