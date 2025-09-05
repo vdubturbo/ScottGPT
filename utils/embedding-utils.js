@@ -6,7 +6,10 @@
  * - Supabase storage (stores as JSON strings in TEXT columns)
  * - Application code (needs arrays for calculations)
  * - Future pgvector migration (needs native vectors)
+ * - Content hash deduplication (prevents duplicate chunks)
  */
+
+import crypto from 'crypto';
 
 /**
  * Validates that an embedding is a proper 1024-dimensional array
@@ -137,6 +140,27 @@ export function parseStoredEmbedding(storedEmbedding) {
       // JSON string format (current TEXT column storage)
       parsedArray = JSON.parse(storedEmbedding);
       sourceFormat = 'json_string';
+    } else if (typeof storedEmbedding === 'object' && storedEmbedding.constructor && storedEmbedding.constructor.name === 'Float32Array') {
+      // PostgreSQL vector type comes as Float32Array or similar
+      parsedArray = Array.from(storedEmbedding);
+      sourceFormat = 'vector_type';
+    } else if (typeof storedEmbedding === 'object') {
+      // ✅ FIX: Handle PostgreSQL vector type properly
+      // PostgreSQL vectors might come as objects, try to extract the array data
+      if (storedEmbedding._value) {
+        // Some PostgreSQL vector representations have _value property
+        parsedArray = Array.from(storedEmbedding._value);
+        sourceFormat = 'pg_vector_object';
+      } else {
+        // Try to convert object to array if it has numeric properties
+        const keys = Object.keys(storedEmbedding).filter(k => !isNaN(k)).sort((a, b) => Number(a) - Number(b));
+        if (keys.length > 0) {
+          parsedArray = keys.map(k => storedEmbedding[k]);
+          sourceFormat = 'object_array';
+        } else {
+          throw new Error(`Vector object has no extractable array data`);
+        }
+      }
     } else {
       throw new Error(`Unexpected stored embedding type: ${typeof storedEmbedding}`);
     }
@@ -212,11 +236,21 @@ export function batchParseStoredEmbeddings(storedEmbeddings) {
  * @returns {number} - Cosine similarity between 0 and 1
  */
 export function calculateCosineSimilarity(embeddingA, embeddingB) {
+  // 🔍 DEBUG: Add logging to see what's happening in parsing
+  console.log(`🔍 calculateCosineSimilarity debug:`);
+  console.log(`   - embeddingA type: ${typeof embeddingA}, length: ${embeddingA?.length}`);
+  console.log(`   - embeddingB type: ${typeof embeddingB}, sample: ${embeddingB?.toString().substring(0, 30)}...`);
+  
   const parsedA = parseStoredEmbedding(embeddingA);
   const parsedB = parseStoredEmbedding(embeddingB);
   
+  console.log(`   - parsedA: valid=${parsedA.isValid}, format=${parsedA.sourceFormat}, dims=${parsedA.dimensions}`);
+  console.log(`   - parsedB: valid=${parsedB.isValid}, format=${parsedB.sourceFormat}, dims=${parsedB.dimensions}`);
+  
   if (!parsedA.isValid || !parsedB.isValid) {
     console.warn('Cannot calculate similarity: invalid embeddings');
+    console.warn(`   - parsedA error: ${parsedA.error}`);
+    console.warn(`   - parsedB error: ${parsedB.error}`);
     return 0;
   }
   
@@ -245,7 +279,10 @@ export function calculateCosineSimilarity(embeddingA, embeddingB) {
     return 0;
   }
 
-  return dotProduct / (normA * normB);
+  const similarity = dotProduct / (normA * normB);
+  console.log(`   - calculated similarity: ${similarity}`);
+  
+  return similarity;
 }
 
 /**
@@ -482,4 +519,203 @@ export function benchmarkEmbeddingOperations(sampleEmbeddings) {
   benchmark.validation.avgTime = benchmark.validation.totalTime / iterations;
   
   return benchmark;
+}
+
+// =============================================================================
+// CONTENT HASH DEDUPLICATION UTILITIES
+// =============================================================================
+
+/**
+ * Generates a SHA1 hash of the content for deduplication
+ * @param {string} content - The text content to hash
+ * @returns {string} - SHA1 hash of the content
+ */
+export function generateContentHash(content) {
+  if (!content || typeof content !== 'string') {
+    throw new Error('Content must be a non-empty string');
+  }
+  
+  return crypto.createHash('sha1').update(content.trim()).digest('hex');
+}
+
+/**
+ * Prepares chunk data with content hash for deduplication
+ * @param {Object} chunkData - The chunk data object
+ * @returns {Object} - Chunk data with content_hash added
+ */
+export function prepareChunkWithHash(chunkData) {
+  if (!chunkData.content) {
+    throw new Error('Chunk data must contain content field');
+  }
+  
+  return {
+    ...chunkData,
+    content_hash: generateContentHash(chunkData.content)
+  };
+}
+
+/**
+ * Detects if multiple chunks have identical content
+ * @param {Array} chunks - Array of chunk objects with content
+ * @returns {Object} - Analysis of content duplication
+ */
+export function analyzeContentDuplication(chunks) {
+  const analysis = {
+    totalChunks: chunks.length,
+    uniqueContent: 0,
+    duplicates: 0,
+    duplicateGroups: [],
+    contentHashes: new Map(),
+    duplicateDetails: []
+  };
+  
+  // Group chunks by content hash
+  chunks.forEach((chunk, index) => {
+    const hash = generateContentHash(chunk.content || '');
+    
+    if (!analysis.contentHashes.has(hash)) {
+      analysis.contentHashes.set(hash, []);
+    }
+    
+    analysis.contentHashes.get(hash).push({
+      ...chunk,
+      originalIndex: index,
+      contentHash: hash
+    });
+  });
+  
+  // Analyze duplication patterns
+  analysis.contentHashes.forEach((chunksWithHash, hash) => {
+    if (chunksWithHash.length === 1) {
+      analysis.uniqueContent++;
+    } else {
+      analysis.duplicates += chunksWithHash.length;
+      analysis.duplicateGroups.push({
+        contentHash: hash,
+        count: chunksWithHash.length,
+        chunks: chunksWithHash,
+        contentPreview: chunksWithHash[0].content?.substring(0, 100) + '...'
+      });
+    }
+  });
+  
+  // Sort duplicate groups by count (most duplicated first)
+  analysis.duplicateGroups.sort((a, b) => b.count - a.count);
+  
+  // Create summary of duplicate details
+  analysis.duplicateDetails = analysis.duplicateGroups.map(group => ({
+    hash: group.contentHash.substring(0, 8),
+    count: group.count,
+    sources: [...new Set(group.chunks.map(c => c.source_id || 'unknown'))],
+    titles: [...new Set(group.chunks.map(c => c.title || 'untitled'))],
+    preview: group.contentPreview
+  }));
+  
+  analysis.deduplicationSavings = {
+    chunksToRemove: analysis.duplicates - analysis.duplicateGroups.length,
+    percentageSavings: analysis.totalChunks > 0 ? 
+      ((analysis.duplicates - analysis.duplicateGroups.length) / analysis.totalChunks * 100).toFixed(1) : 0
+  };
+  
+  return analysis;
+}
+
+/**
+ * Filters out duplicate chunks keeping the first occurrence of each unique content
+ * @param {Array} chunks - Array of chunks to deduplicate
+ * @returns {Array} - Deduplicated array of chunks
+ */
+export function deduplicateChunksByContent(chunks) {
+  const seenHashes = new Set();
+  const uniqueChunks = [];
+  const duplicates = [];
+  
+  chunks.forEach((chunk, index) => {
+    const hash = generateContentHash(chunk.content || '');
+    
+    if (!seenHashes.has(hash)) {
+      seenHashes.add(hash);
+      uniqueChunks.push({
+        ...chunk,
+        content_hash: hash
+      });
+    } else {
+      duplicates.push({
+        ...chunk,
+        content_hash: hash,
+        originalIndex: index
+      });
+    }
+  });
+  
+  return {
+    unique: uniqueChunks,
+    duplicates: duplicates,
+    stats: {
+      original: chunks.length,
+      unique: uniqueChunks.length,
+      duplicates: duplicates.length,
+      deduplicationRate: chunks.length > 0 ? (duplicates.length / chunks.length * 100).toFixed(1) : 0
+    }
+  };
+}
+
+/**
+ * Validates that content hash matches the actual content
+ * @param {string} content - The content text
+ * @param {string} contentHash - The provided content hash
+ * @returns {Object} - Validation result
+ */
+export function validateContentHash(content, contentHash) {
+  const expectedHash = generateContentHash(content);
+  const isValid = expectedHash === contentHash;
+  
+  return {
+    isValid,
+    expectedHash,
+    providedHash: contentHash,
+    content: content?.substring(0, 100) + (content?.length > 100 ? '...' : ''),
+    error: isValid ? null : `Hash mismatch: expected ${expectedHash}, got ${contentHash}`
+  };
+}
+
+/**
+ * Batch generates content hashes for multiple chunks
+ * @param {Array} chunks - Array of chunks with content
+ * @returns {Array} - Array of chunks with content_hash added
+ */
+export function batchGenerateContentHashes(chunks) {
+  const results = {
+    processed: [],
+    errors: [],
+    stats: {
+      total: chunks.length,
+      successful: 0,
+      failed: 0
+    }
+  };
+  
+  chunks.forEach((chunk, index) => {
+    try {
+      const hashedChunk = prepareChunkWithHash(chunk);
+      results.processed.push(hashedChunk);
+      results.stats.successful++;
+    } catch (error) {
+      results.errors.push({
+        index,
+        chunk: chunk.title || `chunk-${index}`,
+        error: error.message
+      });
+      results.stats.failed++;
+      
+      // Include the chunk without hash for debugging
+      results.processed.push({
+        ...chunk,
+        content_hash: null,
+        _hashError: error.message
+      });
+    }
+  });
+  
+  return results;
 }

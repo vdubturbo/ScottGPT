@@ -1,0 +1,73 @@
+#!/bin/bash
+
+# Quick pgvector Investigation Script
+# This will run the key diagnostic steps to identify the issue
+
+echo "🔍 Starting pgvector search investigation..."
+echo "============================================="
+
+echo ""
+echo "📊 Step 1: Running comprehensive SQL diagnostics..."
+echo "Run this command in your Supabase SQL editor or psql:"
+echo ""
+echo "psql -h [your-host] -U [your-user] -d [your-db] -f debug-pgvector-comprehensive.sql"
+echo ""
+echo "Or copy the contents of debug-pgvector-comprehensive.sql into Supabase SQL Editor"
+
+echo ""
+echo "🔧 Step 2: Running JavaScript search comparison..."
+node test-pgvector-debug.js
+
+echo ""
+echo "📋 Step 3: Check these key indicators:"
+echo ""
+echo "  ✅ Expected Results:"
+echo "     - JavaScript search: 3-10 results"
+echo "     - pgvector search: Same results as JavaScript"
+echo "     - Vector dimensions: 1024"
+echo "     - Vector optimization: true"
+echo ""
+echo "  ❌ Problem Indicators:"
+echo "     - pgvector search: 0 results"
+echo "     - 'pgvector optimization not available'"
+echo "     - Vector dimensions: not 1024 or NULL"
+echo "     - fast_similarity_search function errors"
+
+echo ""
+echo "🎯 Most Likely Issues (in order of probability):"
+echo ""
+echo "  1. VECTOR MIGRATION INCOMPLETE"
+echo "     - embedding_vector column is NULL for all rows"
+echo "     - Migration function failed silently"
+echo "     - Fix: Re-run migration with proper JSON string parsing"
+echo ""
+echo "  2. VECTOR FORMAT MISMATCH" 
+echo "     - Vectors stored incorrectly during migration"
+echo "     - JSON strings not properly converted to arrays"
+echo "     - Fix: Update migration function to handle JSON strings"
+echo ""
+echo "  3. FUNCTION IMPLEMENTATION BUG"
+echo "     - fast_similarity_search has threshold logic error"
+echo "     - Function exists but returns wrong results"
+echo "     - Fix: Review and correct function implementation"
+echo ""
+echo "  4. SIMILARITY THRESHOLD TOO HIGH"
+echo "     - Function working but threshold excludes all results" 
+echo "     - JavaScript uses different threshold calculation"
+echo "     - Fix: Adjust threshold values or calculation method"
+
+echo ""
+echo "📁 Files created for investigation:"
+echo "  - debug-pgvector-comprehensive.sql (SQL diagnostics)"
+echo "  - test-pgvector-debug.js (JavaScript comparison test)"
+echo "  - This investigation script"
+
+echo ""
+echo "📝 Next actions:"
+echo "  1. Run the SQL diagnostics to identify data issues"
+echo "  2. Run the JavaScript test to compare search methods"
+echo "  3. Based on results, apply the appropriate fix"
+echo "  4. Refer to the debug guide artifact for detailed solutions"
+
+echo ""
+echo "🚀 Investigation complete! Check the results above."

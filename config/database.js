@@ -1,10 +1,12 @@
 import { createClient } from '@supabase/supabase-js';
+import crypto from 'crypto';
 import dotenv from 'dotenv';
 import { 
   parseStoredEmbedding, 
   prepareEmbeddingForStorage, 
   calculateCosineSimilarity,
-  validateEmbedding 
+  validateEmbedding,
+  generateContentHash
 } from '../utils/embedding-utils.js';
 
 // Load environment variables
@@ -84,6 +86,21 @@ class OptimizedDatabase {
   }
 
   async insertChunk(chunkData) {
+    // Calculate content hash if not provided
+    const contentHash = chunkData.content_hash || generateContentHash(chunkData.content);
+    
+    // Check if content already exists
+    const { data: existing } = await this.supabase
+      .from('content_chunks')
+      .select('id, source_id, title')
+      .eq('content_hash', contentHash)
+      .limit(1);
+    
+    if (existing && existing.length > 0) {
+      console.log(`⏭️ Skipping duplicate content (hash: ${contentHash.slice(0, 8)}, existing: ${existing[0].title})`);
+      return { id: existing[0].id, skipped: true };
+    }
+
     // Validate and prepare embedding for consistent storage
     let preparedEmbedding;
     try {
@@ -98,6 +115,7 @@ class OptimizedDatabase {
       source_id: chunkData.source_id,
       title: chunkData.title,
       content: chunkData.content,
+      content_hash: contentHash,  // ✅ Add content hash
       content_summary: chunkData.content_summary,
       skills: chunkData.skills,
       tags: chunkData.tags,
@@ -109,23 +127,78 @@ class OptimizedDatabase {
       created_at: new Date().toISOString()
     };
 
-    // If pgvector is available, also store as native vector
+    // ✅ REAL FIX: Use RPC function for proper vector storage
     const useVector = await this.checkVectorOptimization();
     if (useVector) {
-      const parsed = parseStoredEmbedding(chunkData.embedding);
-      if (parsed.isValid) {
-        insertData.embedding_vector = parsed.embedding;
+      // Get the embedding array
+      let embeddingArray;
+      
+      if (Array.isArray(chunkData.embedding)) {
+        embeddingArray = chunkData.embedding;
+        console.log(`🔧 Using raw embedding array (${embeddingArray.length} dims)`);
+      } else if (typeof chunkData.embedding === 'string') {
+        const parsed = parseStoredEmbedding(chunkData.embedding);
+        if (parsed.isValid) {
+          embeddingArray = parsed.embedding;
+          console.log(`🔧 Parsed stored embedding string (${embeddingArray.length} dims)`);
+        } else {
+          console.warn(`⚠️ Invalid stored embedding, falling back to legacy insert`);
+          embeddingArray = null;
+        }
+      } else {
+        console.warn(`⚠️ Unknown embedding format: ${typeof chunkData.embedding}`);
+        embeddingArray = null;
+      }
+      
+      // Use RPC function for proper vector storage
+      if (embeddingArray && embeddingArray.length === 1024) {
+        try {
+          console.log(`✅ Using RPC function for proper vector storage`);
+          const { data, error } = await this.supabase
+            .rpc('insert_chunk_with_vector', {
+              chunk_data: insertData,
+              vector_data: embeddingArray
+            });
+
+          if (error) {
+            // Handle unique constraint violation gracefully
+            if (error.code === '23505' && error.message.includes('unique_content_hash')) {
+              console.log(`⏭️ Content already exists (concurrent insert detected)`);
+              return { id: null, skipped: true };
+            }
+            throw error;
+          }
+          
+          return { id: data, skipped: false };
+        } catch (rpcError) {
+          console.error(`❌ RPC vector insert failed: ${rpcError.message}`);
+          console.log(`🔄 Falling back to legacy insert without vector`);
+          // Fall through to legacy insert
+        }
       }
     }
 
-    const { data, error } = await this.supabase
-      .from('content_chunks')
-      .insert(insertData)
-      .select('id')
-      .single();
+    // Legacy insert (fallback or when vector optimization not available)
+    try {
+      const { data, error } = await this.supabase
+        .from('content_chunks')
+        .insert(insertData)
+        .select('id')
+        .single();
 
-    if (error) throw error;
-    return data;
+      if (error) {
+        // Handle unique constraint violation gracefully
+        if (error.code === '23505' && error.message.includes('unique_content_hash')) {
+          console.log(`⏭️ Content already exists (concurrent insert detected)`);
+          return { id: null, skipped: true };
+        }
+        throw error;
+      }
+      
+      return { id: data.id, skipped: false };
+    } catch (error) {
+      throw error;
+    }
   }
 
   /**
@@ -141,19 +214,58 @@ class OptimizedDatabase {
     } = options;
 
     console.log(`🚀 Using optimized pgvector search (threshold: ${threshold})`);
+    console.log(`🔍 DEBUG: Query embedding analysis:`);
+    console.log(`   - Type: ${typeof queryEmbedding}`);
+    console.log(`   - Length: ${queryEmbedding?.length}`);
+    console.log(`   - First few values: ${queryEmbedding?.slice(0, 5)}`);
+    console.log(`   - Last few values: ${queryEmbedding?.slice(-5)}`);
+    
     const startTime = Date.now();
 
     try {
+      // ✅ REAL FIX: Pass array directly to RPC, let PostgreSQL handle conversion
+      if (!Array.isArray(queryEmbedding)) {
+        throw new Error(`Query embedding must be an array, got ${typeof queryEmbedding}`);
+      }
+      
+      if (queryEmbedding.length !== 1024) {
+        console.error(`❌ DIMENSION ERROR: Query embedding has ${queryEmbedding.length} dims, expected 1024`);
+        throw new Error(`Invalid query embedding dimensions: ${queryEmbedding.length}, expected 1024`);
+      }
+      
+      console.log(`📞 Calling fast_similarity_search with ${queryEmbedding.length}D array`);
+      
       const { data, error } = await this.supabase
         .rpc('fast_similarity_search', {
-          query_embedding: queryEmbedding,
+          query_embedding: queryEmbedding,  // Pass array directly
           similarity_threshold: threshold,
-          max_results: limit * 2, // Get extra results for filtering
+          max_results: limit * 2,
           filter_skills: skills.length > 0 ? skills : null,
           filter_tags: tags.length > 0 ? tags : null,
           date_after: dateRange?.start || null,
           date_before: dateRange?.end || null
         });
+
+      if (error) {
+        console.error('❌ RPC Error Details:');
+        console.error('   Message:', error.message);
+        console.error('   Code:', error.code);
+        console.error('   Details:', error.details);
+        
+        if (error.message.includes('different vector dimensions') || error.message.includes('vector')) {
+        console.error('🔍 Vector Error Analysis:');
+        console.error(`   - Query embedding length: ${queryEmbedding?.length}`);
+        console.error(`   - This suggests the stored vectors have wrong dimensions or format`);
+        console.error(`   - Check if the migration to fix vector storage was run`);
+        }
+        
+        throw error;
+      }
+
+      console.log(`📊 Function returned: ${data?.length || 0} results`);
+      if (data && data.length > 0) {
+        console.log(`🎯 Top similarity: ${data[0].similarity}`);
+      }
 
       if (error) {
         console.error('❌ Optimized search failed:', error);
@@ -224,6 +336,14 @@ class OptimizedDatabase {
     }
 
     console.log(`📊 Retrieved ${data?.length || 0} chunks for similarity calculation`);
+    
+    // 🔍 DEBUG: Check what we actually got from the database
+    if (data && data.length > 0) {
+      console.log(`🔍 First chunk data analysis:`);
+      console.log(`   - embedding type: ${typeof data[0].embedding}`);
+      console.log(`   - embedding sample: ${data[0].embedding?.toString().substring(0, 50)}...`);
+      console.log(`   - embedding length: ${data[0].embedding?.toString().length}`);
+    }
 
     if (!data || data.length === 0) {
       return [];
@@ -235,8 +355,20 @@ class OptimizedDatabase {
         let similarity = 0;
         
         if (chunk.embedding && queryEmbedding) {
+          // 🔍 DEBUG: Add logging to see what's happening
+          console.log(`🔍 DEBUG similarity calc for chunk ${chunk.id}:`);
+          console.log(`   - chunk.embedding type: ${typeof chunk.embedding}`);
+          console.log(`   - chunk.embedding constructor: ${chunk.embedding?.constructor?.name}`);
+          
           // Use embedding utilities for consistent parsing and calculation
           similarity = calculateCosineSimilarity(queryEmbedding, chunk.embedding);
+          
+          console.log(`   - calculated similarity: ${similarity}`);
+          
+          // Only log for first chunk to avoid spam
+          if (chunk.id === data[0].id) {
+            console.log(`   - This should be ~0.03 if vector parsing works correctly`);
+          }
         }
         
         const recencyScore = chunk.date_end ? 

@@ -81,3 +81,6 @@ openai-response-debug.txt
 # Supabase local
 supabase/.branches
 supabase/.temp
+
+# Database migrations (contain sensitive schema/data)
+migrations/

@@ -755,28 +755,28 @@ async function processFile(filePath, sourceDir) {
       return { chunks: 0, skipped: false };
     }
     
-    // Delete existing chunks for this source (in case of updates)
-    await supabase
-      .from("content_chunks")
-      .delete()
-      .eq("source_id", sourceId)
-      .eq("file_hash", fileHash);
+    // Content-level deduplication will handle duplicates automatically
+    // No need to delete existing chunks - database will prevent duplicates
     
-    // Process each chunk
+    // Process each chunk with content-level deduplication
     let processedChunks = 0;
+    let skippedChunks = 0;
+
     for (let i = 0; i < chunks.length; i++) {
       const chunk = chunks[i];
       
       try {
-        // Show progress every 5 chunks or on first/last
         if (i === 0 || i === chunks.length - 1 || (i + 1) % 5 === 0) {
           console.log(`   🔄 Processing chunk ${i + 1}/${chunks.length}...`);
         }
         
-        // Generate embedding with retry logic (use chunk.content for semantic chunks)
-        const chunkContent = chunk.content || chunk; // Handle both old and new chunk formats
+        const chunkContent = chunk.content || chunk;
         const chunkTitle = chunk.title || `${data.title} - Part ${i + 1}`;
         
+        // Calculate content hash for this specific chunk
+        const contentHash = crypto.createHash("sha1").update(chunkContent).digest("hex");
+        
+        // Generate embedding only if content is unique
         const rawEmbedding = await retryWithBackoff(async () => {
           return await embedText(chunkContent);
         }, 3, 2000);
@@ -784,35 +784,39 @@ async function processFile(filePath, sourceDir) {
         // Validate embedding before storage
         const validation = validateEmbedding(rawEmbedding);
         if (!validation.isValid) {
-          console.error(`❌ Invalid embedding generated for chunk ${i + 1}:`, validation.errors.join(', '));
+          console.error(`❌ Invalid embedding for chunk ${i + 1}:`, validation.errors.join(', '));
           progressStats.errors++;
-          continue; // Skip this chunk
+          continue;
         }
         
         const tokenCount = estimateTokens(chunkContent);
-        
-        // Add chunking quality validation and monitoring
         validateChunkQuality(chunkContent, chunkTitle, tokenCount, i + 1, chunks.length);
         
-        // Insert chunk (database.js will handle consistent storage formatting)
-        await db.insertChunk({
+        // Insert chunk with content hash (database handles deduplication)
+        const insertResult = await db.insertChunk({
           source_id: sourceId,
           title: chunkTitle,
           content: chunkContent,
+          content_hash: contentHash,  // ✅ Pass content hash
           content_summary: contentSummary,
-          skills: data.skills || [], // Now properly stored in database
+          skills: data.skills || [],
           tags: data.industry_tags || [],
           date_start: data.date_start,
           date_end: data.date_end,
           token_count: tokenCount,
-          embedding: rawEmbedding, // Pass raw array - db.insertChunk will handle formatting
-          file_hash: fileHash
+          embedding: rawEmbedding,
+          file_hash: fileHash  // ✅ Keep file hash for traceability
         });
         
-        processedChunks++;
+        if (insertResult.skipped) {
+          console.log(`   ⏭️ Chunk ${i + 1} skipped - content already exists`);
+          skippedChunks++;
+        } else {
+          processedChunks++;
+        }
+        
         progressStats.chunksProcessed++;
         
-        // Report progress periodically
         if (processedChunks % 10 === 0) {
           reportProgress();
         }
@@ -821,16 +825,14 @@ async function processFile(filePath, sourceDir) {
         console.error(`   ❌ Error on chunk ${i + 1}:`, error.message);
         progressStats.errors++;
         
-        // Decide whether to continue based on error type
         if (error.status === 401 || error.message.includes('Invalid API')) {
-          throw error; // Critical error, stop processing
+          throw error;
         }
-        // Otherwise continue with next chunk
       }
     }
     
     const fileDuration = Math.round((Date.now() - fileStartTime) / 1000);
-    console.log(`   ✅ Completed: ${processedChunks} chunks in ${fileDuration}s`);
+    console.log(`   ✅ Completed: ${processedChunks} new, ${skippedChunks} skipped chunks in ${fileDuration}s`);
     
     progressStats.filesProcessed++;
     reportProgress();
