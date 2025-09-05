@@ -1,8 +1,8 @@
 # ScottGPT Deployment Guide
 
-This guide covers deploying ScottGPT to production environments with recommendations for various hosting platforms.
+Production deployment guide for ScottGPT's AI-powered interactive resume system.
 
-## Production Architecture
+## 🏗️ Production Architecture
 
 ```
 ┌─────────────────┐    ┌──────────────────┐    ┌─────────────────┐
@@ -17,618 +17,431 @@ This guide covers deploying ScottGPT to production environments with recommendat
          ▼                        ▼                       ▼
 ┌─────────────────┐    ┌──────────────────┐    ┌─────────────────┐
 │   Load Balancer │    │   File Storage   │    │   Monitoring    │
-│  (CloudFlare)   │    │  (S3/DigitalOcean)│   │ (DataDog/Sentry)│
+│  (CloudFlare)   │    │  (Built-in)      │    │ (Optional)      │
 └─────────────────┘    └──────────────────┘    └─────────────────┘
 ```
 
-## Prerequisites
+## 🚀 Prerequisites
 
-- Domain name (optional but recommended)
-- SSL certificate (handled by hosting platforms)
-- Production API keys for:
-  - OpenAI (GPT-4 with higher rate limits)
-  - Cohere (paid plan for embeddings)
-  - Supabase (Pro plan for production workloads)
+### Required Accounts & Services
 
-## Environment Setup
+- **Supabase**: Database with pgvector extension
+- **OpenAI**: GPT-4 API access (production tier recommended)
+- **Cohere**: Embedding API (paid plan for production)
+- **Domain**: Custom domain (optional but recommended)
+
+### API Key Requirements
+
+| Service | Tier | Purpose | Cost |
+|---------|------|---------|------|
+| OpenAI | Production | Chat & extraction | $20-100/month |
+| Cohere | Paid | Embeddings | $20-50/month |
+| Supabase | Pro | Database & storage | $25/month |
+
+## 🔧 Environment Configuration
 
 ### Production Environment Variables
 
-Create a production `.env` file with the following:
+Create a `.env.production` file:
 
 ```bash
 # Environment
 NODE_ENV=production
-PORT=5000
+PORT=3005
 
-# Database
-SUPABASE_URL=https://your-project.supabase.co
+# Database (Supabase Production)
+SUPABASE_URL=https://your-project-id.supabase.co
 SUPABASE_ANON_KEY=your_production_anon_key
-SUPABASE_SERVICE_ROLE_KEY=your_production_service_role_key
+SUPABASE_SERVICE_ROLE_KEY=your_production_service_key
 
-# AI Services
-OPENAI_API_KEY=your_production_openai_key
+# AI Services (Production Keys)
+OPENAI_API_KEY=sk-proj-your_production_key
 COHERE_API_KEY=your_production_cohere_key
 
 # Security
-SESSION_SECRET=your_super_secure_random_string
-JWT_SECRET=your_jwt_secret_key
+SESSION_SECRET=your_super_secure_random_string_32_chars
 CORS_ORIGIN=https://your-domain.com
 
-# Monitoring (optional)
-SENTRY_DSN=your_sentry_dsn
-DATADOG_API_KEY=your_datadog_key
-
-# Rate Limiting
-REDIS_URL=redis://your-redis-instance
+# Optional: Monitoring
+SENTRY_DSN=https://your-sentry-dsn
 ```
 
-## Backend Deployment
+## 🚀 Backend Deployment
 
 ### Option 1: Railway (Recommended)
 
-Railway offers excellent Node.js support with automatic deployments.
+Railway provides excellent Node.js support with automatic deployments.
 
-1. **Connect Repository**
-   ```bash
-   # Install Railway CLI
-   npm install -g @railway/cli
-   
-   # Login and link project
-   railway login
-   railway link
-   ```
+**1. Setup Railway CLI**
+```bash
+npm install -g @railway/cli
+railway login
+```
 
-2. **Configure Environment**
-   ```bash
-   # Set environment variables
-   railway variables:set NODE_ENV=production
-   railway variables:set SUPABASE_URL=your_url
-   # ... set all other environment variables
-   ```
+**2. Create New Project**
+```bash
+railway link
+# Or create new: railway init
+```
 
-3. **Deploy**
-   ```bash
-   railway deploy
-   ```
+**3. Configure Environment**
+```bash
+railway variables:set NODE_ENV=production
+railway variables:set SUPABASE_URL=your_supabase_url
+railway variables:set SUPABASE_ANON_KEY=your_anon_key
+railway variables:set OPENAI_API_KEY=your_openai_key
+railway variables:set COHERE_API_KEY=your_cohere_key
+# Set all other variables from .env.production
+```
 
-4. **Custom Domain**
-   ```bash
-   railway domain add api.your-domain.com
-   ```
+**4. Deploy**
+```bash
+railway deploy
+```
+
+**5. Custom Domain**
+```bash
+railway domain add api.scottgpt.com
+```
+
+**Railway Configuration (`railway.json`):**
+```json
+{
+  "deploy": {
+    "startCommand": "npm start",
+    "healthcheckPath": "/health",
+    "healthcheckTimeout": 300
+  }
+}
+```
 
 ### Option 2: Render
 
-1. **Create Web Service**
-   - Connect GitHub repository
-   - Runtime: Node
-   - Build Command: `npm install`
-   - Start Command: `npm start`
+**1. Create Web Service**
+- Connect GitHub repository
+- Set build command: `npm install`
+- Set start command: `npm start`
 
-2. **Environment Variables**
-   - Add all production environment variables in Render dashboard
+**2. Environment Variables**
+Add all production environment variables in Render dashboard.
 
-3. **Custom Domain**
-   - Configure custom domain in Render settings
+**3. Health Check**
+Configure health check endpoint: `/health`
 
 ### Option 3: Heroku
 
+**1. Create Application**
 ```bash
-# Install Heroku CLI and login
-heroku login
-
-# Create application
 heroku create scottgpt-api
+git remote add heroku https://git.heroku.com/scottgpt-api.git
+```
 
-# Set environment variables
+**2. Configure Environment**
+```bash
 heroku config:set NODE_ENV=production
 heroku config:set SUPABASE_URL=your_url
-# ... set all other variables
+# Add all other environment variables
+```
 
-# Deploy
+**3. Deploy**
+```bash
 git push heroku main
 ```
 
-### Option 4: DigitalOcean App Platform
-
-1. Create new App from GitHub
-2. Configure build settings:
-   - Build Command: `npm install`
-   - Run Command: `npm start`
-3. Add environment variables
-4. Deploy
-
-## Frontend Deployment
+## 🌐 Frontend Deployment
 
 ### Option 1: Netlify (Recommended)
 
-1. **Build Configuration**
-   Create `netlify.toml`:
-   ```toml
-   [build]
-     command = "cd client && npm install && npm run build"
-     publish = "client/build"
+**1. Build Configuration**
+```toml
+# netlify.toml
+[build]
+  publish = "client/build"
+  command = "cd client && npm ci && npm run build"
 
-   [[redirects]]
-     from = "/api/*"
-     to = "https://your-api-domain.com/api/:splat"
-     status = 200
-     force = true
+[build.environment]
+  NODE_VERSION = "18"
+  
+[[redirects]]
+  from = "/*"
+  to = "/index.html"
+  status = 200
+```
 
-   [[redirects]]
-     from = "/*"
-     to = "/index.html"
-     status = 200
-   ```
+**2. Environment Variables**
+Set in Netlify dashboard:
+```
+REACT_APP_API_URL=https://api.scottgpt.com
+REACT_APP_ENVIRONMENT=production
+```
 
-2. **Environment Variables**
-   Add to Netlify dashboard:
-   ```
-   REACT_APP_API_URL=https://your-api-domain.com
-   REACT_APP_ENVIRONMENT=production
-   ```
-
-3. **Deploy**
-   - Connect GitHub repository
-   - Auto-deploy on push to main branch
+**3. Custom Domain**
+- Add custom domain in Netlify dashboard
+- Configure DNS records as instructed
 
 ### Option 2: Vercel
 
-```bash
-# Install Vercel CLI
-npm install -g vercel
-
-# Configure project
-cd client
-vercel
-
-# Set environment variables
-vercel env add REACT_APP_API_URL production
+**1. Project Configuration**
+```json
+{
+  "name": "scottgpt-frontend",
+  "buildCommand": "cd client && npm run build",
+  "outputDirectory": "client/build",
+  "framework": "create-react-app"
+}
 ```
 
-### Option 3: GitHub Pages
-
-```bash
-# Build and deploy script
-cd client
-npm run build
-npx gh-pages -d build
+**2. Environment Variables**
+```
+REACT_APP_API_URL=https://api.scottgpt.com
 ```
 
-## Database Setup
+## 🗄️ Database Setup
 
 ### Supabase Production Configuration
 
-1. **Upgrade to Pro Plan**
-   - Higher connection limits
-   - Increased compute resources
-   - Extended backup retention
+**1. Upgrade to Pro Plan**
+- Navigate to Supabase dashboard
+- Upgrade to Pro plan for production features
 
-2. **Security Configuration**
-   ```sql
-   -- Enable Row Level Security
-   ALTER TABLE sources ENABLE ROW LEVEL SECURITY;
-   ALTER TABLE content_chunks ENABLE ROW LEVEL SECURITY;
-   
-   -- Create policies for API access
-   CREATE POLICY "Public read access" ON sources
-   FOR SELECT USING (true);
-   
-   CREATE POLICY "Service role full access" ON sources
-   FOR ALL USING (auth.jwt() ->> 'role' = 'service_role');
-   ```
-
-3. **Performance Optimization**
-   ```sql
-   -- Optimize vector search
-   CREATE INDEX CONCURRENTLY idx_content_chunks_embedding_hnsw 
-   ON content_chunks 
-   USING hnsw (embedding vector_cosine_ops)
-   WITH (m = 16, ef_construction = 64);
-   
-   -- Optimize metadata queries
-   CREATE INDEX CONCURRENTLY idx_sources_type_date 
-   ON sources (type, date_start DESC);
-   ```
-
-4. **Backup Strategy**
-   - Enable automated backups
-   - Configure backup retention (30 days recommended)
-   - Test restoration procedures
-
-## Security Hardening
-
-### Application Security
-
-1. **CORS Configuration**
-   ```javascript
-   const cors = require('cors');
-   
-   app.use(cors({
-     origin: process.env.CORS_ORIGIN?.split(',') || 'http://localhost:3000',
-     credentials: true,
-     optionsSuccessStatus: 200
-   }));
-   ```
-
-2. **Rate Limiting**
-   ```javascript
-   const rateLimit = require('express-rate-limit');
-   
-   const limiter = rateLimit({
-     windowMs: 15 * 60 * 1000, // 15 minutes
-     max: 100, // limit each IP to 100 requests per windowMs
-     message: 'Too many requests from this IP'
-   });
-   
-   app.use(limiter);
-   ```
-
-3. **Input Validation**
-   ```javascript
-   const { body, validationResult } = require('express-validator');
-   
-   app.post('/api/chat', [
-     body('message').isLength({ min: 1, max: 1000 }).trim().escape()
-   ], (req, res) => {
-     const errors = validationResult(req);
-     if (!errors.isEmpty()) {
-       return res.status(400).json({ errors: errors.array() });
-     }
-     // ... handle request
-   });
-   ```
-
-### Infrastructure Security
-
-1. **SSL/TLS**
-   - Use HTTPS everywhere (handled by hosting platforms)
-   - Implement HSTS headers
-
-2. **Environment Variables**
-   - Never commit secrets to git
-   - Use platform-specific secret management
-   - Rotate keys regularly
-
-3. **Network Security**
-   - Configure firewall rules
-   - Use VPC/private networks where available
-   - Restrict database access to application servers only
-
-## Performance Optimization
-
-### Backend Optimization
-
-1. **Caching Strategy**
-   ```javascript
-   const Redis = require('ioredis');
-   const redis = new Redis(process.env.REDIS_URL);
-   
-   // Cache search results
-   app.get('/api/search', async (req, res) => {
-     const cacheKey = `search:${JSON.stringify(req.query)}`;
-     const cached = await redis.get(cacheKey);
-     
-     if (cached) {
-       return res.json(JSON.parse(cached));
-     }
-     
-     const results = await searchContent(req.query);
-     await redis.setex(cacheKey, 300, JSON.stringify(results)); // 5 min cache
-     res.json(results);
-   });
-   ```
-
-2. **Database Connection Pooling**
-   ```javascript
-   const { createClient } = require('@supabase/supabase-js');
-   
-   const supabase = createClient(
-     process.env.SUPABASE_URL,
-     process.env.SUPABASE_SERVICE_ROLE_KEY,
-     {
-       db: {
-         schema: 'public',
-         max: 20, // Maximum number of connections
-         idleTimeoutMillis: 30000,
-       }
-     }
-   );
-   ```
-
-3. **Response Compression**
-   ```javascript
-   const compression = require('compression');
-   app.use(compression());
-   ```
-
-### Frontend Optimization
-
-1. **Build Optimization**
-   ```json
-   {
-     "scripts": {
-       "build": "GENERATE_SOURCEMAP=false react-scripts build",
-       "build:analyze": "npm run build && npx bundle-analyzer build/static/js/*.js"
-     }
-   }
-   ```
-
-2. **CDN Configuration**
-   - Use CDN for static assets
-   - Configure proper cache headers
-   - Enable gzip compression
-
-## Monitoring and Logging
-
-### Application Monitoring
-
-1. **Error Tracking with Sentry**
-   ```javascript
-   const Sentry = require('@sentry/node');
-   
-   Sentry.init({
-     dsn: process.env.SENTRY_DSN,
-     environment: process.env.NODE_ENV
-   });
-   
-   app.use(Sentry.Handlers.errorHandler());
-   ```
-
-2. **Performance Monitoring**
-   ```javascript
-   // Custom metrics
-   const promClient = require('prom-client');
-   
-   const httpRequestDuration = new promClient.Histogram({
-     name: 'http_request_duration_ms',
-     help: 'Duration of HTTP requests in ms',
-     labelNames: ['route', 'method', 'status']
-   });
-   ```
-
-3. **Health Checks**
-   ```javascript
-   app.get('/health', async (req, res) => {
-     try {
-       // Check database connection
-       await supabase.from('sources').select('count').limit(1);
-       
-       // Check external APIs
-       const openaiStatus = await checkOpenAI();
-       const cohereStatus = await checkCohere();
-       
-       res.json({
-         status: 'healthy',
-         timestamp: new Date().toISOString(),
-         services: {
-           database: 'up',
-           openai: openaiStatus,
-           cohere: cohereStatus
-         }
-       });
-     } catch (error) {
-       res.status(500).json({
-         status: 'unhealthy',
-         error: error.message
-       });
-     }
-   });
-   ```
-
-### Log Management
-
-1. **Structured Logging**
-   ```javascript
-   const winston = require('winston');
-   
-   const logger = winston.createLogger({
-     level: process.env.LOG_LEVEL || 'info',
-     format: winston.format.combine(
-       winston.format.timestamp(),
-       winston.format.json()
-     ),
-     transports: [
-       new winston.transports.Console(),
-       new winston.transports.File({ filename: 'app.log' })
-     ]
-   });
-   ```
-
-## Scaling Considerations
-
-### Horizontal Scaling
-
-1. **Load Balancing**
-   - Use platform load balancers
-   - Configure session stickiness if needed
-   - Health check configuration
-
-2. **Database Scaling**
-   ```sql
-   -- Read replicas for search queries
-   -- Connection pooling with PgBouncer
-   -- Query optimization with EXPLAIN ANALYZE
-   ```
-
-3. **Caching Layers**
-   - Redis for session storage
-   - CDN for static content
-   - Application-level caching
-
-### Auto-scaling Configuration
-
-```yaml
-# Railway railway.toml
-[deploy]
-  startCommand = "npm start"
-  healthcheckPath = "/health"
-
-[scaling]
-  minReplicas = 1
-  maxReplicas = 10
-  targetCPU = 70
+**2. Enable pgvector Extension**
+```sql
+-- In Supabase SQL Editor
+CREATE EXTENSION IF NOT EXISTS vector;
 ```
 
-## Backup and Recovery
+**3. Run Migrations**
+Execute SQL from `migrations/public-schema.sql` in Supabase SQL Editor.
 
-### Database Backups
+**4. Configure Connection Pooling**
+- Enable connection pooling in Supabase dashboard
+- Use pool mode: Transaction
+- Pool size: 25-50 connections
 
-1. **Automated Backups**
-   - Supabase Pro includes automated backups
-   - Configure retention period
-   - Test restoration procedures
+**5. Set Up Database Policies**
+```sql
+-- Enable Row Level Security
+ALTER TABLE sources ENABLE ROW LEVEL SECURITY;
+ALTER TABLE document_chunks ENABLE ROW LEVEL SECURITY;
 
-2. **Application Data**
-   ```bash
-   # Backup script
-   #!/bin/bash
-   pg_dump $DATABASE_URL > backup_$(date +%Y%m%d_%H%M%S).sql
-   aws s3 cp backup_*.sql s3://your-backup-bucket/
-   ```
+-- Create policies for public read access
+CREATE POLICY "Public read access" ON sources FOR SELECT TO public USING (true);
+CREATE POLICY "Public read access" ON document_chunks FOR SELECT TO public USING (true);
+```
 
-### Disaster Recovery Plan
+## 🔒 Security Configuration
 
-1. **RTO/RPO Targets**
-   - Recovery Time Objective: < 1 hour
-   - Recovery Point Objective: < 15 minutes
+### SSL/HTTPS Setup
 
-2. **Recovery Procedures**
-   - Database restoration steps
-   - Application redeployment
-   - DNS failover configuration
+**1. Backend Security**
+- Use HTTPS only in production
+- Configure CORS for your frontend domain
+- Set secure session cookies
 
-## Cost Optimization
+**2. Environment Security**
+```bash
+# Use environment-specific configs
+NODE_ENV=production
 
-### Resource Monitoring
+# Secure session configuration
+SESSION_SECURE=true
+COOKIE_SECURE=true
+```
 
-1. **API Usage Tracking**
-   ```javascript
-   // Track API costs
-   const trackAPIUsage = async (provider, operation, tokens) => {
-     await supabase.from('api_usage').insert({
-       provider,
-       operation,
-       tokens,
-       cost: calculateCost(provider, operation, tokens),
-       timestamp: new Date()
-     });
-   };
-   ```
+### Rate Limiting
 
-2. **Database Usage**
-   - Monitor connection counts
-   - Optimize query performance
-   - Use read replicas for analytics
+Add rate limiting for production:
 
-### Cost-Saving Strategies
+```javascript
+// In server.js
+const rateLimit = require('express-rate-limit');
 
-1. **Caching**
-   - Cache expensive API calls
-   - Implement smart cache invalidation
-   - Use CDN for static content
+const limiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  max: 100 // limit each IP to 100 requests per windowMs
+});
 
-2. **Resource Optimization**
-   - Right-size server instances
-   - Use spot instances where appropriate
-   - Implement auto-scaling policies
+app.use('/api/', limiter);
+```
 
-## Troubleshooting
+## 📊 Monitoring & Logging
+
+### Health Check Endpoint
+
+Add to your Express app:
+
+```javascript
+app.get('/health', (req, res) => {
+  res.status(200).json({
+    status: 'healthy',
+    timestamp: new Date().toISOString(),
+    version: process.env.npm_package_version
+  });
+});
+```
+
+### Optional: Sentry Integration
+
+```bash
+npm install @sentry/node
+```
+
+```javascript
+// In server.js
+const Sentry = require('@sentry/node');
+
+if (process.env.NODE_ENV === 'production') {
+  Sentry.init({
+    dsn: process.env.SENTRY_DSN,
+  });
+}
+```
+
+### Logging Configuration
+
+```javascript
+// Configure structured logging for production
+const winston = require('winston');
+
+const logger = winston.createLogger({
+  level: process.env.NODE_ENV === 'production' ? 'info' : 'debug',
+  format: winston.format.json(),
+  transports: [
+    new winston.transports.Console(),
+    new winston.transports.File({ filename: 'logs/error.log', level: 'error' }),
+    new winston.transports.File({ filename: 'logs/combined.log' })
+  ]
+});
+```
+
+## 🚀 Deployment Checklist
+
+### Pre-Deployment
+
+- [ ] All environment variables configured
+- [ ] Database migrations applied
+- [ ] SSL certificates configured
+- [ ] Domain DNS configured
+- [ ] Rate limiting enabled
+- [ ] CORS properly configured
+
+### Testing
+
+- [ ] Health check endpoint responding
+- [ ] Chat API functional
+- [ ] Upload API working
+- [ ] Database connectivity confirmed
+- [ ] Frontend-backend integration working
+
+### Post-Deployment
+
+- [ ] Monitor error logs for first 24 hours
+- [ ] Verify API rate limits working
+- [ ] Test document upload and processing
+- [ ] Validate search functionality
+- [ ] Confirm monitoring alerts working
+
+## 📈 Performance Optimization
+
+### Backend Optimizations
+
+```javascript
+// Enable compression
+app.use(require('compression')());
+
+// Static file caching
+app.use(express.static('public', {
+  maxAge: '1d',
+  etag: false
+}));
+
+// Database connection pooling (handled by Supabase)
+```
+
+### CDN Configuration
+
+For static assets, consider using CloudFlare:
+
+1. Point DNS to CloudFlare
+2. Enable caching for static assets
+3. Configure compression
+4. Enable minification
+
+### Database Performance
+
+- Enable pgvector extension for faster similarity searches
+- Configure appropriate indexes
+- Monitor query performance
+- Set up connection pooling
+
+## 🔧 Maintenance
+
+### Daily Tasks
+
+- Monitor application logs
+- Check API usage metrics
+- Verify database performance
+
+### Weekly Tasks
+
+- Review error logs
+- Update dependencies
+- Check security alerts
+- Backup database
+
+### Monthly Tasks
+
+- Review API costs
+- Update documentation
+- Performance optimization review
+- Security audit
+
+## 🆘 Troubleshooting
 
 ### Common Issues
 
-1. **Database Connection Errors**
-   ```javascript
-   // Connection retry logic
-   const connectWithRetry = async (retries = 3) => {
-     try {
-       await supabase.from('sources').select('count').limit(1);
-     } catch (error) {
-       if (retries > 0) {
-         await new Promise(resolve => setTimeout(resolve, 1000));
-         return connectWithRetry(retries - 1);
-       }
-       throw error;
-     }
-   };
-   ```
+**1. API Keys Not Working**
+- Verify keys are for production environment
+- Check API usage limits
+- Confirm keys have correct permissions
 
-2. **API Rate Limiting**
-   ```javascript
-   // Exponential backoff
-   const apiCallWithBackoff = async (apiCall, maxRetries = 3) => {
-     for (let i = 0; i < maxRetries; i++) {
-       try {
-         return await apiCall();
-       } catch (error) {
-         if (error.status === 429 && i < maxRetries - 1) {
-           const delay = Math.pow(2, i) * 1000;
-           await new Promise(resolve => setTimeout(resolve, delay));
-         } else {
-           throw error;
-         }
-       }
-     }
-   };
-   ```
+**2. Database Connection Issues**
+- Verify Supabase URL and keys
+- Check connection pooling configuration
+- Ensure pgvector extension is enabled
 
-3. **Memory Leaks**
-   ```javascript
-   // Memory monitoring
-   setInterval(() => {
-     const used = process.memoryUsage();
-     logger.info('Memory usage:', used);
-     
-     if (used.heapUsed > 512 * 1024 * 1024) { // 512MB
-       logger.warn('High memory usage detected');
-     }
-   }, 60000);
-   ```
+**3. CORS Issues**
+- Verify CORS_ORIGIN environment variable
+- Check frontend URL configuration
+- Confirm protocol (HTTP vs HTTPS)
 
-### Debug Commands
+**4. Upload Failures**
+- Check file size limits
+- Verify disk space
+- Review processing pipeline logs
 
-```bash
-# Check application logs
-railway logs
-heroku logs --tail
+### Emergency Procedures
 
-# Database queries
-psql $DATABASE_URL -c "SELECT count(*) FROM content_chunks;"
+**Backend Down:**
+1. Check health endpoint
+2. Review application logs
+3. Restart service via hosting platform
+4. Verify environment variables
 
-# Performance monitoring
-curl https://your-api.com/health
-curl https://your-api.com/api/upload/stats
-```
+**Database Issues:**
+1. Check Supabase dashboard
+2. Review connection limits
+3. Verify migration status
+4. Contact Supabase support if needed
 
-## Maintenance
+## 📞 Support
 
-### Regular Tasks
+For deployment issues:
+- Review logs in hosting platform dashboard
+- Check Supabase logs for database issues
+- Monitor API usage in OpenAI/Cohere dashboards
+- Use health check endpoint for quick diagnostics
 
-1. **Weekly**
-   - Review error logs
-   - Check API usage and costs
-   - Monitor performance metrics
+---
 
-2. **Monthly**
-   - Update dependencies
-   - Security audit
-   - Backup testing
-
-3. **Quarterly**
-   - Capacity planning review
-   - Security penetration testing
-   - Disaster recovery testing
-
-### Update Procedures
-
-```bash
-# Safe deployment process
-1. Deploy to staging environment
-2. Run integration tests
-3. Database migrations (if any)
-4. Blue-green deployment to production
-5. Monitor health checks
-6. Rollback plan ready
-```
-
-This deployment guide ensures a robust, scalable, and maintainable production deployment of ScottGPT.
+*For additional technical details, see [README.md](README.md) and [API.md](API.md)*
