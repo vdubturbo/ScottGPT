@@ -24,6 +24,8 @@ function App() {
   const [activeTab, setActiveTab] = useState('chat');
   const [activeAdminSection, setActiveAdminSection] = useState('overview');
   const [incomingFiles, setIncomingFiles] = useState(null);
+  const [isDragging, setIsDragging] = useState(false);
+  const [uploadResult, setUploadResult] = useState(null);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -56,10 +58,59 @@ function App() {
     setSelectedFiles(Array.from(e.target.files));
   };
 
+  // Drag & Drop handlers
+  const handleDragOver = (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDragging(true);
+  };
+
+  const handleDragEnter = (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDragging(true);
+  };
+
+  const handleDragLeave = (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    // Only set dragging to false if we're leaving the drop zone entirely
+    if (!e.currentTarget.contains(e.relatedTarget)) {
+      setIsDragging(false);
+    }
+  };
+
+  const handleDrop = (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDragging(false);
+    
+    if (processing) return; // Don't allow drops during processing
+    
+    const files = Array.from(e.dataTransfer.files);
+    const validFiles = files.filter(file => {
+      const validTypes = ['.pdf', '.docx', '.doc', '.txt', '.md'];
+      const extension = '.' + file.name.split('.').pop().toLowerCase();
+      return validTypes.includes(extension);
+    });
+    
+    if (validFiles.length > 0) {
+      setSelectedFiles(validFiles);
+      // Update the file input to match
+      const dt = new DataTransfer();
+      validFiles.forEach(file => dt.items.add(file));
+      document.getElementById('file-input').files = dt.files;
+    } else if (files.length > 0) {
+      alert('Please select valid file types: PDF, DOCX, DOC, TXT, MD');
+    }
+  };
+
   const handleUpload = async () => {
     if (selectedFiles.length === 0) return;
 
     setUploading(true);
+    setUploadResult(null); // Clear previous results
+    
     const formData = new FormData();
     selectedFiles.forEach(file => {
       formData.append('files', file);
@@ -70,12 +121,29 @@ function App() {
         headers: { 'Content-Type': 'multipart/form-data' }
       });
       
-      alert(`✅ ${result.data.files.length} files uploaded successfully!`);
+      // Store the detailed upload result
+      setUploadResult({
+        success: true,
+        message: result.data.message,
+        stats: result.data.stats,
+        files: result.data.files,
+        duplicates: result.data.duplicates
+      });
+      
+      // Clear selected files after successful upload
       setSelectedFiles([]);
       document.getElementById('file-input').value = '';
       
+      return result.data; // Return for chaining with process
+      
     } catch (error) {
-      alert('❌ Upload failed: ' + (error.response?.data?.error || error.message));
+      const errorMessage = error.response?.data?.error || error.message;
+      setUploadResult({
+        success: false,
+        message: `Upload failed: ${errorMessage}`,
+        error: errorMessage
+      });
+      throw error; // Re-throw to prevent processing
     } finally {
       setUploading(false);
     }
@@ -370,7 +438,7 @@ function App() {
                   onClick={() => setActiveAdminSection('upload')}
                 >
                   <span className="nav-icon">📁</span>
-                  <span className="nav-label">Upload & Process</span>
+                  <span className="nav-label">Documents</span>
                 </button>
                 <button
                   className={`admin-nav-item ${activeAdminSection === 'data' ? 'active' : ''}`}
@@ -441,172 +509,272 @@ function App() {
 
               {activeAdminSection === 'upload' && (
                 <div className="admin-section">
-                  <h2>📁 Upload & Process Documents</h2>
+                  <h2>📁 Document Management</h2>
                   
-                  {/* Upload Section */}
-                  <div className="subsection">
-                    <h3>📤 Upload Files</h3>
-                    <p>Supported formats: PDF, DOCX, DOC, TXT, MD</p>
-                    
-                    <div className="upload-section">
-                      <div className="file-upload">
-                        <input
-                          id="file-input"
-                          type="file"
-                          multiple
-                          accept=".pdf,.docx,.doc,.txt,.md"
-                          onChange={handleFileSelect}
-                          className="file-input"
-                        />
-                        <label htmlFor="file-input" className="file-label">
-                          📎 Select Files
-                        </label>
+                  <div className="document-processor">
+                    <div className="processor-header">
+                      <div className="processor-title">
+                        <h3>Add Documents to Knowledge Base</h3>
+                        <p>Upload and process documents in one streamlined workflow</p>
+                      </div>
+                      <div className="processor-status">
+                        {processing && (
+                          <div className="status-indicator processing">
+                            <div className="spinner"></div>
+                            <span>Processing...</span>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+
+                    <div className="upload-zone">
+                      <input
+                        id="file-input"
+                        type="file"
+                        multiple
+                        accept=".pdf,.docx,.doc,.txt,.md"
+                        onChange={handleFileSelect}
+                        className="file-input"
+                        disabled={processing}
+                      />
+                      <label 
+                        htmlFor="file-input" 
+                        className={`file-drop-zone ${selectedFiles.length > 0 ? 'has-files' : ''} ${processing ? 'disabled' : ''} ${isDragging ? 'drag-active' : ''}`}
+                        onDragOver={handleDragOver}
+                        onDragEnter={handleDragEnter}
+                        onDragLeave={handleDragLeave}
+                        onDrop={handleDrop}
+                      >
+                        <div className="drop-zone-content">
+                          {selectedFiles.length === 0 ? (
+                            <>
+                              <div className="drop-icon">📁</div>
+                              <h4>Drop files here or click to browse</h4>
+                              <p>Supported: PDF, DOCX, DOC, TXT, MD • Max 10MB per file</p>
+                            </>
+                          ) : (
+                            <>
+                              <div className="files-selected">
+                                <div className="files-icon">📄</div>
+                                <h4>{selectedFiles.length} file{selectedFiles.length > 1 ? 's' : ''} selected</h4>
+                                <div className="file-list">
+                                  {selectedFiles.slice(0, 3).map((file, index) => (
+                                    <div key={index} className="file-item">
+                                      <span className="file-name">{file.name}</span>
+                                      <span className="file-size">{Math.round(file.size / 1024)} KB</span>
+                                    </div>
+                                  ))}
+                                  {selectedFiles.length > 3 && (
+                                    <div className="file-item more">
+                                      +{selectedFiles.length - 3} more files
+                                    </div>
+                                  )}
+                                </div>
+                              </div>
+                            </>
+                          )}
+                        </div>
+                      </label>
+                    </div>
+
+                    <div className="processor-actions">
+                      {selectedFiles.length > 0 && !processing && (
+                        <div className="action-group">
+                          <button
+                            onClick={async () => {
+                              try {
+                                const uploadResult = await handleUpload();
+                                // Auto-start processing after successful upload
+                                if (uploadResult && uploadResult.stats.uniqueUploaded > 0) {
+                                  setTimeout(() => handleProcess(), 1000);
+                                }
+                                // If all files were duplicates, don't auto-process
+                                else if (uploadResult && uploadResult.stats.duplicatesSkipped > 0 && uploadResult.stats.uniqueUploaded === 0) {
+                                  // Already handled by upload result display
+                                }
+                              } catch (error) {
+                                // Error already handled in handleUpload
+                              }
+                            }}
+                            disabled={uploading}
+                            className="btn btn-primary btn-large"
+                          >
+                            {uploading ? (
+                              <>
+                                <div className="btn-spinner"></div>
+                                Uploading...
+                              </>
+                            ) : (
+                              <>
+                                🚀 Upload & Process
+                              </>
+                            )}
+                          </button>
+                          
+                          <button
+                            onClick={() => {
+                              setSelectedFiles([]);
+                              document.getElementById('file-input').value = '';
+                            }}
+                            className="btn btn-secondary"
+                          >
+                            Clear
+                          </button>
+                        </div>
+                      )}
+
+                      {processing && (
+                        <div className="action-group">
+                          <div className="process-progress">
+                            <div className="progress-bar">
+                              <div className="progress-bar-fill"></div>
+                            </div>
+                            <div className="progress-text">
+                              {processStatus || 'Processing documents...'}
+                            </div>
+                          </div>
+                          
+                          <button
+                            onClick={async () => {
+                              try {
+                                await axios.post('/api/upload/stop');
+                                setProcessing(false);
+                                setIsProcessActive(false);
+                                setProcessLog(prev => prev + '\n❌ Pipeline stopped by user request\n');
+                              } catch (error) {
+                                console.error('Stop error:', error);
+                              }
+                            }}
+                            className="btn btn-danger btn-small"
+                          >
+                            Stop
+                          </button>
+                        </div>
+                      )}
+
+                      {!selectedFiles.length && !processing && (
+                        <div className="action-group">
+                          <button
+                            onClick={handleProcess}
+                            className="btn btn-outline"
+                          >
+                            🔄 Process Existing Files
+                          </button>
+                        </div>
+                      )}
+                    </div>
+
+                    {uploadResult && (
+                      <div className={`upload-feedback ${uploadResult.success ? 'success' : 'error'}`}>
+                        <div className="feedback-header">
+                          <div className="feedback-icon">
+                            {uploadResult.success ? '✅' : '❌'}
+                          </div>
+                          <div className="feedback-message">
+                            {uploadResult.message}
+                          </div>
+                        </div>
                         
-                        {selectedFiles.length > 0 && (
-                          <div className="selected-files">
-                            <p>Selected files ({selectedFiles.length}):</p>
-                            <ul>
-                              {selectedFiles.map((file, index) => (
-                                <li key={index}>
-                                  {file.name} ({Math.round(file.size / 1024)} KB)
+                        {uploadResult.success && uploadResult.stats && (
+                          <div className="upload-stats">
+                            <div className="stat-item">
+                              <span className="stat-label">Uploaded:</span>
+                              <span className="stat-value">{uploadResult.stats.uniqueUploaded} files</span>
+                            </div>
+                            
+                            {uploadResult.stats.duplicatesSkipped > 0 && (
+                              <div className="stat-item duplicate">
+                                <span className="stat-label">Duplicates skipped:</span>
+                                <span className="stat-value">{uploadResult.stats.duplicatesSkipped} files</span>
+                              </div>
+                            )}
+                            
+                            <div className="stat-item">
+                              <span className="stat-label">Total size:</span>
+                              <span className="stat-value">
+                                {(uploadResult.stats.totalSizeBytes / 1024).toFixed(1)} KB
+                              </span>
+                            </div>
+                          </div>
+                        )}
+                        
+                        {uploadResult.success && uploadResult.duplicates && uploadResult.duplicates.length > 0 && (
+                          <div className="duplicate-details">
+                            <h5>Duplicate Files:</h5>
+                            <ul className="duplicate-list">
+                              {uploadResult.duplicates.map((dup, index) => (
+                                <li key={index} className="duplicate-item">
+                                  <span className="duplicate-name">{dup.originalName}</span>
+                                  <span className="duplicate-reason">
+                                    (matches {dup.existingFile})
+                                  </span>
                                 </li>
                               ))}
                             </ul>
                           </div>
                         )}
                         
-                        <button
-                          onClick={handleUpload}
-                          disabled={uploading || selectedFiles.length === 0}
-                          className="upload-button"
-                        >
-                          {uploading ? '⏳ Uploading...' : '📤 Upload Files'}
-                        </button>
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Process Section */}
-                  <div className="subsection">
-                    <h3>🔄 Process Documents</h3>
-                    <p>Run the AI ingestion pipeline to update the knowledge base</p>
-                    
-                    <div className="process-section">
-                      <div className="process-controls">
-                        <button
-                          onClick={handleProcess}
-                          disabled={processing}
-                          className="process-button"
-                        >
-                          {processing ? '⏳ Processing...' : '🚀 Process Documents'}
-                        </button>
-                        
-                        {processing && (
-                          <button
-                            onClick={async () => {
-                              try {
-                                await axios.post('/api/upload/stop');
-                                setProcessing(false);
-                                setProcessLog(prev => prev + '\n❌ Pipeline stopped by user request\n');
-                              } catch (error) {
-                                console.error('Stop error:', error);
-                              }
-                            }}
-                            className="process-button"
-                            style={{marginLeft: '10px', backgroundColor: '#dc3545'}}
-                          >
-                            🛑 Stop Pipeline
-                          </button>
+                        {uploadResult.success && uploadResult.stats.uniqueUploaded === 0 && uploadResult.stats.duplicatesSkipped > 0 && (
+                          <div className="no-processing-notice">
+                            <p>⚠️ No new files to process - all uploads were duplicates</p>
+                          </div>
                         )}
                         
                         <button
-                          onClick={async () => {
-                            try {
-                              const logsResponse = await fetch('/api/upload/logs?since=0');
-                              const logsData = await logsResponse.json();
-                              
-                              if (logsData.success) {
-                                const allLogs = logsData.logs.map(log => log.message).join('\n');
-                                setProcessLog(allLogs + '\n');
-                                
-                                // Check if processing is complete
-                                if (!logsData.status.isActive && processing) {
-                                  setProcessing(false);
-                                  setIsProcessActive(false);
-                                  setProcessStatus('✅ Processing completed');
-                                  await loadStats();
-                                }
-                              }
-                            } catch (error) {
-                              console.error('Refresh error:', error);
-                            }
-                          }}
-                          className="process-button"
-                          style={{marginLeft: '10px', backgroundColor: '#6366f1'}}
+                          onClick={() => setUploadResult(null)}
+                          className="btn btn-mini dismiss-btn"
                         >
-                          🔄 Refresh Logs
+                          Dismiss
                         </button>
                       </div>
-                      
-                      {/* Progress indicator */}
-                      {isProcessActive && (
-                        <div className="progress-section">
-                          <div className="progress-bar">
-                            <div className="progress-bar-fill"></div>
-                          </div>
-                          <div className="progress-status">
-                            {processStatus || 'Processing...'}
-                          </div>
-                        </div>
-                      )}
-                      
-                      <button
-                        onClick={async () => {
-                          setProcessing(true);
-                          setProcessLog('🧪 Starting stream test...\n');
-                          
-                          try {
-                            const response = await fetch('/api/upload/test-stream', { method: 'POST' });
-                            const reader = response.body.getReader();
-                            const decoder = new TextDecoder();
+                    )}
 
-                            while (true) {
-                              const { done, value } = await reader.read();
-                              if (done) break;
-                              const chunk = decoder.decode(value, { stream: true });
-                              if (chunk) {
-                                setProcessLog(prev => {
-                                  const newLog = prev + chunk;
-                                  // Auto-scroll to bottom after state update
-                                  setTimeout(() => {
-                                    if (logRef.current) {
-                                      logRef.current.scrollTop = logRef.current.scrollHeight;
+                    {processLog && (
+                      <div className="log-viewer">
+                        <div className="log-header">
+                          <h4>Processing Log</h4>
+                          <div className="log-actions">
+                            <button
+                              onClick={async () => {
+                                try {
+                                  const logsResponse = await fetch('/api/upload/logs?since=0');
+                                  const logsData = await logsResponse.json();
+                                  
+                                  if (logsData.success) {
+                                    const allLogs = logsData.logs.map(log => log.message).join('\n');
+                                    setProcessLog(allLogs + '\n');
+                                    
+                                    if (!logsData.status.isActive && processing) {
+                                      setProcessing(false);
+                                      setIsProcessActive(false);
+                                      setProcessStatus('✅ Processing completed');
+                                      await loadStats();
                                     }
-                                  }, 0);
-                                  return newLog;
-                                });
-                              }
-                            }
-                          } catch (error) {
-                            setProcessLog(prev => prev + `\n❌ Test failed: ${error.message}`);
-                          } finally {
-                            setProcessing(false);
-                          }
-                        }}
-                        disabled={processing}
-                        className="process-button"
-                        style={{marginLeft: '10px', backgroundColor: '#666'}}
-                      >
-                        🧪 Test Stream
-                      </button>
-
-                      {processLog && (
-                        <div className="process-log">
-                          <h4>📋 Processing Log:</h4>
-                          <pre className="log-content" ref={logRef}>{processLog}</pre>
+                                  }
+                                } catch (error) {
+                                  console.error('Refresh error:', error);
+                                }
+                              }}
+                              className="btn btn-mini"
+                            >
+                              🔄
+                            </button>
+                            <button
+                              onClick={() => {
+                                setProcessLog('');
+                                setProcessStatus('');
+                              }}
+                              className="btn btn-mini"
+                            >
+                              🗑️
+                            </button>
+                          </div>
                         </div>
-                      )}
-                    </div>
+                        <div className="log-content" ref={logRef}>
+                          {processLog}
+                        </div>
+                      </div>
+                    )}
                   </div>
                 </div>
               )}
@@ -737,6 +905,44 @@ function App() {
                         disabled={processing}
                       >
                         🔗 Test Indexer
+                      </button>
+                      
+                      <button
+                        onClick={async () => {
+                          setProcessing(true);
+                          setProcessLog('🧪 Starting stream test...\n');
+                          
+                          try {
+                            const response = await fetch('/api/upload/test-stream', { method: 'POST' });
+                            const reader = response.body.getReader();
+                            const decoder = new TextDecoder();
+
+                            while (true) {
+                              const { done, value } = await reader.read();
+                              if (done) break;
+                              const chunk = decoder.decode(value, { stream: true });
+                              if (chunk) {
+                                setProcessLog(prev => {
+                                  const newLog = prev + chunk;
+                                  setTimeout(() => {
+                                    if (logRef.current) {
+                                      logRef.current.scrollTop = logRef.current.scrollHeight;
+                                    }
+                                  }, 0);
+                                  return newLog;
+                                });
+                              }
+                            }
+                          } catch (error) {
+                            setProcessLog(prev => prev + `\n❌ Test failed: ${error.message}`);
+                          } finally {
+                            setProcessing(false);
+                          }
+                        }}
+                        disabled={processing}
+                        className="test-button"
+                      >
+                        🧪 Test Stream
                       </button>
                     </div>
                     
