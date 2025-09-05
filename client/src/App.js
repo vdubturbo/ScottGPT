@@ -20,6 +20,7 @@ function App() {
   const [stats, setStats] = useState(null);
   const [processStatus, setProcessStatus] = useState('');
   const [isProcessActive, setIsProcessActive] = useState(false);
+  const logRef = React.useRef(null);
   const [activeTab, setActiveTab] = useState('chat');
   const [activeAdminSection, setActiveAdminSection] = useState('overview');
   const [incomingFiles, setIncomingFiles] = useState(null);
@@ -86,18 +87,17 @@ function App() {
     setProcessLog('🚀 Starting pipeline processing...\n');
     setProcessStatus('🚀 Initializing processing pipeline...');
     
-    let hasReceivedData = false;
-    let lastUpdateTime = Date.now();
-    
-    let activityTimeout;
-    let overallTimeout;
+    let lastLogId = 0;
+    let pollInterval;
+    let pollTimeout;
+    const startTime = Date.now();
     
     try {
+      // Start the process
       const response = await fetch('/api/upload/process', {
         method: 'POST',
         headers: {
-          'Accept': 'text/plain',
-          'Cache-Control': 'no-cache'
+          'Content-Type': 'application/json'
         }
       });
 
@@ -105,101 +105,86 @@ function App() {
         throw new Error(`HTTP ${response.status}: ${response.statusText}`);
       }
 
-      const reader = response.body.getReader();
-      const decoder = new TextDecoder();
+      const result = await response.json();
+      setProcessLog(prev => prev + `${result.message}\n`);
       
-      // Set up activity timeout and connection monitoring
-      activityTimeout = setInterval(() => {
-        const elapsed = Date.now() - lastUpdateTime;
-        if (!hasReceivedData && elapsed > 10000) {
-          setProcessStatus('⚠️ No response from server - check connection');
-        } else if (elapsed > 8000) {
-          setProcessStatus(`⏳ Processing... (${Math.floor(elapsed / 1000)}s since last update)`);
+      // Set up polling timeout (10 minutes max)
+      pollTimeout = setTimeout(() => {
+        if (pollInterval) {
+          clearInterval(pollInterval);
+          setProcessing(false);
+          setIsProcessActive(false);
+          setProcessStatus('⚠️ Polling timed out - process may still be running');
+          setProcessLog(prev => prev + '\n⚠️ POLLING TIMED OUT - Check server logs for process status\n');
         }
-      }, 1000);
+      }, 600000); // 10 minutes
       
-      // Set up overall timeout
-      overallTimeout = setTimeout(() => {
-        if (processing) {
-          setProcessLog(prev => prev + '\n❌ Processing timed out after 3 minutes\n');
-          setProcessStatus('❌ Processing timed out - operation may still be running in background');
-        }
-      }, 180000); // 3 minutes
-
-      while (true) {
-        const { done, value } = await reader.read();
-        if (done) {
-          clearInterval(activityTimeout);
-          break;
-        }
-
-        const chunk = decoder.decode(value, { stream: true });
-        if (chunk) {
-          hasReceivedData = true;
-          lastUpdateTime = Date.now();
-          setProcessLog(prev => prev + chunk);
+      // Start polling for logs
+      pollInterval = setInterval(async () => {
+        try {
+          const logsResponse = await fetch(`/api/upload/logs?since=${lastLogId}`);
+          const logsData = await logsResponse.json();
           
-          // Update status based on log content
-          const lines = chunk.split('\n').filter(line => line.trim());
-          if (lines.length > 0) {
-            const lastLine = lines[lines.length - 1];
+          if (logsData.success && logsData.logs.length > 0) {
+            // Update logs
+            const newLogs = logsData.logs.map(log => log.message).join('\n') + '\n';
+            setProcessLog(prev => {
+              const newLog = prev + newLogs;
+              // Auto-scroll to bottom
+              setTimeout(() => {
+                if (logRef.current) {
+                  logRef.current.scrollTop = logRef.current.scrollHeight;
+                }
+              }, 0);
+              return newLog;
+            });
             
-            // Extract meaningful status updates
-            if (lastLine.includes('Step 1:')) {
-              setProcessStatus('📄 Step 1: Converting documents to markdown...');
-            } else if (lastLine.includes('Step 2:')) {
-              setProcessStatus('🤖 Step 2: Extracting job data with AI...');
-            } else if (lastLine.includes('Step 3:')) {
-              setProcessStatus('✅ Step 3: Validating extracted content...');
-            } else if (lastLine.includes('Step 4:')) {
-              setProcessStatus('💾 Step 4: Writing structured job files...');
-            } else if (lastLine.includes('Step 5:')) {
-              setProcessStatus('🔗 Step 5: Creating embeddings and indexing...');
-            } else if (lastLine.includes('Calling OpenAI API')) {
-              const blockMatch = lastLine.match(/block (\d+)\/(\d+)/);
-              if (blockMatch) {
-                setProcessStatus(`🤖 Processing job ${blockMatch[1]} of ${blockMatch[2]} with AI...`);
-              }
-            } else if (lastLine.includes('Processing batch')) {
-              setProcessStatus('⚡ Creating embeddings for search...');
-            } else {
-              // Clean status line for display
-              const cleanStatus = lastLine.replace(/^[\s]*[📁🔧📖💾⏭️✅❌🚀⚡📋🤖][\s]*/, '').trim();
-              if (cleanStatus && !cleanStatus.includes('   ')) {
-                setProcessStatus(cleanStatus);
-              }
+            // Update last log ID
+            if (logsData.logs.length > 0) {
+              lastLogId = logsData.logs[logsData.logs.length - 1].id;
+            }
+            
+            // Update status based on latest log
+            const latestLog = logsData.logs[logsData.logs.length - 1];
+            if (latestLog) {
+              setProcessStatus(latestLog.message);
             }
           }
+          
+          // Check if processing is complete
+          if (!logsData.status.isActive) {
+            clearInterval(pollInterval);
+            clearTimeout(pollTimeout);
+            setProcessing(false);
+            setIsProcessActive(false);
+            setProcessStatus('✅ Processing completed');
+            
+            // Show completion message
+            setProcessLog(prev => prev + '\n🎉 PROCESSING COMPLETED SUCCESSFULLY!\n');
+            
+            // Load updated stats
+            setTimeout(async () => {
+              await loadStats();
+            }, 1000);
+          }
+        } catch (pollError) {
+          console.error('Error polling logs:', pollError);
         }
-      }
-      
-      // Clear timeouts
-      clearInterval(activityTimeout);
-      clearTimeout(overallTimeout);
-      
-      // Show completion with summary
-      setProcessLog(prev => prev + '\n🎉 PROCESSING COMPLETED SUCCESSFULLY!\n');
-      setProcessStatus('🎉 Processing completed successfully!');
-      
-      // Load updated stats and show results
-      await loadStats();
-      
-      // Show success message with delay
-      setTimeout(() => {
-        setProcessStatus('✅ Ready for next operation');
-      }, 3000);
+      }, 500); // Poll every 500ms
       
     } catch (error) {
       setProcessLog(prev => prev + `\n❌ PROCESSING FAILED: ${error.message}\n`);
       setProcessStatus(`❌ Processing failed: ${error.message}`);
       console.error('Processing error:', error);
-    } finally {
       setProcessing(false);
       setIsProcessActive(false);
-      // Clean up any remaining timeouts
-      if (activityTimeout) clearInterval(activityTimeout);
-      if (overallTimeout) clearTimeout(overallTimeout);
+      
+      // Clean up timeouts
+      if (pollInterval) clearInterval(pollInterval);
+      if (pollTimeout) clearTimeout(pollTimeout);
     }
+    
+    // Cleanup function will be handled by the polling interval check
   };
 
   const loadStats = async () => {
@@ -235,7 +220,16 @@ function App() {
         if (done) break;
         const chunk = decoder.decode(value, { stream: true });
         if (chunk) {
-          setProcessLog(prev => prev + chunk);
+          setProcessLog(prev => {
+            const newLog = prev + chunk;
+            // Auto-scroll to bottom after state update
+            setTimeout(() => {
+              if (logRef.current) {
+                logRef.current.scrollTop = logRef.current.scrollHeight;
+              }
+            }, 0);
+            return newLog;
+          });
         }
       }
     } catch (error) {
@@ -524,6 +518,34 @@ function App() {
                             🛑 Stop Pipeline
                           </button>
                         )}
+                        
+                        <button
+                          onClick={async () => {
+                            try {
+                              const logsResponse = await fetch('/api/upload/logs?since=0');
+                              const logsData = await logsResponse.json();
+                              
+                              if (logsData.success) {
+                                const allLogs = logsData.logs.map(log => log.message).join('\n');
+                                setProcessLog(allLogs + '\n');
+                                
+                                // Check if processing is complete
+                                if (!logsData.status.isActive && processing) {
+                                  setProcessing(false);
+                                  setIsProcessActive(false);
+                                  setProcessStatus('✅ Processing completed');
+                                  await loadStats();
+                                }
+                              }
+                            } catch (error) {
+                              console.error('Refresh error:', error);
+                            }
+                          }}
+                          className="process-button"
+                          style={{marginLeft: '10px', backgroundColor: '#6366f1'}}
+                        >
+                          🔄 Refresh Logs
+                        </button>
                       </div>
                       
                       {/* Progress indicator */}
@@ -553,7 +575,16 @@ function App() {
                               if (done) break;
                               const chunk = decoder.decode(value, { stream: true });
                               if (chunk) {
-                                setProcessLog(prev => prev + chunk);
+                                setProcessLog(prev => {
+                                  const newLog = prev + chunk;
+                                  // Auto-scroll to bottom after state update
+                                  setTimeout(() => {
+                                    if (logRef.current) {
+                                      logRef.current.scrollTop = logRef.current.scrollHeight;
+                                    }
+                                  }, 0);
+                                  return newLog;
+                                });
                               }
                             }
                           } catch (error) {
@@ -572,7 +603,7 @@ function App() {
                       {processLog && (
                         <div className="process-log">
                           <h4>📋 Processing Log:</h4>
-                          <pre className="log-content">{processLog}</pre>
+                          <pre className="log-content" ref={logRef}>{processLog}</pre>
                         </div>
                       )}
                     </div>
@@ -712,7 +743,7 @@ function App() {
                     {processLog && activeAdminSection === 'debug' && (
                       <div className="test-log">
                         <h4>📋 Test Output:</h4>
-                        <pre className="log-content">{processLog}</pre>
+                        <pre className="log-content" ref={logRef}>{processLog}</pre>
                       </div>
                     )}
                   </div>

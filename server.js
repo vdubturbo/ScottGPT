@@ -82,7 +82,7 @@ async function startServer() {
   // API Routes with specific rate limiting
   app.use('/api/chat', chatLimit, chatRoutes.default);
   app.use('/api/data', dataLimit, dataRoutes.default);
-  app.use('/api/upload', uploadLimit, uploadRoutes.default);
+  app.use('/api/upload', uploadRoutes.default);
   app.use('/api/tags', generalLimit, tagsRoutes.default);
   app.use('/api/user', dataLimit, userDataRoutes.default);
   app.use('/api/user', dataLimit, advancedUserDataRoutes.default);

@@ -4,8 +4,11 @@ import fs from 'fs/promises';
 import path from 'path';
 import { exec } from 'child_process';
 import { promisify } from 'util';
+import rateLimit from 'express-rate-limit';
 import { api as logger } from '../utils/logger.js';
 import { processBatchUploads, getCacheStats } from '../utils/upload-optimizer.js';
+import processLogger from '../utils/process-logger.js';
+import CONFIG from '../config/app-config.js';
 import dotenv from 'dotenv';
 
 // Ensure environment variables are loaded
@@ -13,6 +16,15 @@ dotenv.config();
 
 const router = express.Router();
 const execAsync = promisify(exec);
+
+// Create upload-specific rate limit (only for actual file uploads)
+const uploadFileLimit = rateLimit({
+  windowMs: CONFIG.rateLimiting.upload.windowMs,
+  max: CONFIG.rateLimiting.upload.maxRequests,
+  message: { error: CONFIG.rateLimiting.upload.message },
+  standardHeaders: true,
+  legacyHeaders: false
+});
 
 // Ensure required directories exist
 const ensureDirectoryExists = async (dirPath) => {
@@ -63,7 +75,7 @@ const upload = multer({
 });
 
 // POST /api/upload - Upload files with duplicate detection
-router.post('/', upload.array('files', 10), async (req, res) => {
+router.post('/', uploadFileLimit, upload.array('files', 10), async (req, res) => {
   const uploadStartTime = Date.now();
   
   try {
@@ -226,29 +238,18 @@ router.post('/process', async (req, res) => {
   // Set processing state
   isProcessingActive = true;
   activeProcessAbortController = new AbortController();
+  
+  // Start logging
+  processLogger.startLogging('pipeline-process');
 
-  // Set up streaming response first
-  res.writeHead(200, {
-    'Content-Type': 'text/plain',
-    'Cache-Control': 'no-cache',
-    'Connection': 'keep-alive',
-    'Access-Control-Allow-Origin': '*'
-  });
+  // Simple JSON response - frontend will poll for logs
+  res.json({ success: true, message: 'Processing started, check /api/upload/logs for progress' });
 
-  // Define sendProgress function outside try/catch so it's always available
-  const sendProgress = (message) => {
-    console.log(`[PIPELINE] ${message}`); // Also log to server console
+  // Run processing in background
+  (async () => {
     try {
-      res.write(`${message}\n`);
-    } catch (writeError) {
-      console.error('Error writing to response:', writeError);
-    }
-  };
-
-  try {
-
-    sendProgress('🚀 [INIT] Pipeline starting - Node.js direct execution mode');
-    sendProgress(`📅 [INIT] Started at: ${new Date().toISOString()}`);
+      processLogger.log('🚀 [INIT] Pipeline starting - Node.js direct execution mode');
+      processLogger.log(`📅 [INIT] Started at: ${new Date().toISOString()}`);
 
     // Check if there are files to process
     let incomingFiles;
@@ -256,8 +257,7 @@ router.post('/process', async (req, res) => {
       incomingFiles = await fs.readdir('incoming/');
     } catch (error) {
       if (error.code === 'ENOENT') {
-        sendProgress('❌ [INIT] No incoming directory found');
-        res.end();
+        processLogger.error('[INIT] No incoming directory found');
         return;
       }
       throw error;
@@ -266,13 +266,12 @@ router.post('/process', async (req, res) => {
     const validFiles = incomingFiles.filter(f => /\.(pdf|docx|doc|txt|md)$/i.test(f));
     
     if (validFiles.length === 0) {
-      sendProgress('❌ [INIT] No valid files found in incoming directory');
-      sendProgress('   Please upload files first, then try processing again');
-      res.end();
+      processLogger.error('[INIT] No valid files found in incoming directory');
+      processLogger.log('   Please upload files first, then try processing again');
       return;
     }
 
-    sendProgress(`📁 [INIT] Found ${validFiles.length} files: ${validFiles.join(', ')}`);
+    processLogger.log(`📁 [INIT] Found ${validFiles.length} files: ${validFiles.join(', ')}`);
 
     // Pipeline steps with timeouts
     const steps = [
@@ -286,11 +285,11 @@ router.post('/process', async (req, res) => {
     // Execute each step
     for (const step of steps) {
       if (activeProcessAbortController.signal.aborted) {
-        sendProgress('❌ [ABORT] Pipeline terminated by user request');
+        processLogger.error('[ABORT] Pipeline terminated by user request');
         break;
       }
 
-      const reporter = createProgressReporter(sendProgress, step.name, step.timeout);
+      const reporter = createProgressReporter(processLogger.log.bind(processLogger), step.name, step.timeout);
       
       try {
         reporter.start();
@@ -298,20 +297,66 @@ router.post('/process', async (req, res) => {
         // Create timeout promise
         const timeoutPromise = createTimeoutPromise(step.timeout, step.name);
         
-        // Execute the step with enhanced error handling
+        // Execute the step with enhanced error handling and console capture
         const stepPromise = (async () => {
           let module;
           try {
-            sendProgress(`📦 [${step.name.toUpperCase()}] Importing module: ${step.script}`);
+            processLogger.log(`📦 [${step.name.toUpperCase()}] Importing module: ${step.script}`);
             module = await import(step.script);
           } catch (importError) {
-            sendProgress(`❌ [${step.name.toUpperCase()}] Module import failed: ${importError.message}`);
+            processLogger.error(`[${step.name.toUpperCase()}] Module import failed: ${importError.message}`);
             throw new Error(`Failed to import ${step.name} script: ${importError.message}`);
           }
 
           if (typeof module.default === 'function') {
-            sendProgress(`🔧 [${step.name.toUpperCase()}] Executing step function`);
-            return await module.default();
+            processLogger.log(`🔧 [${step.name.toUpperCase()}] Executing step function`);
+            
+            // Capture console output and redirect to stream
+            const originalConsoleLog = console.log;
+            const originalConsoleError = console.error;
+            const originalConsoleWarn = console.warn;
+            
+            console.log = (...args) => {
+              const message = args.map(arg => 
+                typeof arg === 'object' ? JSON.stringify(arg) : String(arg)
+              ).join(' ');
+              // Log to our process logger
+              processLogger.log(message);
+              originalConsoleLog(...args); // Also keep server console logging
+            };
+            
+            console.error = (...args) => {
+              const message = args.map(arg => 
+                typeof arg === 'object' ? JSON.stringify(arg) : String(arg)
+              ).join(' ');
+              processLogger.error(message);
+              originalConsoleError(...args);
+            };
+            
+            console.warn = (...args) => {
+              const message = args.map(arg => 
+                typeof arg === 'object' ? JSON.stringify(arg) : String(arg)
+              ).join(' ');
+              processLogger.warn(message);
+              originalConsoleWarn(...args);
+            };
+            
+            try {
+              const result = await module.default();
+              
+              // Restore original console methods
+              console.log = originalConsoleLog;
+              console.error = originalConsoleError;
+              console.warn = originalConsoleWarn;
+              
+              return result;
+            } catch (error) {
+              // Restore original console methods even on error
+              console.log = originalConsoleLog;
+              console.error = originalConsoleError;
+              console.warn = originalConsoleWarn;
+              throw error;
+            }
           } else {
             throw new Error(`${step.name} script does not export a default function`);
           }
@@ -326,16 +371,16 @@ router.post('/process', async (req, res) => {
         reporter.error(error);
         
         // Log detailed error
-        sendProgress(`🔍 [ERROR] ${step.name} error details:`);
-        sendProgress(`   Message: ${error.message}`);
-        sendProgress(`   Stack: ${error.stack ? error.stack.split('\n')[1] : 'No stack trace'}`);
+        processLogger.log(`🔍 [ERROR] ${step.name} error details:`);
+        processLogger.log(`   Message: ${error.message}`);
+        processLogger.log(`   Stack: ${error.stack ? error.stack.split('\n')[1] : 'No stack trace'}`);
         
         throw error;
       }
     }
 
     // Final cleanup - move files to processed/
-    const cleanupReporter = createProgressReporter(sendProgress, 'File Cleanup', 10000);
+    const cleanupReporter = createProgressReporter(processLogger.log.bind(processLogger), 'File Cleanup', 10000);
     try {
       cleanupReporter.start();
       
@@ -351,39 +396,37 @@ router.post('/process', async (req, res) => {
           const src = `incoming/${file}`;
           const dest = `processed/${file}`;
           await fs.rename(src, dest);
-          sendProgress(`   📁 Moved: ${file}`);
+          processLogger.log(`   📁 Moved: ${file}`);
           movedCount++;
         }
       }
       
-      sendProgress(`📦 [CLEANUP] Archived ${movedCount} processed files`);
+      processLogger.log(`📦 [CLEANUP] Archived ${movedCount} processed files`);
       cleanupReporter.end();
       
     } catch (error) {
       cleanupReporter.error(error);
-      sendProgress('⚠️  [CLEANUP] File cleanup failed, but pipeline processing succeeded');
+      processLogger.warn('[CLEANUP] File cleanup failed, but pipeline processing succeeded');
     }
 
     // Success
-    sendProgress('🎉 [SUCCESS] Complete pipeline execution finished!');
-    sendProgress(`📊 [SUCCESS] Files processed and indexed successfully`);
-    sendProgress(`⏱️  [SUCCESS] Completed at: ${new Date().toISOString()}`);
+    processLogger.log('🎉 [SUCCESS] Complete pipeline execution finished!');
+    processLogger.log(`📊 [SUCCESS] Files processed and indexed successfully`);
+    processLogger.log(`⏱️  [SUCCESS] Completed at: ${new Date().toISOString()}`);
     
-    res.end();
-
-  } catch (error) {
-    sendProgress(`❌ [FATAL] Pipeline failed: ${error.message}`);
-    sendProgress(`🔍 [DEBUG] Error type: ${error.constructor.name}`);
-    sendProgress(`📋 [DEBUG] Files remain in incoming/ for retry`);
-    console.error('Pipeline error:', error);
-    res.end();
-    
-  } finally {
-    // Reset process state
-    isProcessingActive = false;
-    activeProcessAbortController = null;
-  }
-});
+    } catch (error) {
+      processLogger.error(`[FATAL] Pipeline failed: ${error.message}`);
+      processLogger.log(`🔍 [DEBUG] Error type: ${error.constructor.name}`);
+      processLogger.log(`📋 [DEBUG] Files remain in incoming/ for retry`);
+      console.error('Pipeline error:', error);
+    } finally {
+      // Reset process state
+      isProcessingActive = false;
+      activeProcessAbortController = null;
+      processLogger.stopLogging();
+    }
+  })(); // End async IIFE
+}); // End route handler
 
 // POST /api/upload/stop - Stop running pipeline process
 router.post('/stop', (req, res) => {
@@ -415,7 +458,21 @@ router.get('/status', (req, res) => {
   res.json({
     isProcessingActive,
     hasAbortController: !!activeProcessAbortController,
-    timestamp: new Date().toISOString()
+    timestamp: new Date().toISOString(),
+    logger: processLogger.getStatus()
+  });
+});
+
+// GET /api/upload/logs - Get process logs
+router.get('/logs', (req, res) => {
+  const since = parseInt(req.query.since) || 0;
+  const logs = processLogger.getLogs(since);
+  
+  res.json({
+    success: true,
+    logs: logs,
+    status: processLogger.getStatus(),
+    hasMore: logs.length > 0
   });
 });
 
@@ -447,12 +504,14 @@ async function testIndividualStep(res, stepName, scriptPath, timeoutMs) {
       'Content-Type': 'text/plain',
       'Cache-Control': 'no-cache',
       'Connection': 'keep-alive',
-      'Access-Control-Allow-Origin': '*'
+      'Access-Control-Allow-Origin': '*',
+      'Transfer-Encoding': 'chunked'
     });
 
     const sendProgress = (message) => {
       console.log(`[TEST-${stepName.toUpperCase()}] ${message}`);
       res.write(`${message}\n`);
+      res.flush && res.flush(); // Force flush
     };
 
     sendProgress(`🧪 [TEST] Starting individual test of ${stepName} step`);
@@ -476,7 +535,7 @@ async function testIndividualStep(res, stepName, scriptPath, timeoutMs) {
       // Create timeout promise
       const timeoutPromise = createTimeoutPromise(timeoutMs, `Test-${stepName}`);
       
-      // Execute the step with enhanced error handling
+      // Execute the step with enhanced error handling and console capture
       const stepPromise = (async () => {
         let module;
         try {
@@ -490,7 +549,70 @@ async function testIndividualStep(res, stepName, scriptPath, timeoutMs) {
         
         if (typeof module.default === 'function') {
           sendProgress(`🔧 [TEST] Executing ${stepName} function`);
-          return await module.default();
+          
+          // Capture console output and redirect to stream
+          const originalConsoleLog = console.log;
+          const originalConsoleError = console.error;
+          const originalConsoleWarn = console.warn;
+          
+          console.log = (...args) => {
+            const message = args.map(arg => 
+              typeof arg === 'object' ? JSON.stringify(arg) : String(arg)
+            ).join(' ');
+            // Stream to client
+            try {
+              res.write(`${message}\n`);
+              res.flush && res.flush(); // Force flush
+            } catch (writeError) {
+              originalConsoleError('Error writing to response:', writeError);
+            }
+            originalConsoleLog(...args);
+          };
+          
+          console.error = (...args) => {
+            const message = args.map(arg => 
+              typeof arg === 'object' ? JSON.stringify(arg) : String(arg)
+            ).join(' ');
+            // Stream to client
+            try {
+              res.write(`❌ ${message}\n`);
+              res.flush && res.flush(); // Force flush
+            } catch (writeError) {
+              originalConsoleError('Error writing to response:', writeError);
+            }
+            originalConsoleError(...args);
+          };
+          
+          console.warn = (...args) => {
+            const message = args.map(arg => 
+              typeof arg === 'object' ? JSON.stringify(arg) : String(arg)
+            ).join(' ');
+            // Stream to client
+            try {
+              res.write(`⚠️ ${message}\n`);
+              res.flush && res.flush(); // Force flush
+            } catch (writeError) {
+              originalConsoleError('Error writing to response:', writeError);
+            }
+            originalConsoleWarn(...args);
+          };
+          
+          try {
+            const result = await module.default();
+            
+            // Restore original console methods
+            console.log = originalConsoleLog;
+            console.error = originalConsoleError;
+            console.warn = originalConsoleWarn;
+            
+            return result;
+          } catch (error) {
+            // Restore original console methods even on error
+            console.log = originalConsoleLog;
+            console.error = originalConsoleError;
+            console.warn = originalConsoleWarn;
+            throw error;
+          }
         } else {
           sendProgress(`❌ [TEST] Module does not export a default function`);
           sendProgress(`🔍 [TEST] Available exports: ${Object.keys(module).join(', ')}`);
@@ -551,11 +673,13 @@ router.post('/test-stream', async (req, res) => {
     res.writeHead(200, {
       'Content-Type': 'text/plain',
       'Cache-Control': 'no-cache',
-      'Connection': 'keep-alive'
+      'Connection': 'keep-alive',
+      'Transfer-Encoding': 'chunked'
     });
 
     const sendProgress = (message) => {
       res.write(`${message}\n`);
+      res.flush && res.flush(); // Force flush
     };
 
     sendProgress('🧪 Testing streaming...');
