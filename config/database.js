@@ -104,103 +104,104 @@ class OptimizedDatabase {
       return { id: existing[0].id, skipped: true };
     }
 
-    // Validate and prepare embedding for consistent storage
-    let preparedEmbedding;
-    try {
-      const embeddingData = prepareEmbeddingForStorage(chunkData.embedding);
-      preparedEmbedding = embeddingData.forTextColumn; // JSON string for TEXT column
-    } catch (error) {
-      console.error(`❌ Invalid embedding for chunk ${chunkData.title}:`, error.message);
-      throw new Error(`Cannot store chunk with invalid embedding: ${error.message}`);
+    // Get the embedding as array (don't convert to JSON string for vector column)
+    let embeddingArray;
+    
+    if (Array.isArray(chunkData.embedding)) {
+      embeddingArray = chunkData.embedding;
+      console.log(`🔧 Using raw embedding array (${embeddingArray.length} dims)`);
+    } else if (typeof chunkData.embedding === 'string') {
+      const parsed = parseStoredEmbedding(chunkData.embedding);
+      if (parsed.isValid) {
+        embeddingArray = parsed.embedding;
+        console.log(`🔧 Parsed stored embedding string (${embeddingArray.length} dims)`);
+      } else {
+        console.error(`❌ Invalid embedding for chunk ${chunkData.title}`);
+        throw new Error(`Cannot store chunk with invalid embedding`);
+      }
+    } else {
+      console.error(`❌ Unknown embedding format: ${typeof chunkData.embedding}`);
+      throw new Error(`Invalid embedding format: ${typeof chunkData.embedding}`);
     }
 
+    // Validate embedding dimensions
+    if (!embeddingArray || embeddingArray.length !== 1024) {
+      throw new Error(`Invalid embedding dimensions: ${embeddingArray?.length || 'none'}, expected 1024`);
+    }
+
+    // Prepare insert data WITHOUT embedding field (RPC handles it separately)
     const insertData = {
       source_id: chunkData.source_id,
       title: chunkData.title,
       content: chunkData.content,
-      content_hash: contentHash,  // ✅ Add content hash
+      content_hash: contentHash,
       content_summary: chunkData.content_summary,
       skills: chunkData.skills,
       tags: chunkData.tags,
       date_start: chunkData.date_start,
       date_end: chunkData.date_end,
       token_count: chunkData.token_count,
-      embedding: preparedEmbedding, // Consistently stored as JSON string
       file_hash: chunkData.file_hash,
       created_at: new Date().toISOString()
+      // NOTE: NO embedding field here - passed separately to RPC
     };
 
-    // ✅ REAL FIX: Use RPC function for proper vector storage
+    // Check if pgvector is available
     const useVector = await this.checkVectorOptimization();
+    
     if (useVector) {
-      // Get the embedding array
-      let embeddingArray;
-      
-      if (Array.isArray(chunkData.embedding)) {
-        embeddingArray = chunkData.embedding;
-        console.log(`🔧 Using raw embedding array (${embeddingArray.length} dims)`);
-      } else if (typeof chunkData.embedding === 'string') {
-        const parsed = parseStoredEmbedding(chunkData.embedding);
-        if (parsed.isValid) {
-          embeddingArray = parsed.embedding;
-          console.log(`🔧 Parsed stored embedding string (${embeddingArray.length} dims)`);
-        } else {
-          console.warn(`⚠️ Invalid stored embedding, falling back to legacy insert`);
-          embeddingArray = null;
-        }
-      } else {
-        console.warn(`⚠️ Unknown embedding format: ${typeof chunkData.embedding}`);
-        embeddingArray = null;
-      }
-      
       // Use RPC function for proper vector storage
-      if (embeddingArray && embeddingArray.length === 1024) {
-        try {
-          console.log(`✅ Using RPC function for proper vector storage`);
-          const { data, error } = await this.supabase
-            .rpc('insert_chunk_with_vector', {
-              chunk_data: insertData,
-              vector_data: embeddingArray
-            });
+      try {
+        console.log(`✅ Using RPC function for proper vector storage`);
+        const { data, error } = await this.supabase
+          .rpc('insert_chunk_with_vector', {
+            chunk_data: insertData,      // Data without embedding
+            vector_data: embeddingArray  // Vector as separate parameter
+          });
 
-          if (error) {
-            // Handle unique constraint violation gracefully
-            if (error.code === '23505' && error.message.includes('unique_content_hash')) {
-              console.log(`⏭️ Content already exists (concurrent insert detected)`);
-              return { id: null, skipped: true };
-            }
-            throw error;
+        if (error) {
+          // Handle unique constraint violation gracefully
+          if (error.code === '23505' && error.message.includes('unique_content_hash')) {
+            console.log(`⏭️ Content already exists (concurrent insert detected)`);
+            return { id: null, skipped: true };
           }
-          
-          return { id: data, skipped: false };
-        } catch (rpcError) {
-          console.error(`❌ RPC vector insert failed: ${rpcError.message}`);
-          console.log(`🔄 Falling back to legacy insert without vector`);
-          // Fall through to legacy insert
+          throw error;
         }
+        
+        console.log(`✅ Successfully stored chunk with vector (id: ${data})`);
+        return { id: data, skipped: false };
+      } catch (rpcError) {
+        console.error(`❌ RPC vector insert failed: ${rpcError.message}`);
+        throw rpcError; // Don't fall back - we want vector storage to work
       }
-    }
+    } else {
+      // Fallback: Store embedding as JSON string if pgvector not available
+      console.log(`⚠️ pgvector not available, storing embedding as JSON string`);
+      const embeddingData = prepareEmbeddingForStorage(embeddingArray);
+      
+      try {
+        const { data, error } = await this.supabase
+          .from('content_chunks')
+          .insert({
+            ...insertData,
+            embedding: embeddingData.forTextColumn // Store as JSON string
+          })
+          .select('id')
+          .single();
 
-    // Legacy insert (fallback or when vector optimization not available)
-    try {
-      const { data, error } = await this.supabase
-        .from('content_chunks')
-        .insert(insertData)
-        .select('id')
-        .single();
-
-      if (error) {
-        // Handle unique constraint violation gracefully
-        if (error.code === '23505' && error.message.includes('unique_content_hash')) {
-          console.log(`⏭️ Content already exists (concurrent insert detected)`);
-          return { id: null, skipped: true };
+        if (error) {
+          // Handle unique constraint violation gracefully
+          if (error.code === '23505' && error.message.includes('unique_content_hash')) {
+            console.log(`⏭️ Content already exists (concurrent insert detected)`);
+            return { id: null, skipped: true };
+          }
+          throw error;
         }
+        
+        return { id: data.id, skipped: false };
+      } catch (error) {
         throw error;
       }
-      
-      return { id: data.id, skipped: false };
-    } catch (error) {
-      throw error;
     }
   }
 
