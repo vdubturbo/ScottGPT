@@ -9,12 +9,22 @@ export class DateParser {
   
   /**
    * Parse various date formats to PostgreSQL DATE format (YYYY-MM-DD)
-   * @param {string} dateStr - Date string in various formats
+   * @param {string|number} dateStr - Date string/number in various formats
    * @param {boolean} isEndDate - If true, defaults to end of period for partial dates
    * @returns {string|null} - PostgreSQL DATE format or null if unparseable
    */
   static parseToPostgresDate(dateStr, isEndDate = false) {
-    if (!dateStr || typeof dateStr !== 'string') {
+    if (!dateStr && dateStr !== 0) {
+      return null;
+    }
+    
+    // Convert numbers to strings for consistent processing
+    if (typeof dateStr === 'number') {
+      dateStr = dateStr.toString();
+    }
+    
+    // Ensure we have a string at this point
+    if (typeof dateStr !== 'string') {
       return null;
     }
     
