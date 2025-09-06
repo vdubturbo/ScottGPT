@@ -16,6 +16,9 @@ logger.info('Environment validation handled by centralized configuration');
 console.log('✅ Environment validation handled by centralized configuration');
 console.log(`🚀 Starting ScottGPT server in ${CONFIG.environment.NODE_ENV} mode`);
 
+// Log detected environment information
+CONFIG.environment.detector.logEnvironmentInfo();
+
 const app = express();
 const PORT = CONFIG.server.port;
 

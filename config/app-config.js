@@ -13,6 +13,7 @@
 import dotenv from 'dotenv';
 import { fileURLToPath } from 'url';
 import { dirname, join } from 'path';
+import environmentDetector from '../utils/environment-detector.js';
 
 // Load environment variables first
 dotenv.config();
@@ -128,7 +129,23 @@ export const APP_CONFIG = {
     NODE_ENV,
     IS_PRODUCTION,
     IS_DEVELOPMENT,
-    version: '1.0.0'
+    version: '1.0.0',
+    
+    // Runtime Environment Detection
+    detector: environmentDetector,
+    isNetlify: environmentDetector.isNetlify(),
+    isServerless: environmentDetector.isServerless(),
+    isLocal: environmentDetector.isLocal(),
+    isContainerized: environmentDetector.isContainerized(),
+    hasWritableFilesystem: environmentDetector.hasWritableFilesystem(),
+    
+    // Environment-specific Configuration Flags
+    useInMemoryProcessing: environmentDetector.getRecommendedConfig().useInMemoryProcessing,
+    useFileSystemCaching: environmentDetector.getRecommendedConfig().useFileSystemCaching,
+    maxMemoryUsage: environmentDetector.getRecommendedConfig().maxMemoryUsage,
+    preferStreaming: environmentDetector.getRecommendedConfig().preferStreaming,
+    enablePersistence: environmentDetector.getRecommendedConfig().enablePersistence,
+    timeoutMultiplier: environmentDetector.getRecommendedConfig().timeoutMultiplier
   },
 
   // Server Configuration
