@@ -4,14 +4,8 @@
 
 export default {
   // Use ES modules
-  preset: 'modern-node',
-  extensionsToTreatAsEsm: ['.js'],
-  globals: {
-    'ts-jest': {
-      useESM: true
-    }
-  },
-  moduleNameMapping: {
+  preset: 'jest-environment-node',
+  moduleNameMapper: {
     '^(\\.{1,2}/.*)\\.js$': '$1'
   },
 
@@ -79,8 +73,9 @@ export default {
   // Verbose output for debugging
   verbose: true,
   
-  // Handle dynamic imports
+  // Handle dynamic imports and ESM
   transform: {},
+  transformIgnorePatterns: [],
   
   // Test organization
   projects: [
