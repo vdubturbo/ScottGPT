@@ -104,7 +104,7 @@ class OptimizedDatabase {
       return { id: existing[0].id, skipped: true };
     }
 
-    // Get the embedding as array (don't convert to JSON string for vector column)
+    // Get embedding array (don't validate vector optimization here)
     let embeddingArray;
     
     if (Array.isArray(chunkData.embedding)) {
@@ -116,7 +116,7 @@ class OptimizedDatabase {
         embeddingArray = parsed.embedding;
         console.log(`🔧 Parsed stored embedding string (${embeddingArray.length} dims)`);
       } else {
-        console.error(`❌ Invalid embedding for chunk ${chunkData.title}`);
+        console.error(`❌ Invalid stored embedding, cannot insert chunk`);
         throw new Error(`Cannot store chunk with invalid embedding`);
       }
     } else {
@@ -129,7 +129,7 @@ class OptimizedDatabase {
       throw new Error(`Invalid embedding dimensions: ${embeddingArray?.length || 'none'}, expected 1024`);
     }
 
-    // Prepare insert data WITHOUT embedding field (RPC handles it separately)
+    // Prepare insert data WITHOUT embedding field
     const insertData = {
       source_id: chunkData.source_id,
       title: chunkData.title,
@@ -143,64 +143,66 @@ class OptimizedDatabase {
       token_count: chunkData.token_count,
       file_hash: chunkData.file_hash,
       created_at: new Date().toISOString()
-      // NOTE: NO embedding field here - passed separately to RPC
     };
 
-    // Check if pgvector is available
-    const useVector = await this.checkVectorOptimization();
-    
-    if (useVector) {
-      // Use RPC function for proper vector storage
-      try {
-        console.log(`✅ Using RPC function for proper vector storage`);
-        const { data, error } = await this.supabase
-          .rpc('insert_chunk_with_vector', {
-            chunk_data: insertData,      // Data without embedding
-            vector_data: embeddingArray  // Vector as separate parameter
-          });
+    // ALWAYS attempt RPC insertion - no optimization check
+    try {
+      console.log(`✅ Attempting RPC vector insertion`);
+      const { data, error } = await this.supabase
+        .rpc('insert_chunk_with_vector', {
+          chunk_data: insertData,
+          vector_data: embeddingArray
+        });
 
-        if (error) {
-          // Handle unique constraint violation gracefully
-          if (error.code === '23505' && error.message.includes('unique_content_hash')) {
-            console.log(`⏭️ Content already exists (concurrent insert detected)`);
-            return { id: null, skipped: true };
-          }
-          throw error;
+      if (error) {
+        // Handle unique constraint violation gracefully
+        if (error.code === '23505' && error.message.includes('unique_content_hash')) {
+          console.log(`⏭️ Content already exists (concurrent insert detected)`);
+          return { id: null, skipped: true };
         }
-        
-        console.log(`✅ Successfully stored chunk with vector (id: ${data})`);
-        return { id: data, skipped: false };
-      } catch (rpcError) {
-        console.error(`❌ RPC vector insert failed: ${rpcError.message}`);
-        throw rpcError; // Don't fall back - we want vector storage to work
-      }
-    } else {
-      // Fallback: Store embedding as JSON string if pgvector not available
-      console.log(`⚠️ pgvector not available, storing embedding as JSON string`);
-      const embeddingData = prepareEmbeddingForStorage(embeddingArray);
-      
-      try {
-        const { data, error } = await this.supabase
-          .from('content_chunks')
-          .insert({
-            ...insertData,
-            embedding: embeddingData.forTextColumn // Store as JSON string
-          })
-          .select('id')
-          .single();
-
-        if (error) {
-          // Handle unique constraint violation gracefully
-          if (error.code === '23505' && error.message.includes('unique_content_hash')) {
-            console.log(`⏭️ Content already exists (concurrent insert detected)`);
-            return { id: null, skipped: true };
-          }
-          throw error;
-        }
-        
-        return { id: data.id, skipped: false };
-      } catch (error) {
         throw error;
+      }
+      
+      console.log(`✅ RPC vector insertion successful (id: ${data})`);
+      return { id: data, skipped: false };
+      
+    } catch (rpcError) {
+      console.error(`❌ RPC vector insert failed: ${rpcError.message}`);
+      
+      // Only fall back if RPC function doesn't exist or has structural issues
+      if (rpcError.message.includes('function') && rpcError.message.includes('does not exist')) {
+        console.log(`🔄 RPC function missing, attempting direct insert`);
+        
+        // Direct insert with proper vector conversion
+        try {
+          const insertDataWithVector = {
+            ...insertData,
+            embedding: `[${embeddingArray.join(',')}]`  // Convert to PostgreSQL vector format
+          };
+          
+          const { data, error } = await this.supabase
+            .from('content_chunks')
+            .insert(insertDataWithVector)
+            .select('id')
+            .single();
+
+          if (error) {
+            if (error.code === '23505' && error.message.includes('unique_content_hash')) {
+              return { id: null, skipped: true };
+            }
+            throw error;
+          }
+          
+          console.log(`✅ Direct vector insertion successful`);
+          return { id: data.id, skipped: false };
+          
+        } catch (directError) {
+          console.error(`❌ Direct vector insert also failed: ${directError.message}`);
+          throw directError;
+        }
+      } else {
+        // For other RPC errors, don't fall back - we want to fix the issue
+        throw rpcError;
       }
     }
   }
