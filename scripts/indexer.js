@@ -5,6 +5,7 @@ import crypto from 'crypto';
 import { CohereClient } from 'cohere-ai';
 import { db, supabase } from '../config/database.js';
 import { validateEmbedding } from '../utils/embedding-utils.js';
+import { DateParser } from '../utils/date-parser.js';
 import CONFIG from '../config/app-config.js';
 import SkillDiscoveryService from '../services/skills.js';
 import { 
@@ -655,6 +656,27 @@ async function upsertSource(data) {
       org: data.org
     });
     data.skills = processedSkills;
+    
+    // Parse dates before storing to database
+    const parsedStartDate = DateParser.parseToPostgresDate(data.date_start, false);
+    const parsedEndDate = DateParser.parseToPostgresDate(data.date_end, true);
+    
+    // Log date parsing for debugging
+    if (data.date_start && !parsedStartDate) {
+      console.warn(`⚠️ Could not parse start date: "${data.date_start}" for ${data.title}`);
+    } else if (data.date_start) {
+      console.log(`✅ Parsed start date: "${data.date_start}" → "${parsedStartDate}"`);
+    }
+    
+    if (data.date_end && !parsedEndDate) {
+      console.warn(`⚠️ Could not parse end date: "${data.date_end}" for ${data.title}`);
+    } else if (data.date_end) {
+      console.log(`✅ Parsed end date: "${data.date_end}" → "${parsedEndDate}"`);
+    }
+    
+    // Use parsed dates in the data object
+    data.date_start = parsedStartDate;
+    data.date_end = parsedEndDate;
     
     // Check if source already exists by ID (the actual unique constraint)
     const existing = await supabase

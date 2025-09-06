@@ -41,6 +41,20 @@ YAML FORMAT RULES:
 2. YAML must contain key: value pairs only - NO markdown formatting in YAML
 3. All content after the closing --- is markdown
 
+DATE FORMATTING GUIDELINES:
+- For start/end dates, extract exactly as written in the source content
+- Common formats accepted: "2023", "6/2025", "12/2024", "2023-01-15", "January 2023"
+- For ongoing positions, use "Present", "Current", or leave null
+- For year-only positions: use just the year (e.g., "2023")
+- For month/year positions: use MM/YYYY format (e.g., "06/2025")  
+- If dates are unclear or missing, use null
+- Examples:
+  * date_start: "2023-01-15" (full date if known)
+  * date_start: "2023" (year only)
+  * date_start: "06/2025" (month/year)
+  * date_end: "Present" (ongoing position)
+  * date_end: null (if not specified)
+
 FORMAT for each position found in the input:
 
 ---
