@@ -1,103 +1,343 @@
-import { execa } from 'execa';
+import { DocumentConverter } from '../services/document-converter.js';
+import { getAllCachedFiles, markFileAsProcessedByName, loadUploadCache } from '../utils/upload-optimizer.js';
+import { pipelineStorage } from '../services/pipeline-storage.js';
 import fs from 'fs/promises';
 import path from 'path';
+import crypto from 'crypto';
 
-const IN = 'incoming';
 const OUT = '.work/normalized';
 
-async function normalize() {
-  console.log('🔄 Normalizing documents...');
-  
-  // Ensure output directory exists
-  await fs.mkdir(OUT, { recursive: true });
+// Initialize document converter
+const converter = new DocumentConverter({
+  verbose: true,
+  enableFallbacks: true,
+  mammoth: {
+    styleMap: [
+      "p[style-name='Heading 1'] => h1:fresh",
+      "p[style-name='Heading 2'] => h2:fresh", 
+      "p[style-name='Heading 3'] => h3:fresh",
+      "p[style-name='Heading 4'] => h4:fresh",
+      "p[style-name='Title'] => h1:fresh",
+      "p[style-name='Subtitle'] => h2:fresh"
+    ]
+  }
+});
 
-  // Get list of files in incoming directory
-  let files;
+async function normalize() {
+  console.log('🔄 Normalizing documents from memory cache...');
+  
+  // Check if database tables are available
+  let useDatabase = false;
   try {
-    files = await fs.readdir(IN);
+    await pipelineStorage.initializeStorage();
+    
+    // Test database connectivity by trying a simple query
+    const testData = await pipelineStorage.getDocumentsByStatus('uploaded');
+    useDatabase = true;
+    console.log('✅ Database tables available - using database storage');
   } catch (error) {
-    if (error.code === 'ENOENT') {
-      console.log('📁 No incoming directory found - creating it');
-      await fs.mkdir(IN, { recursive: true });
-      files = [];
-    } else {
-      throw error;
-    }
+    console.log('⚠️ Database tables not available - falling back to file system');
+    console.log(`   Error: ${error.message}`);
+    console.log('💡 To use database storage, create tables with: setup-pipeline-tables.sql');
+    useDatabase = false;
+    
+    // Ensure output directory exists for file fallback
+    await fs.mkdir(OUT, { recursive: true });
   }
 
-  if (files.length === 0) {
-    console.log('📄 No files found in incoming/ directory');
+  // Load upload cache first
+  await loadUploadCache();
+
+  // Get cached files instead of reading from disk
+  const cachedFiles = getAllCachedFiles();
+  
+  if (cachedFiles.length === 0) {
+    console.log('📄 No files found in upload cache');
+    console.log('   Please upload files first using the /api/upload endpoint');
     return;
   }
 
+  console.log(`📋 Found ${cachedFiles.length} files in memory cache`);
+
   let processed = 0;
-  for (const f of files) {
-    const src = path.join(IN, f);
-    const stats = await fs.stat(src);
+  for (const fileData of cachedFiles) {
+    const { buffer, metadata, hash } = fileData;
+    const uploadHash = hash;
+    const filename = metadata.originalName;
     
-    if (!stats.isFile()) {continue;}
-    
-    const ext = f.split('.').pop()?.toLowerCase();
+    const ext = filename.split('.').pop()?.toLowerCase();
     
     // Skip files that aren't documents
     if (!['pdf', 'docx', 'doc', 'txt', 'md'].includes(ext)) {
-      console.log(`⏭️  Skipping ${f} (unsupported format)`);
+      console.log(`⏭️  Skipping ${filename} (unsupported format)`);
       continue;
     }
 
-    const baseName = f.replace(/\.(pdf|docx|doc|txt|md)$/i, '');
+    let documentId = null;
+    const baseName = filename.replace(/\.(pdf|docx|doc|txt|md)$/i, '');
     const outPath = path.join(OUT, `${baseName}.md`);
-
+    
     try {
-      if (ext === 'md') {
-        // Just copy markdown files
-        await fs.copyFile(src, outPath);
-        console.log(`📋 Copied: ${f} → ${baseName}.md`);
-      } else if (ext === 'txt') {
-        // Convert txt to markdown with basic formatting
-        const content = await fs.readFile(src, 'utf8');
-        await fs.writeFile(outPath, content);
-        console.log(`📄 Converted: ${f} → ${baseName}.md`);
+      // Store document in pipeline database if available
+      if (useDatabase) {
+        const document = await pipelineStorage.storeDocument(uploadHash, fileData);
+        documentId = document.id;
+        console.log(`📄 Document stored in database: ${filename} (id: ${documentId})`);
       } else {
-        // Use pandoc for PDF and DOCX files
+        console.log(`📄 Processing document: ${filename}`);
+      }
+      
+      if (ext === 'md') {
+        // Just store/write markdown content from buffer
+        const content = buffer.toString('utf8');
+        
+        if (useDatabase) {
+          await pipelineStorage.storeNormalizedContent(documentId, content, {
+            converter: 'native',
+            processingTime: 0
+          });
+          console.log(`📋 Processed: ${filename} → database (markdown from memory)`);
+        } else {
+          await fs.writeFile(outPath, content, 'utf8');
+          console.log(`📋 Processed: ${filename} → ${baseName}.md (from memory)`);
+        }
+      } else {
+        // Use DocumentConverter for all document types
+        const expectedConverter = getExpectedConverter(ext);
+        console.log(`🔄 Converting ${filename} using ${expectedConverter} (from memory buffer)...`);
+        
         try {
-          // For PDFs, pandoc might need additional help - try with specific options
-          if (ext === 'pdf') {
-            await execa('pandoc', [src, '-t', 'gfm', '-o', outPath, '--wrap=none']);
-          } else {
-            await execa('pandoc', [src, '-t', 'gfm', '-o', outPath]);
-          }
-          console.log(`🔄 Converted: ${f} → ${baseName}.md`);
-        } catch (pandocError) {
-          // If pandoc fails on PDF, try alternative method
-          if (ext === 'pdf') {
-            console.log(`⚠️  Pandoc failed on PDF ${f}, trying alternative extraction...`);
-            try {
-              // Alternative: Use pdftotext if available, or create a placeholder
-              const fallbackContent = `# Document: ${f}\n\n*PDF content could not be extracted automatically. Please convert this document manually or ensure pandoc has PDF support.*\n\nOriginal file: ${f}\nSize: ${stats.size} bytes\n`;
-              await fs.writeFile(outPath, fallbackContent);
-              console.log(`📄 Created placeholder for: ${f} → ${baseName}.md`);
-            } catch (fallbackError) {
-              throw pandocError; // Throw original error
+          // Convert directly from buffer with metadata
+          const result = await converter.convert(buffer, {
+            filename: filename,
+            mimeType: getMimeTypeFromExtension(ext),
+            metadata: {
+              originalName: filename,
+              size: buffer.length
             }
+          });
+          
+          if (!result.conversion.success) {
+            throw new Error(result.conversion.error || 'Conversion failed');
+          }
+          
+          // Ensure we have markdown content
+          let markdownContent = result.markdown || result.content || '';
+          
+          // Post-process to ensure GitHub Flavored Markdown compatibility
+          markdownContent = await formatAsGFM(markdownContent, filename, ext, result);
+          
+          // Store or write the converted content
+          if (useDatabase) {
+            await pipelineStorage.storeNormalizedContent(documentId, markdownContent, {
+              converter: result.conversion.converter || 'native',
+              processingTime: result.conversion.duration || 0,
+              warnings: result.warnings || []
+            });
+            
+            const converterName = result.conversion.converter || 'native';
+            const duration = result.conversion.duration;
+            console.log(`🔄 Converted: ${filename} → database (${converterName}, ${duration}ms, from memory)`);
           } else {
-            throw pandocError;
+            await fs.writeFile(outPath, markdownContent, 'utf8');
+            
+            const converterName = result.conversion.converter || 'native';
+            const duration = result.conversion.duration;
+            console.log(`🔄 Converted: ${filename} → ${baseName}.md (${converterName}, ${duration}ms, from memory)`);
+          }
+          
+          // Log warnings if any
+          if (result.warnings && result.warnings.length > 0) {
+            console.log(`⚠️  Warnings for ${filename}: ${result.warnings.length} formatting issues`);
+          }
+          
+        } catch (conversionError) {
+          // Handle conversion failures with fallback strategies
+          console.log(`⚠️  Primary conversion failed for ${filename}: ${conversionError.message}`);
+          
+          if (ext === 'pdf') {
+            console.log(`⚠️  PDF conversion failed, trying fallback extraction...`);
+          } else if (ext === 'docx' || ext === 'doc') {
+            console.log(`⚠️  DOCX conversion failed, trying fallback extraction...`);
+          }
+          
+          // The converter already tries fallbacks internally, but if it still fails,
+          // create a placeholder similar to the original pandoc behavior
+          const fallbackContent = await createFallbackContent(filename, ext, { size: buffer.length }, conversionError);
+          
+          if (useDatabase) {
+            await pipelineStorage.storeNormalizedContent(documentId, fallbackContent, {
+              converter: 'fallback',
+              processingTime: 0,
+              error: conversionError.message
+            });
+            console.log(`📄 Created fallback content for: ${filename} → database`);
+          } else {
+            await fs.writeFile(outPath, fallbackContent);
+            console.log(`📄 Created fallback content for: ${filename} → ${baseName}.md`);
           }
         }
       }
       
-      // Keep original file in incoming/ until entire pipeline completes
-      // Files will be moved to processed/ by the final cleanup step in ingest.sh
-      console.log(`📋 Keeping original file ${f} in incoming/ for pipeline completion`);
+      // Mark file as processed in upload cache
+      markFileAsProcessedByName(filename);
+      console.log(`📋 Marked ${filename} as processed in cache`);
       
       processed++;
     } catch (error) {
-      console.error(`❌ Error processing ${f}:`, error.message);
-      console.error('💡 Make sure pandoc is installed: brew install pandoc');
+      console.error(`❌ Error processing ${filename}:`, error.message);
+      console.error('💡 Document conversion failed - check file format and buffer data');
+      
+      // Try to record the error in database if we're using database storage
+      if (useDatabase) {
+        try {
+          if (uploadHash && !documentId) {
+            const document = await pipelineStorage.storeDocument(uploadHash, fileData);
+            documentId = document.id;
+          }
+          if (documentId) {
+            await pipelineStorage.recordProcessingError(documentId, 'normalization', error);
+          }
+        } catch (dbError) {
+          console.error(`❌ Failed to record error in database:`, dbError.message);
+        }
+      }
     }
   }
 
   console.log(`✅ Normalized ${processed} files to markdown`);
+}
+
+/**
+ * Format content as GitHub Flavored Markdown to match pandoc output
+ * @param {string} content - Raw markdown content
+ * @param {string} filename - Original filename
+ * @param {string} extension - File extension
+ * @param {Object} conversionResult - Result from DocumentConverter
+ * @returns {Promise<string>} Formatted GFM content
+ */
+async function formatAsGFM(content, filename, extension, conversionResult) {
+  if (!content || typeof content !== 'string') {
+    return '';
+  }
+  
+  let formatted = content;
+  
+  // Ensure consistent line endings
+  formatted = formatted.replace(/\r\n/g, '\n').replace(/\r/g, '\n');
+  
+  // For PDF conversions, add document title if available
+  if (extension === 'pdf' && conversionResult.metadata?.title) {
+    if (!formatted.startsWith('#')) {
+      formatted = `# ${conversionResult.metadata.title}\n\n${formatted}`;
+    }
+  }
+  
+  // For DOCX conversions, ensure proper heading formatting
+  if (extension === 'docx') {
+    // Fix heading spacing to match pandoc output
+    formatted = formatted.replace(/^(#{1,6})\s*([^\n]+)$/gm, '$1 $2');
+    
+    // Ensure blank lines around headings (pandoc style)
+    formatted = formatted.replace(/\n(#{1,6}\s+[^\n]+)\n/g, '\n\n$1\n\n');
+    
+    // Fix list formatting
+    formatted = formatted.replace(/^(\s*)[-*+]\s+/gm, '$1- ');
+  }
+  
+  // Clean up excessive whitespace but preserve structure
+  formatted = formatted
+    .replace(/\n{4,}/g, '\n\n\n')  // Max 3 newlines
+    .replace(/^\s+$/gm, '')        // Remove whitespace-only lines
+    .trim();                       // Remove leading/trailing whitespace
+  
+  // Ensure file ends with single newline (pandoc behavior)
+  if (formatted && !formatted.endsWith('\n')) {
+    formatted += '\n';
+  }
+  
+  return formatted;
+}
+
+/**
+ * Get expected converter name for file extension
+ * @param {string} ext - File extension
+ * @returns {string} Converter name
+ */
+function getExpectedConverter(ext) {
+  const converters = {
+    'docx': 'mammoth',
+    'doc': 'mammoth',
+    'pdf': 'fallback-disabled', // TEMPORARILY DISABLED
+    'txt': 'native',
+    'html': 'node-html-parser',
+    'htm': 'node-html-parser'
+  };
+  
+  return converters[ext] || 'native';
+}
+
+/**
+ * Get MIME type from file extension
+ * @param {string} ext - File extension without dot
+ * @returns {string} MIME type
+ */
+function getMimeTypeFromExtension(ext) {
+  const mimeTypes = {
+    'pdf': 'application/pdf',
+    'docx': 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+    'doc': 'application/msword',
+    'txt': 'text/plain',
+    'md': 'text/markdown',
+    'html': 'text/html',
+    'htm': 'text/html'
+  };
+  
+  return mimeTypes[ext] || 'application/octet-stream';
+}
+
+/**
+ * Create fallback content when conversion fails
+ * @param {string} filename - Original filename
+ * @param {string} extension - File extension
+ * @param {Object} stats - File stats
+ * @param {Error} error - Conversion error
+ * @returns {Promise<string>} Fallback markdown content
+ */
+async function createFallbackContent(filename, extension, stats, error) {
+  const docType = {
+    'pdf': 'PDF',
+    'docx': 'Word Document (DOCX)',
+    'doc': 'Word Document (DOC)', 
+    'txt': 'Text File'
+  }[extension] || 'Document';
+  
+  return `# Document: ${filename}
+
+**Document Type:** ${docType}  
+**Original File:** ${filename}  
+**File Size:** ${stats.size} bytes  
+**Conversion Error:** ${error.message}
+
+---
+
+*This ${docType.toLowerCase()} could not be converted automatically. The document converter encountered an error during processing.*
+
+**Possible solutions:**
+- Check if the file is corrupted or password-protected
+- Verify the file format is supported
+- Try converting the document manually to a supported format
+- Contact system administrator if the issue persists
+
+**Technical Details:**
+- Conversion attempted: ${new Date().toISOString()}
+- Error type: ${error.name || 'ConversionError'}
+- File path: ${filename}
+
+---
+
+*Please replace this placeholder content with the actual document content after manual conversion.*
+`;
 }
 
 // Run if called directly

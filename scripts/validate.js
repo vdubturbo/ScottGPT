@@ -3,7 +3,9 @@ import path from 'path';
 import matter from 'gray-matter';
 import TagManager from './tag-manager.js';
 import SkillDiscoveryService from '../services/skills.js';
+import { pipelineStorage } from '../services/pipeline-storage.js';
 
+// Legacy paths for fallback mode
 const IN = '.work/extracted';
 const OUT = '.work/validated';
 
@@ -140,18 +142,34 @@ function validateDates(dateStart, dateEnd) {
 }
 
 async function validate() {
-  console.log('✅ Validating content...');
+  console.log('✅ Starting database-based validation...');
   
-  // Ensure required directories exist
+  // Check if database tables are available
+  let useDatabase = false;
   try {
-    await fs.mkdir('logs', { recursive: true });
-    await fs.mkdir('config', { recursive: true });
-    await fs.mkdir(OUT, { recursive: true });
-    await fs.mkdir(IN, { recursive: true });
-    console.log('✅ Required directories ensured');
+    await pipelineStorage.initializeStorage();
+    
+    // Test database connectivity by checking for extracted documents
+    const testData = await pipelineStorage.getDocumentsByStatus('extracted');
+    useDatabase = true;
+    console.log('✅ Database tables available - using database storage');
   } catch (error) {
-    console.error('❌ Failed to create required directories:', error.message);
-    throw new Error(`Directory creation failed: ${error.message}`);
+    console.log('⚠️ Database tables not available - falling back to file system');
+    console.log(`   Error: ${error.message}`);
+    console.log('💡 To use database storage, ensure pipeline tables exist');
+    useDatabase = false;
+    
+    // Fallback: ensure directories exist for file-based operation
+    try {
+      await fs.mkdir('logs', { recursive: true });
+      await fs.mkdir('config', { recursive: true });
+      await fs.mkdir(OUT, { recursive: true });
+      await fs.mkdir(IN, { recursive: true });
+      console.log('✅ Required directories ensured for file-based fallback');
+    } catch (dirError) {
+      console.error('❌ Failed to create required directories:', dirError.message);
+      throw new Error(`Directory creation failed: ${dirError.message}`);
+    }
   }
   
   // Initialize services with error handling
@@ -215,22 +233,71 @@ async function validate() {
     throw new Error(`Configuration loading failed: ${error.message}`);
   }
   
-  const files = (await fs.readdir(IN)).filter(f => f.endsWith('.md'));
+  let chunks = [];
+  let documents = [];
   
-  if (files.length === 0) {
-    console.log('📄 No extracted files found to validate');
+  if (useDatabase) {
+    // Get extracted documents with their chunks from database
+    documents = await pipelineStorage.getDocumentsByStatus('extracted');
+    console.log(`📋 Found ${documents.length} extracted documents in database`);
+    
+    if (documents.length === 0) {
+      console.log('📄 No extracted documents found in database');
+      console.log('💡 Run the extract script first to process documents');
+      return;
+    }
+    
+    // Get all chunks for validation
+    for (const doc of documents) {
+      const docWithChunks = await pipelineStorage.getDocumentWithChunks(doc.id);
+      if (docWithChunks.pipeline_chunks && docWithChunks.pipeline_chunks.length > 0) {
+        chunks.push(...docWithChunks.pipeline_chunks.map(chunk => ({ 
+          ...chunk, 
+          document: doc 
+        })));
+      }
+    }
+    
+    console.log(`📦 Found ${chunks.length} chunks to validate`);
+    
+  } else {
+    // Fallback to file system
+    const files = (await fs.readdir(IN)).filter(f => f.endsWith('.md'));
+    
+    if (files.length === 0) {
+      console.log('📄 No extracted files found to validate');
+      return;
+    }
+    
+    // Convert files to chunk-like objects for consistent processing
+    for (const filename of files) {
+      const raw = await fs.readFile(path.join(IN, filename), 'utf8');
+      chunks.push({
+        id: `file-${filename}`,
+        content: raw,
+        document: { original_name: filename },
+        validation_status: 'pending'
+      });
+    }
+    
+    console.log(`📁 Processing ${chunks.length} extracted files from file system`);
+  }
+  
+  if (chunks.length === 0) {
+    console.log('📄 No chunks found to validate');
     return;
   }
   
-  let validFiles = 0;
+  let validChunks = 0;
   let totalErrors = 0;
   
-  for (const f of files) {
-    console.log(`🔍 Validating: ${f}`);
+  for (let i = 0; i < chunks.length; i++) {
+    const chunk = chunks[i];
+    const chunkName = `${chunk.document.original_name} - chunk ${chunk.chunk_index || 0}`;
+    console.log(`🔍 [${i + 1}/${chunks.length}] Validating: ${chunkName}`);
     
     try {
-      const raw = await fs.readFile(path.join(IN, f), 'utf8');
-      const { data, content } = matter(raw);
+      const { data, content } = matter(chunk.content);
       const errors = [];
       
       // Required field validation
@@ -264,11 +331,11 @@ async function validate() {
       
       // Normalize and validate skills/tags
       data.skills = await normalizeSkills(data.skills, {
-        file: f,
+        chunk: chunkName,
         content: content.substring(0, 500)
       });
       data.industry_tags = await normalizeTags(data.industry_tags, {
-        file: f,
+        chunk: chunkName,
         content: content.substring(0, 500),
         type: data.type,
         title: data.title,
@@ -282,26 +349,79 @@ async function validate() {
       data.pii_allow = false;
       
       if (errors.length > 0) {
-        console.error(`❌ Validation errors in ${f}:`);
+        console.error(`❌ Validation errors in ${chunkName}:`);
         errors.forEach(error => console.error(`   - ${error}`));
         totalErrors += errors.length;
+        
+        if (useDatabase) {
+          // Update chunk validation status in database
+          await pipelineStorage.updateChunkValidation(chunk.id, 'invalid', errors);
+          console.log(`💾 Updated chunk validation status to 'invalid'`);
+        }
+        
       } else {
-        // Write validated file
+        // Validation passed
         const validatedContent = matter.stringify(cleanContent, data);
-        await fs.writeFile(path.join(OUT, f), validatedContent);
-        console.log(`✅ Validated: ${f}`);
-        validFiles++;
+        
+        if (useDatabase) {
+          // Update chunk validation status and content in database
+          await pipelineStorage.updateChunkValidation(chunk.id, 'valid', []);
+          console.log(`✅ Validated chunk: ${chunkName}`);
+        } else {
+          // Write validated file in file system mode
+          const filename = chunk.document.original_name;
+          await fs.writeFile(path.join(OUT, filename), validatedContent);
+          console.log(`✅ Validated file: ${filename}`);
+        }
+        
+        validChunks++;
       }
       
     } catch (error) {
-      console.error(`❌ Error validating ${f}:`, error.message);
+      console.error(`❌ Error validating ${chunkName}:`, error.message);
       totalErrors++;
+      
+      if (useDatabase) {
+        try {
+          await pipelineStorage.updateChunkValidation(chunk.id, 'invalid', [{
+            type: 'processing_error',
+            message: error.message
+          }]);
+        } catch (dbError) {
+          console.error(`❌ Failed to record validation error in database:`, dbError.message);
+        }
+      }
     }
   }
   
-  console.log(`✅ Validated ${validFiles} files`);
+  // Update document status if using database
+  if (useDatabase && validChunks > 0) {
+    // Mark documents as validated
+    const documentsToUpdate = new Set(chunks.map(c => c.document.id).filter(id => id));
+    
+    for (const documentId of documentsToUpdate) {
+      try {
+        await pipelineStorage.storeValidatedContent(documentId, {
+          validChunks: chunks.filter(c => c.document.id === documentId).length,
+          validationTime: new Date().toISOString(),
+          validationErrors: totalErrors
+        });
+        console.log(`💾 Updated document ${documentId} status to 'validated'`);
+      } catch (error) {
+        console.error(`❌ Error updating document status:`, error.message);
+      }
+    }
+  }
+  
+  console.log(`✅ Validated ${validChunks} chunks`);
   if (totalErrors > 0) {
     console.log(`⚠️  Found ${totalErrors} validation errors`);
+  }
+  
+  if (useDatabase) {
+    console.log('💾 All validation results stored in database');
+  } else {
+    console.log('💾 Validated files written to .work/validated/');
   }
 }
 

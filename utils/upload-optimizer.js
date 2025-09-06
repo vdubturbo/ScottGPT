@@ -10,8 +10,18 @@ export async function loadUploadCache() {
   try {
     const cacheData = await fs.readFile(UPLOAD_CACHE_FILE, 'utf8');
     const cache = JSON.parse(cacheData);
-    uploadCache = new Map(Object.entries(cache.fileHashes || {}));
-    console.log(`📋 Loaded ${uploadCache.size} file upload hashes`);
+    
+    // Convert cache entries back to Map and restore Buffer objects
+    const entries = Object.entries(cache.fileHashes || {}).map(([hash, entry]) => {
+      // Restore Buffer from JSON serialization
+      if (entry.buffer && entry.buffer.type === 'Buffer' && entry.buffer.data) {
+        entry.buffer = Buffer.from(entry.buffer.data);
+      }
+      return [hash, entry];
+    });
+    
+    uploadCache = new Map(entries);
+    console.log(`📋 Loaded ${uploadCache.size} file upload hashes with buffers`);
     return uploadCache.size;
   } catch (error) {
     console.log('📋 No existing upload cache found');
@@ -69,10 +79,9 @@ export function generateFileHash(buffer) {
   return crypto.createHash('sha256').update(buffer).digest('hex').substring(0, 16);
 }
 
-// Check if file content is duplicate
-export async function checkForDuplicate(filePath, fileName) {
+// Check if file content is duplicate using buffer
+export function checkForDuplicateBuffer(buffer, fileName) {
   try {
-    const buffer = await fs.readFile(filePath);
     const fileHash = generateFileHash(buffer);
     const fileSize = buffer.length;
     
@@ -88,12 +97,13 @@ export async function checkForDuplicate(filePath, fileName) {
       };
     }
     
-    // Not a duplicate, add to cache
+    // Not a duplicate, add to cache with buffer reference
     uploadCache.set(fileHash, {
       originalName: fileName,
       uploadedAt: new Date().toISOString(),
       size: fileSize,
-      filePath
+      buffer: buffer, // Store buffer reference for processing
+      processed: false
     });
     
     return {
@@ -109,12 +119,28 @@ export async function checkForDuplicate(filePath, fileName) {
       isDuplicate: false,
       hash: null,
       size: 0,
+      message: `Error processing file: ${error.message}`
+    };
+  }
+}
+
+// Legacy function for backwards compatibility (if needed)
+export async function checkForDuplicate(filePath, fileName) {
+  try {
+    const buffer = await fs.readFile(filePath);
+    return checkForDuplicateBuffer(buffer, fileName);
+  } catch (error) {
+    console.error(`❌ Error reading file ${fileName}:`, error.message);
+    return {
+      isDuplicate: false,
+      hash: null,
+      size: 0,
       message: `Error reading file: ${error.message}`
     };
   }
 }
 
-// Process multiple uploaded files and detect duplicates
+// Process multiple uploaded files and detect duplicates (memory-based)
 export async function processBatchUploads(files) {
   await loadUploadCache();
   
@@ -133,18 +159,20 @@ export async function processBatchUploads(files) {
     }
   };
   
-  console.log(`🔍 Checking ${files.length} uploaded files for duplicates...`);
+  console.log(`🔍 Checking ${files.length} uploaded files for duplicates (memory-based)...`);
   
   for (const file of files) {
-    const checkResult = await checkForDuplicate(file.path, file.originalname);
+    // Use buffer from multer memory storage
+    const checkResult = checkForDuplicateBuffer(file.buffer, file.originalname);
     
     const fileInfo = {
       originalName: file.originalname,
-      filePath: file.path,
+      buffer: file.buffer, // Store buffer reference instead of file path
       size: checkResult.size,
       hash: checkResult.hash,
       isDuplicate: checkResult.isDuplicate,
-      message: checkResult.message
+      message: checkResult.message,
+      mimeType: file.mimetype
     };
     
     results.processed.push(fileInfo);
@@ -157,22 +185,15 @@ export async function processBatchUploads(files) {
       results.stats.duplicateFiles++;
       results.stats.duplicateSizeBytes += checkResult.size;
       
-      console.log(`♻️  [DUPLICATE] ${file.originalname} (${(checkResult.size/1024).toFixed(1)}KB)`);
+      console.log(`♻️  [DUPLICATE] ${file.originalname} (${(checkResult.size/1024).toFixed(1)}KB) - In Memory`);
       console.log(`   📄 Same as: ${checkResult.existingFile}`);
-      
-      // Remove duplicate file from incoming to prevent processing
-      try {
-        await fs.unlink(file.path);
-        console.log(`🗑️  Deleted duplicate file: ${file.path}`);
-      } catch (unlinkError) {
-        console.warn(`⚠️  Could not delete duplicate: ${unlinkError.message}`);
-      }
+      console.log(`   🗑️  Duplicate buffer discarded automatically`);
       
     } else {
       results.unique.push(fileInfo);
       results.stats.uniqueFiles++;
       
-      console.log(`✨ [UNIQUE] ${file.originalname} (${(checkResult.size/1024).toFixed(1)}KB)`);
+      console.log(`✨ [UNIQUE] ${file.originalname} (${(checkResult.size/1024).toFixed(1)}KB) - Stored in Memory`);
       console.log(`   🔑 Hash: ${checkResult.hash.substring(0, 8)}...`);
     }
   }
@@ -181,13 +202,14 @@ export async function processBatchUploads(files) {
   await saveUploadCache();
   
   // Summary
-  console.log('\n📊 UPLOAD DEDUPLICATION SUMMARY:');
-  console.log('=' .repeat(40));
+  console.log('\n📊 MEMORY-BASED UPLOAD DEDUPLICATION SUMMARY:');
+  console.log('=' .repeat(50));
   console.log(`📁 Total files: ${results.stats.totalFiles}`);
-  console.log(`✨ Unique files: ${results.stats.uniqueFiles}`);
-  console.log(`♻️  Duplicate files: ${results.stats.duplicateFiles}`);
+  console.log(`✨ Unique files: ${results.stats.uniqueFiles} (stored in memory)`);
+  console.log(`♻️  Duplicate files: ${results.stats.duplicateFiles} (buffers discarded)`);
   console.log(`💾 Total size: ${(results.stats.totalSizeBytes/1024).toFixed(1)}KB`);
-  console.log(`🗑️  Duplicate size: ${(results.stats.duplicateSizeBytes/1024).toFixed(1)}KB`);
+  console.log(`🗑️  Duplicate size: ${(results.stats.duplicateSizeBytes/1024).toFixed(1)}KB saved`);
+  console.log(`🚀 Storage: In-memory buffers (no disk writes)`);
   
   if (results.stats.duplicateFiles > 0) {
     const percentDuplicate = (results.stats.duplicateFiles / results.stats.totalFiles * 100).toFixed(1);
@@ -200,14 +222,103 @@ export async function processBatchUploads(files) {
 
 // Get cache statistics
 export function getCacheStats() {
+  // Calculate total cache size
+  let totalSizeBytes = 0;
+  let buffersInMemory = 0;
+  
+  for (const [hash, entry] of uploadCache) {
+    totalSizeBytes += entry.size || 0;
+    if (entry.buffer) {
+      buffersInMemory++;
+    }
+  }
+  
   return {
     totalCachedFiles: uploadCache.size,
+    totalSizeBytes: totalSizeBytes,
+    totalSizeMB: Math.round((totalSizeBytes / 1024 / 1024) * 100) / 100,
+    buffersInMemory: buffersInMemory,
+    averageFileSize: uploadCache.size > 0 ? Math.round(totalSizeBytes / uploadCache.size) : 0,
     cacheEntries: Array.from(uploadCache.entries()).map(([hash, entry]) => ({
       hash: hash.substring(0, 8),
       fileName: entry.originalName,
       uploadedAt: entry.uploadedAt,
-      size: entry.size
-    }))
+      size: entry.size,
+      processed: entry.processed || false,
+      hasBuffer: !!entry.buffer
+    })),
+    memoryInfo: {
+      totalFiles: uploadCache.size,
+      filesWithBuffers: buffersInMemory,
+      totalMemoryUsageMB: Math.round((totalSizeBytes / 1024 / 1024) * 100) / 100,
+      estimatedMemoryOverhead: Math.round((uploadCache.size * 200) / 1024) // ~200 bytes per cache entry
+    }
   };
+}
+
+// Get file buffer by hash
+export function getFileBuffer(fileHash) {
+  const entry = uploadCache.get(fileHash);
+  return entry ? entry.buffer : null;
+}
+
+// Get file buffer by filename (finds first match)
+export function getFileBufferByName(fileName) {
+  for (const [hash, entry] of uploadCache) {
+    if (entry.originalName === fileName && entry.buffer) {
+      return {
+        buffer: entry.buffer,
+        hash: hash,
+        metadata: {
+          originalName: entry.originalName,
+          size: entry.size,
+          uploadedAt: entry.uploadedAt,
+          processed: entry.processed || false
+        }
+      };
+    }
+  }
+  return null;
+}
+
+// Get all cached files with buffers
+export function getAllCachedFiles() {
+  const files = [];
+  for (const [hash, entry] of uploadCache) {
+    if (entry.buffer) {
+      files.push({
+        hash: hash,
+        buffer: entry.buffer,
+        metadata: {
+          originalName: entry.originalName,
+          size: entry.size,
+          uploadedAt: entry.uploadedAt,
+          processed: entry.processed || false
+        }
+      });
+    }
+  }
+  return files;
+}
+
+// Mark file as processed
+export function markFileAsProcessed(fileHash) {
+  const entry = uploadCache.get(fileHash);
+  if (entry) {
+    entry.processed = true;
+    return true;
+  }
+  return false;
+}
+
+// Mark file as processed by name
+export function markFileAsProcessedByName(fileName) {
+  for (const [hash, entry] of uploadCache) {
+    if (entry.originalName === fileName) {
+      entry.processed = true;
+      return true;
+    }
+  }
+  return false;
 }
 

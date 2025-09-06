@@ -36,30 +36,15 @@ const ensureDirectoryExists = async (dirPath) => {
   }
 };
 
-// Initialize required directories
+// Initialize required directories (memory-based, no incoming needed)
 (async () => {
-  await ensureDirectoryExists('incoming');
-  await ensureDirectoryExists('processed');
   await ensureDirectoryExists('logs');
   await loadUploadCache();
 })();
 
-// Configure multer for file uploads
-const storage = multer.diskStorage({
-  destination: async function (req, file, cb) {
-    await ensureDirectoryExists('incoming');
-    cb(null, 'incoming/');
-  },
-  filename: function (req, file, cb) {
-    // Keep original filename with timestamp to avoid conflicts
-    const timestamp = Date.now();
-    const originalName = file.originalname;
-    cb(null, `${timestamp}-${originalName}`);
-  }
-});
-
+// Configure multer for memory-based file uploads
 const upload = multer({
-  storage: storage,
+  storage: multer.memoryStorage(),
   fileFilter: function (req, file, cb) {
     // Allow only specific file types
     const allowedTypes = /\.(pdf|docx|doc|txt|md)$/i;
@@ -93,10 +78,11 @@ router.post('/', uploadFileLimit, upload.array('files', 10), async (req, res) =>
     // Prepare response with detailed information
     const uploadedFiles = deduplicationResults.unique.map(file => ({
       originalName: file.originalName,
-      filename: path.basename(file.filePath),
+      filename: file.originalName, // No path since files are in memory
       size: file.size,
       hash: file.hash,
-      isDuplicate: false
+      isDuplicate: false,
+      processedInMemory: true
     }));
 
     const duplicateFiles = deduplicationResults.duplicates.map(file => ({
@@ -153,30 +139,34 @@ router.post('/', uploadFileLimit, upload.array('files', 10), async (req, res) =>
   }
 });
 
-// POST /api/upload/clear - Clear incoming directory
+// POST /api/upload/clear - Clear upload cache and work directory
 router.post('/clear', async (req, res) => {
   try {
-    const files = await fs.readdir('incoming/');
-    let deleted = 0;
+    // Clear the upload cache (memory-based deduplication)
+    const cacheResult = await clearUploadCache();
     
-    for (const file of files) {
-      const filePath = path.join('incoming', file);
-      await fs.unlink(filePath);
-      deleted++;
-    }
-    
-    // Also clean up .work directory
-    if (await fs.access('.work').then(() => true).catch(() => false)) {
-      await fs.rm('.work', { recursive: true, force: true });
+    // Clean up .work directory
+    let workDirDeleted = false;
+    try {
+      if (await fs.access('.work').then(() => true).catch(() => false)) {
+        await fs.rm('.work', { recursive: true, force: true });
+        workDirDeleted = true;
+      }
+    } catch (workError) {
+      console.warn('Warning: Could not clean work directory:', workError.message);
     }
     
     res.json({
       success: true,
-      message: `Cleared ${deleted} files from incoming directory and cleaned work directory`
+      message: `Cleared ${cacheResult.previousSize} cached files and ${workDirDeleted ? 'cleaned work directory' : 'work directory already clean'}`,
+      details: {
+        cacheCleared: cacheResult.previousSize,
+        workDirectoryCleared: workDirDeleted
+      }
     });
   } catch (error) {
     console.error('Clear error:', error);
-    res.status(500).json({ error: 'Failed to clear directories' });
+    res.status(500).json({ error: 'Failed to clear cache and directories' });
   }
 });
 
@@ -252,27 +242,17 @@ router.post('/process', async (req, res) => {
       processLogger.log('🚀 [INIT] Pipeline starting - Node.js direct execution mode');
       processLogger.log(`📅 [INIT] Started at: ${new Date().toISOString()}`);
 
-    // Check if there are files to process
-    let incomingFiles;
-    try {
-      incomingFiles = await fs.readdir('incoming/');
-    } catch (error) {
-      if (error.code === 'ENOENT') {
-        processLogger.error('[INIT] No incoming directory found');
-        return;
-      }
-      throw error;
-    }
-
-    const validFiles = incomingFiles.filter(f => /\.(pdf|docx|doc|txt|md)$/i.test(f));
+    // Check if there are files to process in memory cache
+    const cacheStats = getUploadCacheStats();
     
-    if (validFiles.length === 0) {
-      processLogger.error('[INIT] No valid files found in incoming directory');
+    if (cacheStats.totalCachedFiles === 0) {
+      processLogger.error('[INIT] No files found in upload cache');
       processLogger.log('   Please upload files first, then try processing again');
       return;
     }
 
-    processLogger.log(`📁 [INIT] Found ${validFiles.length} files: ${validFiles.join(', ')}`);
+    const validFiles = cacheStats.cacheEntries.map(entry => entry.fileName);
+    processLogger.log(`📁 [INIT] Found ${validFiles.length} files in memory cache: ${validFiles.join(', ')}`);
 
     // Pipeline steps with timeouts
     const steps = [
@@ -380,34 +360,21 @@ router.post('/process', async (req, res) => {
       }
     }
 
-    // Final cleanup - move files to processed/
-    const cleanupReporter = createProgressReporter(processLogger.log.bind(processLogger), 'File Cleanup', 10000);
+    // Final cleanup - update processing status in cache
+    const cleanupReporter = createProgressReporter(processLogger.log.bind(processLogger), 'Memory Cleanup', 10000);
     try {
       cleanupReporter.start();
       
-      // Ensure processed directory exists
-      await fs.mkdir('processed', { recursive: true });
+      // Mark files as processed in upload cache
+      // Note: Files remain in cache for deduplication but are marked as processed
+      processLogger.log(`📦 [CLEANUP] ${validFiles.length} files processed successfully`);
+      processLogger.log(`💾 [CLEANUP] Files remain in cache for future deduplication`);
       
-      let movedCount = 0;
-      const currentFiles = await fs.readdir('incoming/');
-      
-      for (const file of currentFiles) {
-        if (file.startsWith('.')) continue; // Skip hidden files
-        if (/\.(pdf|docx|doc|txt|md)$/i.test(file)) {
-          const src = `incoming/${file}`;
-          const dest = `processed/${file}`;
-          await fs.rename(src, dest);
-          processLogger.log(`   📁 Moved: ${file}`);
-          movedCount++;
-        }
-      }
-      
-      processLogger.log(`📦 [CLEANUP] Archived ${movedCount} processed files`);
       cleanupReporter.end();
       
     } catch (error) {
       cleanupReporter.error(error);
-      processLogger.warn('[CLEANUP] File cleanup failed, but pipeline processing succeeded');
+      processLogger.warn('[CLEANUP] Memory cleanup warning, but pipeline processing succeeded');
     }
 
     // Success
@@ -569,11 +536,13 @@ async function testIndividualStep(res, stepName, scriptPath, timeoutMs) {
 
     // Check prerequisites
     try {
-      const incomingFiles = await fs.readdir('incoming/');
-      const validFiles = incomingFiles.filter(f => /\.(pdf|docx|doc|txt|md)$/i.test(f));
-      sendProgress(`📁 [TEST] Found ${validFiles.length} files in incoming/`);
+      const cacheStats = getUploadCacheStats();
+      sendProgress(`📁 [TEST] Found ${cacheStats.totalCachedFiles} files in upload cache`);
+      if (cacheStats.totalCachedFiles === 0) {
+        sendProgress(`⚠️  [TEST] No files in cache - upload files before testing individual steps`);
+      }
     } catch (error) {
-      sendProgress(`⚠️  [TEST] Warning: Could not check incoming files: ${error.message}`);
+      sendProgress(`⚠️  [TEST] Warning: Could not check upload cache: ${error.message}`);
     }
 
     const reporter = createProgressReporter(sendProgress, `Test-${stepName}`, timeoutMs);
@@ -830,87 +799,39 @@ router.get('/debug', async (req, res) => {
   }
 });
 
-// GET /api/upload/incoming - List files in incoming directory
-router.get('/incoming', async (req, res) => {
+// GET /api/upload/files - List files in upload cache (replaces /incoming)
+router.get('/files', async (req, res) => {
   try {
-    const files = await fs.readdir('incoming/');
-    const fileStats = await Promise.all(
-      files
-        .filter(f => /\.(pdf|docx|doc|txt|md)$/i.test(f))
-        .map(async (file) => {
-          const filePath = path.join('incoming', file);
-          const stats = await fs.stat(filePath);
-          return {
-            name: file,
-            size: stats.size,
-            modified: stats.mtime
-          };
-        })
-    );
+    const cacheStats = getUploadCacheStats();
+    
+    // Convert cache entries to a format similar to the old incoming files
+    const files = cacheStats.cacheEntries.map(entry => ({
+      name: entry.fileName,
+      hash: entry.hash,
+      size: entry.size || 0,
+      uploadedAt: entry.uploadedAt,
+      inMemory: true,
+      isDocument: /\.(pdf|docx|doc|txt|md)$/i.test(entry.fileName)
+    }));
+    
+    // Sort by upload time (newest first)
+    files.sort((a, b) => new Date(b.uploadedAt) - new Date(a.uploadedAt));
     
     res.json({
       success: true,
-      files: fileStats.sort((a, b) => b.modified - a.modified)
-    });
-  } catch (error) {
-    console.error('Incoming files error:', error);
-    res.status(500).json({ error: 'Failed to list incoming files' });
-  }
-});
-
-// GET /api/upload/incoming - Debug endpoint to show files in incoming directory
-router.get('/incoming', async (req, res) => {
-  try {
-    const incomingDir = 'incoming/';
-    let files;
-    
-    try {
-      files = await fs.readdir(incomingDir);
-    } catch (error) {
-      if (error.code === 'ENOENT') {
-        return res.json({
-          success: true,
-          incoming: [],
-          message: 'Incoming directory does not exist'
-        });
-      }
-      throw error;
-    }
-    
-    // Get file details
-    const fileDetails = [];
-    for (const file of files) {
-      if (file.startsWith('.')) continue; // Skip hidden files
-      
-      const filePath = path.join(incomingDir, file);
-      try {
-        const stats = await fs.stat(filePath);
-        if (stats.isFile()) {
-          fileDetails.push({
-            name: file,
-            size: stats.size,
-            modified: stats.mtime,
-            isDocument: /\.(pdf|docx|doc|txt|md)$/i.test(file)
-          });
-        }
-      } catch (statError) {
-        // File might have been deleted between readdir and stat
-        console.warn(`Could not stat file ${file}:`, statError.message);
-      }
-    }
-    
-    res.json({
-      success: true,
-      incoming: fileDetails,
-      count: fileDetails.length,
-      validDocuments: fileDetails.filter(f => f.isDocument).length
+      files: files,
+      count: files.length,
+      totalCached: cacheStats.totalCachedFiles,
+      validDocuments: files.filter(f => f.isDocument).length,
+      storage: 'memory',
+      message: files.length === 0 ? 'No files in upload cache' : `${files.length} files ready for processing`
     });
     
   } catch (error) {
-    console.error('Incoming directory check error:', error);
+    console.error('Upload cache check error:', error);
     res.status(500).json({ 
       success: false,
-      error: 'Failed to check incoming directory' 
+      error: 'Failed to check upload cache' 
     });
   }
 });

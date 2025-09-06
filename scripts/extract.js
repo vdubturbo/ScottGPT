@@ -4,10 +4,9 @@ import crypto from 'crypto';
 import OpenAI from 'openai';
 import yaml from 'js-yaml';
 import 'dotenv/config';
+import { pipelineStorage } from '../services/pipeline-storage.js';
 
 const client = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
-const IN = '.work/normalized';
-const OUT = '.work/extracted';
 const CACHE_FILE = '.work/content-cache.json';
 
 // Performance and duplicate detection cache
@@ -639,7 +638,7 @@ async function callOpenAIWithOptimizations(content, fileName, blockIndex) {
 
 async function extract() {
   const extractStartTime = Date.now();
-  console.log('🔍 [PERFORMANCE] Starting optimized extraction with duplicate detection...');
+  console.log('🔍 [PERFORMANCE] Starting database-based extraction with duplicate detection...');
   console.log('📅 Started at:', new Date().toISOString());
   
   // Check environment variables
@@ -651,27 +650,75 @@ async function extract() {
   
   console.log('✅ OpenAI API key found');
   
-  // Load cache and setup directories
-  await loadCache();
-  await fs.mkdir(OUT, { recursive: true });
-
-  const files = (await fs.readdir(IN)).filter(f => f.endsWith('.md'));
+  // Check if database tables are available
+  let useDatabase = false;
+  try {
+    await pipelineStorage.initializeStorage();
+    
+    // Test database connectivity
+    const testData = await pipelineStorage.getDocumentsByStatus('normalized');
+    useDatabase = true;
+    console.log('✅ Database tables available - using database storage');
+  } catch (error) {
+    console.log('⚠️ Database tables not available - falling back to file system');
+    console.log(`   Error: ${error.message}`);
+    console.log('💡 To use database storage, create tables with: setup-pipeline-tables.sql');
+    useDatabase = false;
+  }
   
-  if (files.length === 0) {
-    console.log('📄 No normalized files found to extract');
-    return;
+  // Load cache
+  await loadCache();
+  
+  let documents = [];
+  
+  if (useDatabase) {
+    // Get normalized documents from database
+    documents = await pipelineStorage.getDocumentsByStatus('normalized');
+    console.log(`📋 Found ${documents.length} normalized documents in database`);
+    
+    if (documents.length === 0) {
+      console.log('📄 No normalized documents found in database');
+      console.log('💡 Run the normalize script first to process documents');
+      return;
+    }
+  } else {
+    // Fallback to file system
+    await fs.mkdir('.work/extracted', { recursive: true });
+    const files = (await fs.readdir('.work/normalized')).filter(f => f.endsWith('.md'));
+    
+    if (files.length === 0) {
+      console.log('📄 No normalized files found to extract');
+      return;
+    }
+    
+    // Convert files to document-like objects for consistent processing
+    for (const filename of files) {
+      const content = await fs.readFile(path.join('.work/normalized', filename), 'utf8');
+      documents.push({
+        id: crypto.randomUUID(),
+        original_name: filename,
+        normalized_content: content
+      });
+    }
+    
+    console.log(`📁 Processing ${documents.length} normalized files from file system`);
   }
 
-  console.log(`📁 Processing ${files.length} normalized files`);
   let totalBlocks = 0;
   
-  for (let i = 0; i < files.length; i++) {
-    const f = files[i];
-    console.log(`\n📖 [${i + 1}/${files.length}] Processing: ${f}`);
+  for (let i = 0; i < documents.length; i++) {
+    const doc = documents[i];
+    const documentName = doc.original_name || `document-${doc.id}`;
+    console.log(`\n📖 [${i + 1}/${documents.length}] Processing: ${documentName}`);
     
     try {
-      const raw = await fs.readFile(path.join(IN, f), 'utf8');
+      const raw = doc.normalized_content;
       console.log(`📄 Document: ${raw.length} chars, ${raw.split('\n').length} lines`);
+      
+      if (!raw || raw.trim().length === 0) {
+        console.log(`⚠️  Document has no normalized content, skipping`);
+        continue;
+      }
       
       // Process the entire document as one block for better context
       const blocks = [raw];
@@ -684,7 +731,7 @@ async function extract() {
           console.log(`\n📦 [BLOCK ${blockIndex + 1}] Processing ${block.length} chars...`);
           
           // Use streaming API call with real-time progress
-          const extractedContent = await callOpenAIWithOptimizations(block, f, blockIndex);
+          const extractedContent = await callOpenAIWithOptimizations(block, documentName, blockIndex);
           
           // Process and save extractions with deduplication
           if (extractedContent && extractedContent.includes('---')) {
@@ -718,25 +765,73 @@ async function extract() {
             const uniqueExtractions = deduplicateExtractions(validRawExtractions);
             console.log(`✨ Post-deduplication: ${uniqueExtractions.length} unique extractions`);
             
-            // Save deduplicated extractions
-            let validExtractions = 0;
-            for (let i = 0; i < uniqueExtractions.length; i++) {
-              const extraction = uniqueExtractions[i];
-              const fileName = f.replace('.md', `.extract-${blockIndex}-${i}.md`);
-              await fs.writeFile(path.join(OUT, fileName), extraction);
-              console.log(`💾 Saved unique extraction: ${fileName}`);
-              validExtractions++;
-              totalBlocks++;
+            if (useDatabase && uniqueExtractions.length > 0) {
+              // Convert extractions to chunks format and store in database
+              const chunks = [];
+              
+              for (let i = 0; i < uniqueExtractions.length; i++) {
+                const extraction = uniqueExtractions[i];
+                
+                // Parse the YAML frontmatter to extract metadata
+                const validation = validateYAMLExtraction(extraction);
+                if (validation.isValid) {
+                  const yamlData = validation.parsed;
+                  const content = validation.contentSection;
+                  
+                  chunks.push({
+                    content: extraction, // Store the full extraction including YAML
+                    title: yamlData.title || null,
+                    summary: yamlData.summary || null,
+                    skills: Array.isArray(yamlData.skills) ? yamlData.skills : 
+                           (yamlData.skills ? [yamlData.skills] : []),
+                    tags: Array.isArray(yamlData.industry_tags) ? yamlData.industry_tags : 
+                          (yamlData.industry_tags ? [yamlData.industry_tags] : []),
+                    date_start: yamlData.date_start || null,
+                    date_end: yamlData.date_end || null,
+                    token_count: Math.round(extraction.length / 4), // Rough estimate
+                    extraction_method: 'openai-streaming'
+                  });
+                }
+              }
+              
+              // Store chunks in database
+              if (chunks.length > 0) {
+                await pipelineStorage.storeExtractedContent(doc.id, chunks);
+                console.log(`💾 Stored ${chunks.length} extracted chunks in database`);
+                totalBlocks += chunks.length;
+              }
+              
+            } else if (!useDatabase) {
+              // Fallback to file system storage
+              let validExtractions = 0;
+              for (let i = 0; i < uniqueExtractions.length; i++) {
+                const extraction = uniqueExtractions[i];
+                const fileName = documentName.replace('.md', `.extract-${blockIndex}-${i}.md`);
+                await fs.writeFile(path.join('.work/extracted', fileName), extraction);
+                console.log(`💾 Saved unique extraction: ${fileName}`);
+                validExtractions++;
+                totalBlocks++;
+              }
+              
+              const dedupSaved = rawExtractions.length - validExtractions;
+              console.log(`✅ Saved ${validExtractions} unique extractions (${dedupSaved} duplicates prevented)`);
             }
             
-            const dedupSaved = rawExtractions.length - validExtractions;
-            console.log(`✅ Saved ${validExtractions} unique extractions (${dedupSaved} duplicates prevented)`);
           } else {
             console.log(`⚠️  No valid extractions found in block ${blockIndex}`);
           }
           
         } catch (blockError) {
           console.error(`❌ [BLOCK ERROR] Block ${blockIndex} failed: ${blockError.message}`);
+          
+          // Record error in database if available
+          if (useDatabase) {
+            try {
+              await pipelineStorage.recordProcessingError(doc.id, 'extraction', blockError);
+            } catch (dbError) {
+              console.error(`❌ Failed to record error in database:`, dbError.message);
+            }
+          }
           
           // Continue with next block rather than failing entire file
           if (blockError.status === 429) {
@@ -747,7 +842,16 @@ async function extract() {
       }
       
     } catch (fileError) {
-      console.error(`❌ [FILE ERROR] Failed to process ${f}: ${fileError.message}`);
+      console.error(`❌ [DOCUMENT ERROR] Failed to process ${documentName}: ${fileError.message}`);
+      
+      // Record error in database if available
+      if (useDatabase) {
+        try {
+          await pipelineStorage.recordProcessingError(doc.id, 'extraction', fileError);
+        } catch (dbError) {
+          console.error(`❌ Failed to record error in database:`, dbError.message);
+        }
+      }
     }
   }
 
