@@ -51,7 +51,10 @@ class OptimizedDatabase {
       } else {
         console.log('✅ pgvector optimization available');
         console.log(`📊 Database stats: ${data[0]?.chunks_with_vectors || 0} vectors indexed`);
-        this.useVectorOptimization = true;
+        console.log(`📊 Full stats:`, data[0]); // DEBUG: Show all stats
+        // Only enable if we actually have vectors
+        this.useVectorOptimization = (data[0]?.chunks_with_vectors || 0) > 0;
+        console.log(`🔍 Decision: useVectorOptimization = ${this.useVectorOptimization}`);
       }
     } catch (error) {
       console.log('⚠️ Cannot check pgvector optimization:', error.message);
@@ -416,8 +419,15 @@ class OptimizedDatabase {
   async searchChunks(queryEmbedding, options = {}) {
     const useVector = await this.checkVectorOptimization();
     
+    // DEBUG: Log decision process
+    console.log(`🔍 Search method decision:`);
+    console.log(`  - useVector: ${useVector}`);
+    console.log(`  - isArray: ${Array.isArray(queryEmbedding)}`);
+    console.log(`  - embedding length: ${queryEmbedding?.length}`);
+    
     if (useVector && Array.isArray(queryEmbedding) && queryEmbedding.length === 1024) {
       try {
+        console.log('🚀 Attempting pgvector search...');
         return await this.searchChunksOptimized(queryEmbedding, options);
       } catch (error) {
         console.warn('⚠️ Optimized search failed, falling back to legacy:', error.message);
@@ -425,6 +435,7 @@ class OptimizedDatabase {
         return await this.searchChunksLegacy(queryEmbedding, options);
       }
     } else {
+      console.log('🔄 Using legacy search (pgvector conditions not met)');
       return await this.searchChunksLegacy(queryEmbedding, options);
     }
   }
