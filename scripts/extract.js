@@ -26,67 +26,62 @@ let performanceStats = {
   totalCharacters: 0
 };
 
-const SYSTEM_PROMPT = `You are a resume data extraction specialist for Scott Lovett. 
+const SYSTEM_PROMPT = `You are a professional resume data extraction specialist. Extract career information from the provided content and create structured records in YAML format.
 
-Looking at this resume, I can see MULTIPLE distinct positions that need to be extracted:
+INSTRUCTIONS:
+1. Process ONLY the content provided in the input
+2. Extract job roles, companies, achievements, and skills mentioned in the actual text
+3. Create one YAML block per distinct role/position found in the content
+4. Do NOT add information not present in the source content
+5. Do NOT use predetermined examples or templates
+6. Do NOT fabricate or assume details not explicitly stated
 
-1. Independent Technologist & Developer (2025-CURRENT)
-2. Binary Defense - Senior Director, DSO (2023-6/2025) 
-3. Serta Simmons - Senior Director of IT Strategy (2023-2023)
-4. Cyberdyne Systems LLC - Consultant (2020-2023)
-5. McKesson Corporation - Sr. Director, OT Security (2018-2020)
-6. American Cybersystems - Sr. Program Manager (2014-2018)
-7. Lockheed Martin - Program Management Manager (1999-2013)
-8. Education - Georgia Institute of Technology
-
-EXTRACT ALL of these as separate entries. Do NOT consolidate multiple roles into one extraction.
-
-CRITICAL YAML FORMAT RULES:
+YAML FORMAT RULES:
 1. Each position gets its own YAML block starting and ending with ---
 2. YAML must contain key: value pairs only - NO markdown formatting in YAML
 3. All content after the closing --- is markdown
 
-FORMAT for each position:
+FORMAT for each position found in the input:
 
 ---
-id: company-role-year
-type: job
-title: Exact Job Title
-org: Company Name  
-location: City, State
-date_start: YYYY-MM-DD
-date_end: YYYY-MM-DD or null if current
+id: [generate from actual org/title/dates in content]
+type: [job/education/project/certification based on content]
+title: [exact title from content]
+org: [organization name from content]  
+location: [location if mentioned in content]
+date_start: [start date if mentioned, null if not]
+date_end: [end date if mentioned, null if current or not stated]
 industry_tags:
-  - Cybersecurity
-  - Technology
+  - [industry tags based on content]
+  - [only if mentioned or clearly implied]
 skills:
-  - Program Management
-  - PMO Leadership
+  - [skills mentioned in content]
+  - [technologies/tools from content]
 outcomes:
-  - Reduced budget variance by 90%
-  - Led $30M portfolio transformation
-summary: Brief role overview in 1-2 sentences
+  - [achievements stated in content]
+  - [quantified results from content]
+summary: [brief role summary based on content description]
 pii_allow: false
 ---
 
 # Position Details
 
 ## Role Overview
-Detailed description of the position and responsibilities.
+[Detailed description from the actual content]
 
 ## Key Achievements  
-- Quantified accomplishment 1
-- Quantified accomplishment 2
-- Major project or initiative
+- [Accomplishments mentioned in source]
+- [Projects or initiatives from content]
+- [Results or metrics if provided]
 
 ## Skills & Technologies
-- Technical skills used
-- Methodologies applied
-- Tools and platforms
+- [Technical skills mentioned in content]
+- [Methodologies referenced in content]
+- [Tools and platforms stated in content]
 
 ---NEXT_EXTRACTION---
 
-CRITICAL: Extract ALL 7+ positions listed above as separate entries. Do not skip any roles.`;
+CRITICAL: Only extract positions and details that are explicitly mentioned in the provided content. Do not add roles, companies, achievements, or skills not present in the source material.`;
 
 // Validate YAML frontmatter structure
 function validateYAMLExtraction(extractionText) {
@@ -159,6 +154,84 @@ function validateYAMLExtraction(extractionText) {
       error: `Validation error: ${error.message}` 
     };
   }
+}
+
+// Validate extraction content against source input
+function validateExtractionContent(sourceContent, extractedYaml) {
+  console.log('🔍 [VALIDATION] Checking extraction against source content...');
+  
+  try {
+    const yamlBlocks = extractedYaml.split('---NEXT_EXTRACTION---');
+    const sourceLower = sourceContent.toLowerCase();
+    const suspiciousEntries = [];
+    
+    // Known contamination indicators
+    const knownContaminants = [
+      'binary defense', 'serta simmons', 'mckesson', 'lockheed martin',
+      'american cybersystems', 'cyberdyne systems', 'middleseat.app',
+      'georgia institute of technology'
+    ];
+    
+    for (const block of yamlBlocks) {
+      if (!block.trim()) continue;
+      
+      try {
+        // Extract YAML frontmatter
+        const yamlMatch = block.match(/---\n([\s\S]*?)\n---/);
+        if (!yamlMatch) continue;
+        
+        const yamlData = yaml.load(yamlMatch[1]);
+        if (!yamlData) continue;
+        
+        // Check if organization exists in source
+        if (yamlData.org && !sourceLower.includes(yamlData.org.toLowerCase())) {
+          console.warn(`⚠️ [CONTAMINATION] Org "${yamlData.org}" not found in source content`);
+          suspiciousEntries.push({ type: 'org', value: yamlData.org, id: yamlData.id });
+        }
+        
+        // Check for known contaminants
+        const orgLower = (yamlData.org || '').toLowerCase();
+        for (const contaminant of knownContaminants) {
+          if (orgLower.includes(contaminant) && !sourceLower.includes(contaminant)) {
+            console.error(`🚨 [CRITICAL] Known contaminant "${contaminant}" detected in extraction but not in source!`);
+            suspiciousEntries.push({ type: 'contaminant', value: contaminant, id: yamlData.id });
+          }
+        }
+        
+      } catch (parseError) {
+        console.warn(`⚠️ [VALIDATION] Could not parse YAML block: ${parseError.message}`);
+      }
+    }
+    
+    if (suspiciousEntries.length > 0) {
+      console.error(`🚨 [VALIDATION FAILED] ${suspiciousEntries.length} suspicious entries detected`);
+      console.error('Suspicious entries:', suspiciousEntries);
+      return { isValid: false, suspiciousEntries, error: 'Extraction contains data not present in source' };
+    }
+    
+    console.log('✅ [VALIDATION PASSED] Extraction content matches source');
+    return { isValid: true };
+    
+  } catch (error) {
+    console.error('❌ [VALIDATION ERROR]', error.message);
+    return { isValid: false, error: error.message };
+  }
+}
+
+// Enhanced cache validation with content verification
+function validateCacheEntry(sourceContent, cachedResult) {
+  console.log('🔍 [CACHE VALIDATION] Verifying cached result matches source...');
+  
+  // First check if the extraction content makes sense for the source
+  const validation = validateExtractionContent(sourceContent, cachedResult);
+  
+  if (!validation.isValid) {
+    console.warn('🚨 [CACHE CONTAMINATION] Cached result contains invalid data - rejecting cache entry');
+    return false;
+  }
+  
+  console.log('✅ [CACHE VALIDATION] Cached result is valid for source content');
+  return true;
 }
 
 // Fuzzy string matching for deduplication
@@ -382,13 +455,22 @@ async function callOpenAIWithOptimizations(content, fileName, blockIndex) {
   const startTime = Date.now();
   const contentHash = generateContentHash(content);
   
-  // Check for duplicate content
+  // Check for duplicate content with validation
   if (contentCache.has(contentHash)) {
     const cachedResult = contentCache.get(contentHash);
-    console.log(`♻️  [DUPLICATE] Skipping identical content (hash: ${contentHash.substring(0, 8)}...)`);
+    console.log(`♻️  [DUPLICATE] Found cached content (hash: ${contentHash.substring(0, 8)}...)`);
     console.log(`   📁 Previously processed: ${cachedResult.originalFile}`);
-    performanceStats.duplicatesSkipped++;
-    return cachedResult.extractedContent;
+    
+    // Validate cached result against current content
+    if (validateCacheEntry(content, cachedResult.extractedContent)) {
+      console.log(`   ✅ Cache validation passed - using cached result`);
+      performanceStats.duplicatesSkipped++;
+      return cachedResult.extractedContent;
+    } else {
+      console.warn(`   🚨 Cache validation failed - processing fresh (possible contamination)`);
+      console.warn(`   🗑️  Removing invalid cache entry`);
+      contentCache.delete(contentHash);
+    }
   }
   
   console.log(`🚀 [STREAMING] Starting OpenAI streaming request (hash: ${contentHash.substring(0, 8)}...)`);
@@ -409,7 +491,7 @@ async function callOpenAIWithOptimizations(content, fileName, blockIndex) {
         { role: 'system', content: SYSTEM_PROMPT },
         { 
           role: 'user', 
-          content: `Extract ALL distinct job positions from this resume. I expect multiple separate extractions for Scott Lovett's career:\n\n${content}\n\nCRITICAL: Look for and extract ALL positions mentioned, including:\n- Independent Technologist (current)\n- Binary Defense role\n- Serta Simmons role  \n- Cyberdyne Systems consulting\n- McKesson Corporation role\n- American Cybersystems role\n- Lockheed Martin role\n- Education entries\n\nEach should be a separate extraction with proper YAML formatting.` 
+          content: `Extract all distinct career information from this content. Process only what is explicitly mentioned in the text below:\n\n${content}\n\nIMPORTANT: Only extract information that is actually present in the above content. Do not add predetermined roles, companies, or achievements that are not mentioned in the source material.` 
         }
       ],
       max_tokens: 4000, // Increased for multiple extractions
@@ -483,7 +565,19 @@ async function callOpenAIWithOptimizations(content, fileName, blockIndex) {
     // Estimate token usage for caching
     const estimatedTokens = Math.round((JSON.stringify([content]).length + fullContent.length) / 4);
     
-    // Cache the result
+    // Validate extraction before caching
+    console.log('🔍 [PRE-CACHE VALIDATION] Validating extraction before caching...');
+    const validation = validateExtractionContent(content, fullContent);
+    
+    if (!validation.isValid) {
+      console.error('🚨 [CACHE REJECTION] Extraction failed validation - not caching potentially contaminated result');
+      console.error('Validation errors:', validation.error);
+      console.error('Suspicious entries:', validation.suspiciousEntries);
+      throw new Error(`Extraction validation failed: ${validation.error}`);
+    }
+    
+    // Cache the validated result
+    console.log('✅ [CACHE SAFE] Validation passed - caching clean extraction result');
     contentCache.set(contentHash, {
       extractedContent: fullContent,
       originalFile: fileName,
@@ -492,7 +586,9 @@ async function callOpenAIWithOptimizations(content, fileName, blockIndex) {
       timeToFirst,
       chunkCount,
       tokens: estimatedTokens,
-      streaming: true
+      streaming: true,
+      validated: true,
+      validationPassed: validation.isValid
     });
     
     console.log(`📊 [PERFORMANCE] Tokens: ~${estimatedTokens}, Latency: ${timeToFirst}ms, Total: ${duration}ms`);
