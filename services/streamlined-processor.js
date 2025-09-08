@@ -79,11 +79,15 @@ export class StreamlinedProcessor {
       const chunksWithEmbeddings = await this.generateChunkEmbeddings(extractedChunks);
       console.log(`🧠 Generated embeddings for ${chunksWithEmbeddings.length} chunks`);
       
-      // Step 4: Create individual job records for each extracted job
-      const jobRecords = await this.createJobRecords(chunksWithEmbeddings, filename);
+      // Step 4: Create document record to track the processed file
+      const documentRecord = await this.createDocumentRecord(filename, buffer.length, extractedChunks.length);
+      console.log(`📋 Created document record: ${documentRecord.id} for ${filename}`);
+      
+      // Step 5: Create individual job records for each extracted job
+      const jobRecords = await this.createJobRecords(chunksWithEmbeddings, filename, documentRecord.id);
       console.log(`📋 Created ${jobRecords.length} individual job records`);
       
-      // Step 5: Store chunks with their corresponding job source_id
+      // Step 6: Store chunks with their corresponding job source_id
       const storageResults = await this.storeSearchableChunksWithJobs(chunksWithEmbeddings, jobRecords);
       console.log(`💾 Stored ${storageResults.stored} searchable chunks`);
       
@@ -120,6 +124,7 @@ export class StreamlinedProcessor {
       return {
         success: true,
         filename,
+        documentId: documentRecord.id,
         jobRecords: jobRecords.length,
         chunksExtracted: extractedChunks.length,
         chunksStored: storageResults.stored,
@@ -473,9 +478,40 @@ CRITICAL RULES:
   }
 
   /**
+   * Create document record in pipeline_documents table to track processed file
+   */
+  async createDocumentRecord(filename, fileSize, chunkCount) {
+    const documentRecord = {
+      original_name: filename,
+      file_hash: crypto.createHash('sha256').update(filename + Date.now()).digest('hex'), // Simple hash for tracking
+      document_type: this._getDocumentType(filename),
+      character_count: fileSize,
+      processing_status: 'completed',
+      stage_timestamps: {
+        uploaded: new Date().toISOString(),
+        completed: new Date().toISOString()
+      }
+    };
+
+    const { data, error } = await supabase
+      .from('pipeline_documents')
+      .insert(documentRecord)
+      .select('id, original_name')
+      .single();
+
+    if (error) {
+      console.error(`❌ Failed to create document record for ${filename}:`, error.message);
+      throw error;
+    }
+
+    console.log(`✅ Created document record: ${filename} (${data.id})`);
+    return data;
+  }
+
+  /**
    * Create individual job records for each extracted job in sources table
    */
-  async createJobRecords(chunksWithEmbeddings, filename) {
+  async createJobRecords(chunksWithEmbeddings, filename, documentId = null) {
     console.log(`📋 Creating individual job records from ${chunksWithEmbeddings.length} extracted jobs...`);
     
     const jobRecords = [];
@@ -608,6 +644,23 @@ CRITICAL RULES:
   countWords(text) {
     if (!text || typeof text !== 'string') return 0;
     return text.trim().split(/\s+/).filter(word => word.length > 0).length;
+  }
+
+  /**
+   * Get document type from filename
+   */
+  _getDocumentType(filename) {
+    const ext = filename.split('.').pop()?.toLowerCase();
+    const typeMap = {
+      'pdf': 'pdf',
+      'docx': 'docx',
+      'doc': 'docx',
+      'md': 'markdown',
+      'txt': 'text',
+      'html': 'html',
+      'htm': 'html'
+    };
+    return typeMap[ext] || 'unknown';
   }
 
   /**
