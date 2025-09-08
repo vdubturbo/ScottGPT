@@ -12,11 +12,14 @@ import { supabase } from '../config/database.js';
 import OpenAI from 'openai';
 import yaml from 'js-yaml';
 import { DocumentConverter } from './document-converter.js';
+import DatabaseSkillsService from './skills.js';
+import { markFileAsProcessedByName, saveUploadCache, uploadCache } from '../utils/upload-optimizer.js';
 
 export class StreamlinedProcessor {
   constructor() {
     this.openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
     this.embeddingService = new EmbeddingService();
+    this.skillsService = new DatabaseSkillsService();
     
     // Initialize document converter with same config as database system
     this.converter = new DocumentConverter({
@@ -92,6 +95,27 @@ export class StreamlinedProcessor {
       
       console.log(`✅ [STREAMLINED] Completed ${filename} in ${processingTime}ms`);
       console.log(`   📊 ${extractedChunks.length} chunks → ${storageResults.stored} searchable`);
+      
+      // Mark file as processed in cache to prevent reprocessing
+      try {
+        const marked = markFileAsProcessedByName(filename);
+        if (marked) {
+          // Also add processedAt timestamp
+          for (const [hash, entry] of uploadCache) {
+            if (entry.originalName === filename) {
+              entry.processedAt = new Date().toISOString();
+              break;
+            }
+          }
+          await saveUploadCache();
+          console.log(`🧹 [CACHE] Marked ${filename} as processed to prevent reprocessing`);
+        } else {
+          console.warn(`⚠️ [CACHE] File ${filename} not found in cache for processing mark`);
+        }
+      } catch (cacheError) {
+        console.warn(`⚠️ [CACHE] Failed to mark ${filename} as processed:`, cacheError.message);
+        // Don't fail the whole processing if cache update fails
+      }
       
       return {
         success: true,
@@ -301,7 +325,7 @@ CRITICAL RULES:
       }
       
       // Parse YAML blocks from response
-      const chunks = this.parseYamlBlocks(extractedContent);
+      const chunks = await this.parseYamlBlocks(extractedContent);
       console.log(`🔍 [DEBUG] Parsed ${chunks.length} valid chunks from extraction`);
       
       if (chunks.length === 0) {
@@ -317,9 +341,38 @@ CRITICAL RULES:
   }
 
   /**
+   * Process and normalize skills using the skills database table
+   */
+  async processSkills(skills, context = {}) {
+    if (!Array.isArray(skills) || skills.length === 0) {
+      return [];
+    }
+
+    try {
+      // Initialize skills service if not already done
+      await this.skillsService.initialize();
+      
+      // Use the database-based normalization
+      const normalizedSkills = await this.skillsService.normalizeSkills(skills);
+      
+      console.log(`🔧 [SKILLS] Normalized ${skills.length} extracted skills → ${normalizedSkills.length} final skills`);
+      if (skills.length !== normalizedSkills.length || skills.some((skill, i) => skill !== normalizedSkills[i])) {
+        console.log(`🔧 [SKILLS] Original: [${skills.join(', ')}]`);
+        console.log(`🔧 [SKILLS] Normalized: [${normalizedSkills.join(', ')}]`);
+      }
+      
+      return normalizedSkills;
+    } catch (error) {
+      console.warn(`⚠️ [SKILLS] Skills processing failed: ${error.message}`);
+      // Fallback to original skills if processing fails
+      return skills.filter(skill => skill && typeof skill === 'string' && skill.trim()).map(skill => skill.trim());
+    }
+  }
+
+  /**
    * Parse YAML blocks from OpenAI response
    */
-  parseYamlBlocks(extractionText) {
+  async parseYamlBlocks(extractionText) {
     console.log(`🧩 [DEBUG] Parsing YAML blocks from ${extractionText.length} character response`);
     
     const chunks = [];
@@ -341,12 +394,20 @@ CRITICAL RULES:
         console.log(`🧩 [DEBUG] Parsed YAML data:`, yamlData);
         
         if (yamlData && yamlData.id && yamlData.title && yamlData.org) {
+          // Process skills through database normalization
+          const extractedSkills = Array.isArray(yamlData.skills) ? yamlData.skills : [];
+          const normalizedSkills = await this.processSkills(extractedSkills, {
+            title: yamlData.title,
+            org: yamlData.org,
+            source: 'extraction'
+          });
+          
           // Convert YAML data to chunk format
           const chunk = {
             content: `---\n${block}\n---`,
             title: yamlData.title,
             summary: yamlData.summary,
-            skills: Array.isArray(yamlData.skills) ? yamlData.skills : [],
+            skills: normalizedSkills,
             tags: Array.isArray(yamlData.industry_tags) ? yamlData.industry_tags : [],
             date_start: yamlData.date_start,
             date_end: yamlData.date_end,
@@ -354,6 +415,9 @@ CRITICAL RULES:
           };
           
           console.log(`✅ [DEBUG] Created valid chunk: "${chunk.title}" at "${chunk.org}"`);
+          if (extractedSkills.length !== normalizedSkills.length) {
+            console.log(`🔧 [DEBUG] Skills normalized for "${chunk.title}": ${extractedSkills.length} → ${normalizedSkills.length}`);
+          }
           chunks.push(chunk);
         } else {
           console.log(`🧩 [DEBUG] Skipping block ${i}: missing required fields (id: ${yamlData?.id}, title: ${yamlData?.title}, org: ${yamlData?.org})`);

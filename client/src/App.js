@@ -118,17 +118,31 @@ function App() {
     });
 
     try {
-      const result = await axios.post('/api/upload', formData, {
+      // Use the new streamlined endpoint for direct processing
+      const result = await axios.post('/api/upload/streamlined', formData, {
         headers: { 'Content-Type': 'multipart/form-data' }
       });
       
-      // Store the detailed upload result
+      // Store the detailed upload result - streamlined format
       setUploadResult({
         success: true,
         message: result.data.message,
-        stats: result.data.stats,
-        files: result.data.files,
-        duplicates: result.data.duplicates
+        stats: {
+          uniqueUploaded: result.data.stats.filesSuccessful,
+          duplicatesSkipped: 0, // Streamlined doesn't have duplicates
+          totalSizeBytes: selectedFiles.reduce((sum, file) => sum + file.size, 0),
+          duplicateSizeSavedBytes: 0
+        },
+        files: result.data.results.map(r => ({
+          originalName: r.filename,
+          filename: r.filename,
+          size: selectedFiles.find(f => f.name === r.filename)?.size || 0,
+          isDuplicate: false,
+          processedInMemory: true
+        })),
+        duplicates: [],
+        streamlined: true,
+        processingResults: result.data.results
       });
       
       // Clear selected files after successful upload
@@ -177,7 +191,7 @@ function App() {
         setProcessStatus('✅ Streamlined processing completed successfully!');
         
         // Refresh cache stats
-        await fetchCacheStats();
+        await loadCacheStats();
       } else {
         throw new Error(result.message || 'Processing failed');
       }
@@ -566,15 +580,9 @@ function App() {
                           <button
                             onClick={async () => {
                               try {
-                                const uploadResult = await handleUpload();
-                                // Auto-start processing after successful upload
-                                if (uploadResult && uploadResult.stats.uniqueUploaded > 0) {
-                                  setTimeout(() => handleProcess(), 1000);
-                                }
-                                // If all files were duplicates, don't auto-process
-                                else if (uploadResult && uploadResult.stats.duplicatesSkipped > 0 && uploadResult.stats.uniqueUploaded === 0) {
-                                  // Already handled by upload result display
-                                }
+                                // Streamlined endpoint handles both upload and processing
+                                await handleUpload();
+                                // No need for separate processing - streamlined endpoint does it all
                               } catch (error) {
                                 // Error already handled in handleUpload
                               }
@@ -585,7 +593,7 @@ function App() {
                             {uploading ? (
                               <>
                                 <div className="btn-spinner"></div>
-                                Uploading...
+                                Processing...
                               </>
                             ) : (
                               <>
@@ -661,9 +669,18 @@ function App() {
                         {uploadResult.success && uploadResult.stats && (
                           <div className="upload-stats">
                             <div className="stat-item">
-                              <span className="stat-label">Uploaded:</span>
+                              <span className="stat-label">Processed:</span>
                               <span className="stat-value">{uploadResult.stats.uniqueUploaded} files</span>
                             </div>
+                            
+                            {uploadResult.streamlined && uploadResult.processingResults && (
+                              <div className="stat-item">
+                                <span className="stat-label">Chunks stored:</span>
+                                <span className="stat-value">
+                                  {uploadResult.processingResults.reduce((sum, r) => sum + (r.chunksStored || 0), 0)}
+                                </span>
+                              </div>
+                            )}
                             
                             {uploadResult.stats.duplicatesSkipped > 0 && (
                               <div className="stat-item duplicate">

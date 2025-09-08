@@ -6,7 +6,7 @@ import { exec } from 'child_process';
 import { promisify } from 'util';
 import rateLimit from 'express-rate-limit';
 import { api as logger } from '../utils/logger.js';
-import { processBatchUploads, clearUploadCache, getCacheStats as getUploadCacheStats, loadUploadCache } from '../utils/upload-optimizer.js';
+import { processBatchUploads, clearUploadCache, getCacheStats as getUploadCacheStats, loadUploadCache, clearProcessedFiles } from '../utils/upload-optimizer.js';
 import { streamlinedProcessor } from '../services/streamlined-processor.js';
 import processLogger from '../utils/process-logger.js';
 import CONFIG from '../config/app-config.js';
@@ -144,8 +144,10 @@ router.post('/streamlined', uploadFileLimit, upload.array('files', 10), async (r
   }
 });
 
-// POST /api/upload/process-cached-streamlined - Process cached files through streamlined architecture
+// POST /api/upload/process-cached-streamlined - Process cached files through streamlined architecture (FOR MANUAL USE ONLY)
 router.post('/process-cached-streamlined', async (req, res) => {
+  // Add warning that this should not be part of normal upload workflow
+  console.warn('⚠️ [DEPRECATED] /process-cached-streamlined called - should use /streamlined for normal uploads');
   try {
     console.log('🚀 [STREAMLINED-CACHED] Processing cached files through streamlined architecture...');
     
@@ -178,11 +180,16 @@ router.post('/process-cached-streamlined', async (req, res) => {
     const { loadUploadCache } = await import('../utils/upload-optimizer.js');
     await loadUploadCache();
     
-    // Process each cached file
+    // Process each cached file (skip already processed ones)
     for (const cacheEntry of cacheStats.cacheEntries) {
       if (!cacheEntry.hasBuffer) {
         console.warn(`⚠️ No buffer available for ${cacheEntry.fileName}, skipping`);
         filesFailed++;
+        continue;
+      }
+      
+      if (cacheEntry.processed) {
+        console.log(`⏭️ Skipping already processed file: ${cacheEntry.fileName} (processed at ${cacheEntry.processedAt})`);
         continue;
       }
       
@@ -275,83 +282,18 @@ function getMimeTypeFromFilename(filename) {
   return mimeTypes[ext] || 'text/plain';
 }
 
-// POST /api/upload - Legacy upload with duplicate detection (deprecated)
-router.post('/', uploadFileLimit, upload.array('files', 10), async (req, res) => {
-  const uploadStartTime = Date.now();
-  
-  try {
-    if (!req.files || req.files.length === 0) {
-      return res.status(400).json({ error: 'No files uploaded' });
+// POST /api/upload - Legacy upload with duplicate detection (DISABLED - use /streamlined instead)
+router.post('/', uploadFileLimit, (req, res) => {
+  return res.status(410).json({
+    success: false,
+    error: 'Legacy upload endpoint disabled',
+    message: 'This endpoint has been deprecated. Use POST /api/upload/streamlined for direct processing.',
+    recommendation: {
+      endpoint: '/api/upload/streamlined',
+      method: 'POST',
+      description: 'Direct upload with immediate processing and automatic cache management'
     }
-
-    console.log(`📤 [UPLOAD] Processing ${req.files.length} uploaded files...`);
-    
-    // Process uploads with duplicate detection
-    const deduplicationResults = await processBatchUploads(req.files);
-    const uploadDuration = Date.now() - uploadStartTime;
-
-    // Prepare response with detailed information
-    const uploadedFiles = deduplicationResults.unique.map(file => ({
-      originalName: file.originalName,
-      filename: file.originalName, // No path since files are in memory
-      size: file.size,
-      hash: file.hash,
-      isDuplicate: false,
-      processedInMemory: true
-    }));
-
-    const duplicateFiles = deduplicationResults.duplicates.map(file => ({
-      originalName: file.originalName,
-      size: file.size,
-      hash: file.hash,
-      isDuplicate: true,
-      message: file.message
-    }));
-
-    // Enhanced logging with performance metrics
-    logger.info('Files uploaded with deduplication', {
-      totalFiles: req.files.length,
-      uniqueFiles: deduplicationResults.stats.uniqueFiles,
-      duplicateFiles: deduplicationResults.stats.duplicateFiles,
-      totalSize: deduplicationResults.stats.totalSizeBytes,
-      duplicateSizeSkipped: deduplicationResults.stats.duplicateSizeBytes,
-      uploadDuration: `${uploadDuration}ms`,
-      ip: req.ip
-    });
-
-    // Response includes both uploaded and skipped files
-    const responseMessage = deduplicationResults.stats.duplicateFiles > 0
-      ? `${deduplicationResults.stats.uniqueFiles} unique files uploaded, ${deduplicationResults.stats.duplicateFiles} duplicates skipped`
-      : `${deduplicationResults.stats.uniqueFiles} files uploaded successfully`;
-
-    res.json({
-      success: true,
-      message: responseMessage,
-      stats: {
-        totalSubmitted: req.files.length,
-        uniqueUploaded: deduplicationResults.stats.uniqueFiles,
-        duplicatesSkipped: deduplicationResults.stats.duplicateFiles,
-        totalSizeBytes: deduplicationResults.stats.totalSizeBytes,
-        duplicateSizeSavedBytes: deduplicationResults.stats.duplicateSizeBytes,
-        uploadDurationMs: uploadDuration
-      },
-      files: uploadedFiles,
-      duplicates: duplicateFiles.length > 0 ? duplicateFiles : undefined
-    });
-
-  } catch (error) {
-    const uploadDuration = Date.now() - uploadStartTime;
-    
-    logger.error('File upload failed', {
-      error: error.message,
-      stack: error.stack,
-      uploadDuration: `${uploadDuration}ms`,
-      ip: req.ip
-    });
-    
-    console.error(`❌ [UPLOAD ERROR] ${error.message}`);
-    res.status(500).json({ error: 'Failed to upload files' });
-  }
+  });
 });
 
 // POST /api/upload/clear - Clear upload cache and work directory
@@ -702,6 +644,35 @@ router.post('/clear-cache', async (req, res) => {
     res.status(500).json({ 
       success: false, 
       error: 'Failed to clear upload cache',
+      details: error.message 
+    });
+  }
+});
+
+// POST /api/upload/clear-processed - Clear processed files from cache
+router.post('/clear-processed', async (req, res) => {
+  try {
+    const result = await clearProcessedFiles();
+    
+    res.json({
+      success: true,
+      message: `Cleared ${result.processedFilesCleared} processed files from cache (${result.remainingFiles} files remain)`,
+      result: result,
+      timestamp: new Date().toISOString()
+    });
+    
+    logger.info('Processed files cleared from cache', {
+      processedFilesCleared: result.processedFilesCleared,
+      remainingFiles: result.remainingFiles,
+      timestamp: new Date().toISOString(),
+      ip: req.ip
+    });
+    
+  } catch (error) {
+    console.error('Clear processed files error:', error);
+    res.status(500).json({ 
+      success: false, 
+      error: 'Failed to clear processed files from cache',
       details: error.message 
     });
   }

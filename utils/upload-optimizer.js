@@ -45,6 +45,38 @@ export async function saveUploadCache() {
   }
 }
 
+
+// Clear processed files from cache
+export async function clearProcessedFiles() {
+  try {
+    const originalSize = uploadCache.size;
+    let processedCount = 0;
+    
+    // Remove processed files from cache
+    for (const [hash, entry] of uploadCache) {
+      if (entry.processed) {
+        uploadCache.delete(hash);
+        processedCount++;
+      }
+    }
+    
+    console.log(`🧹 [CACHE] Cleared ${processedCount} processed files from cache (${originalSize} → ${uploadCache.size})`);
+    
+    // Save the updated cache
+    await saveUploadCache();
+    
+    return {
+      success: true,
+      processedFilesCleared: processedCount,
+      remainingFiles: uploadCache.size,
+      originalSize: originalSize
+    };
+  } catch (error) {
+    console.error('❌ [CACHE] Failed to clear processed files:', error.message);
+    throw error;
+  }
+}
+
 // Clear upload cache (for development/testing)
 export async function clearUploadCache() {
   try {
@@ -243,6 +275,7 @@ export function getCacheStats() {
       hash: hash.substring(0, 8),
       fileName: entry.originalName,
       uploadedAt: entry.uploadedAt,
+      processedAt: entry.processedAt || null,
       size: entry.size,
       processed: entry.processed || false,
       hasBuffer: !!entry.buffer

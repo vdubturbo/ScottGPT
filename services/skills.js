@@ -1,450 +1,389 @@
-import fs from 'fs/promises';
-import path from 'path';
 import { supabase } from '../config/database.js';
 
-const SKILLS_CONFIG_PATH = 'config/skills.json';
-const DISCOVERED_SKILLS_PATH = 'logs/discovered-skills.json';
-
-class SkillDiscoveryService {
+/**
+ * Database-based Skills Service
+ * Uses the skills table as the single source of truth
+ * Replaces file-based skills configuration
+ */
+class DatabaseSkillsService {
   constructor() {
-    this.controlledVocabulary = new Set();
-    this.synonyms = {};
-    this.discoveredSkills = [];
-    this.commonSkillPatterns = new Map();
+    this.skillsCache = new Map(); // Cache for performance
+    this.synonymsCache = new Map(); // Cache for aliases
     this.initialized = false;
+    this.cacheExpiry = 5 * 60 * 1000; // 5 minutes
+    this.lastCacheUpdate = 0;
   }
 
   async initialize() {
-    if (this.initialized) return;
+    if (this.initialized && (Date.now() - this.lastCacheUpdate) < this.cacheExpiry) {
+      return;
+    }
     
     try {
-      // Load existing configuration with fallback
-      let config;
-      try {
-        config = JSON.parse(await fs.readFile(SKILLS_CONFIG_PATH, 'utf8'));
-      } catch (error) {
-        if (error.code === 'ENOENT') {
-          console.warn('⚠️ skills.json not found, creating default configuration');
-          config = {
-            controlled_vocabulary: {
-              technical: [],
-              business: [],
-              leadership: []
-            },
-            synonyms: {}
-          };
-          await fs.mkdir('config', { recursive: true });
-          await fs.writeFile(SKILLS_CONFIG_PATH, JSON.stringify(config, null, 2));
-        } else {
-          throw error;
-        }
-      }
-      
-      // Handle controlled_vocabulary as either object with categories or flat array
-      let allSkills = [];
-      if (config.controlled_vocabulary) {
-        if (Array.isArray(config.controlled_vocabulary)) {
-          allSkills = config.controlled_vocabulary;
-        } else if (typeof config.controlled_vocabulary === 'object') {
-          // Flatten categorized skills
-          allSkills = Object.values(config.controlled_vocabulary).flat();
-        }
-      }
-      this.controlledVocabulary = new Set(allSkills);
-      this.synonyms = config.synonyms || {};
-      
-      // Load discovered skills if they exist
-      try {
-        const discovered = JSON.parse(await fs.readFile(DISCOVERED_SKILLS_PATH, 'utf8'));
-        this.discoveredSkills = discovered.skills || [];
-      } catch (error) {
-        this.discoveredSkills = [];
-      }
-      
-      // Initialize common patterns for skill categorization
-      this.initializeSkillPatterns();
+      console.log('🔄 Initializing database-based skills service...');
+      await this.refreshSkillsCache();
       this.initialized = true;
+      console.log(`✅ Skills service initialized with ${this.skillsCache.size} approved skills`);
     } catch (error) {
-      console.error('Failed to initialize skill discovery service:', error);
+      console.error('❌ Failed to initialize skills service:', error);
       throw error;
     }
   }
 
-  initializeSkillPatterns() {
-    this.commonSkillPatterns = new Map([
-      // Management & Leadership
-      ['management', { category: 'Leadership', priority: 'high', examples: ['Project Management', 'Risk Management', 'Change Management'] }],
-      ['leadership', { category: 'Leadership', priority: 'high', examples: ['Technical Leadership', 'Team Leadership'] }],
+  /**
+   * Refresh skills cache from database
+   */
+  async refreshSkillsCache() {
+    try {
+      // Load all skills from database
+      const { data: skills, error } = await supabase
+        .from('skills')
+        .select('id, name, category, aliases');
       
-      // Security & Compliance
-      ['security', { category: 'Security', priority: 'high', examples: ['Cybersecurity', 'Cloud Security', 'Network Security'] }],
-      ['compliance', { category: 'Compliance', priority: 'high', examples: ['Regulatory Compliance', 'Risk & Compliance'] }],
-      ['risk', { category: 'Risk Management', priority: 'high', examples: ['Risk Assessment', 'Risk Mitigation'] }],
-      
-      // Technology
-      ['cloud', { category: 'Technology', priority: 'medium', examples: ['Cloud Architecture', 'Cloud Security', 'Multi-Cloud'] }],
-      ['agile', { category: 'Methodology', priority: 'medium', examples: ['Agile Development', 'Agile Coaching'] }],
-      ['ai', { category: 'Technology', priority: 'high', examples: ['AI/ML', 'AI Strategy', 'AI Ethics'] }],
-      ['data', { category: 'Technology', priority: 'medium', examples: ['Data Analytics', 'Data Governance'] }],
-      
-      // Business
-      ['strategy', { category: 'Strategy', priority: 'high', examples: ['Business Strategy', 'Product Strategy'] }],
-      ['process', { category: 'Operations', priority: 'medium', examples: ['Process Improvement', 'Process Optimization'] }],
-      ['transformation', { category: 'Strategy', priority: 'high', examples: ['Digital Transformation', 'Business Transformation'] }]
-    ]);
+      if (error) throw error;
+
+      // Clear and rebuild cache
+      this.skillsCache.clear();
+      this.synonymsCache.clear();
+
+      for (const skill of skills || []) {
+        // Main skill name cache
+        this.skillsCache.set(skill.name.toLowerCase(), {
+          id: skill.id,
+          name: skill.name,
+          category: skill.category,
+          aliases: skill.aliases || []
+        });
+
+        // Build synonyms/aliases cache
+        if (skill.aliases && Array.isArray(skill.aliases)) {
+          for (const alias of skill.aliases) {
+            if (alias && alias.trim()) {
+              this.synonymsCache.set(alias.toLowerCase(), skill.name);
+            }
+          }
+        }
+      }
+
+      this.lastCacheUpdate = Date.now();
+      console.log(`📊 Skills cache updated: ${this.skillsCache.size} skills, ${this.synonymsCache.size} aliases`);
+    } catch (error) {
+      console.error('❌ Failed to refresh skills cache:', error);
+      throw error;
+    }
   }
 
   /**
-   * Check if a skill is already approved
+   * Check if a skill exists in the approved skills table
    */
-  isApprovedSkill(skill) {
-    return this.controlledVocabulary.has(skill);
+  async isApprovedSkill(skillName) {
+    await this.initialize();
+    
+    const normalizedName = skillName.toLowerCase();
+    
+    // Check direct match
+    if (this.skillsCache.has(normalizedName)) {
+      return true;
+    }
+    
+    // Check aliases
+    if (this.synonymsCache.has(normalizedName)) {
+      return true;
+    }
+    
+    return false;
   }
 
   /**
-   * Find similar skills using fuzzy matching
+   * Normalize skill name to approved form
    */
-  findSimilarSkills(skill) {
-    const skillLower = skill.toLowerCase();
+  async normalizeSkillName(skillName) {
+    await this.initialize();
+    
+    const normalizedInput = skillName.toLowerCase();
+    
+    // Direct match
+    if (this.skillsCache.has(normalizedInput)) {
+      return this.skillsCache.get(normalizedInput).name;
+    }
+    
+    // Alias match
+    if (this.synonymsCache.has(normalizedInput)) {
+      return this.synonymsCache.get(normalizedInput);
+    }
+    
+    return null; // Not found
+  }
+
+  /**
+   * Normalize array of skills against approved skills
+   */
+  async normalizeSkills(skills) {
+    if (!Array.isArray(skills)) return [];
+    
+    await this.initialize();
+    
+    const normalizedSkills = [];
+    const discoveredSkills = [];
+    
+    for (const skill of skills) {
+      if (!skill || typeof skill !== 'string') continue;
+      
+      const trimmedSkill = skill.trim();
+      if (!trimmedSkill) continue;
+      
+      const normalizedName = await this.normalizeSkillName(trimmedSkill);
+      
+      if (normalizedName) {
+        // Skill is approved, use normalized form
+        if (!normalizedSkills.includes(normalizedName)) {
+          normalizedSkills.push(normalizedName);
+        }
+      } else {
+        // New skill discovered, add to discovery list
+        discoveredSkills.push(trimmedSkill);
+        // Still include in output but mark for review
+        if (!normalizedSkills.includes(trimmedSkill)) {
+          normalizedSkills.push(trimmedSkill);
+        }
+      }
+    }
+    
+    // Log discovered skills for review
+    if (discoveredSkills.length > 0) {
+      console.log(`🔍 Discovered ${discoveredSkills.length} new skills: ${discoveredSkills.join(', ')}`);
+      await this.logDiscoveredSkills(discoveredSkills);
+    }
+    
+    return normalizedSkills;
+  }
+
+  /**
+   * Find similar approved skills
+   */
+  async findSimilarSkills(skillName) {
+    await this.initialize();
+    
+    const inputLower = skillName.toLowerCase();
     const similar = [];
     
-    for (const approved of this.controlledVocabulary) {
-      const approvedLower = approved.toLowerCase();
-      
-      // Check for substring matches
-      if (skillLower.includes(approvedLower) || approvedLower.includes(skillLower)) {
-        similar.push({ skill: approved, type: 'substring', confidence: 0.8 });
-      }
-      
-      // Check for word overlap
-      const skillWords = skillLower.split(/[\s&-]+/);
-      const approvedWords = approvedLower.split(/[\s&-]+/);
-      const overlap = skillWords.filter(word => approvedWords.includes(word));
-      
-      if (overlap.length > 0 && overlap.length >= Math.min(skillWords.length, approvedWords.length) * 0.5) {
-        similar.push({ skill: approved, type: 'word_overlap', confidence: overlap.length / Math.max(skillWords.length, approvedWords.length) });
-      }
-    }
-    
-    return similar.sort((a, b) => b.confidence - a.confidence).slice(0, 3);
-  }
-
-  /**
-   * Categorize a skill based on patterns
-   */
-  categorizeSkill(skill) {
-    const skillLower = skill.toLowerCase();
-    
-    for (const [pattern, info] of this.commonSkillPatterns) {
-      if (skillLower.includes(pattern)) {
-        return info;
-      }
-    }
-    
-    return { category: 'Other', priority: 'low', examples: [] };
-  }
-
-  /**
-   * Discover and log a new skill
-   */
-  async discoverSkill(skill, context = {}) {
-    if (!this.initialized) await this.initialize();
-    
-    if (this.isApprovedSkill(skill)) {
-      return { status: 'approved', skill };
-    }
-
-    // Check if already discovered
-    const existing = this.discoveredSkills.find(d => d.skill === skill);
-    if (existing) {
-      existing.occurrences++;
-      existing.lastSeen = new Date().toISOString();
-      existing.contexts.push({
-        file: context.file,
-        content: context.content?.substring(0, 100) + '...'
-      });
-      await this.saveDiscoveredSkills();
-      return { status: 'existing_discovery', skill, occurrences: existing.occurrences };
-    }
-
-    // New skill discovery
-    const similar = this.findSimilarSkills(skill);
-    const category = this.categorizeSkill(skill);
-    
-    const discoveredSkill = {
-      skill,
-      firstSeen: new Date().toISOString(),
-      lastSeen: new Date().toISOString(),
-      occurrences: 1,
-      category: category.category,
-      priority: category.priority,
-      similar: similar,
-      contexts: [{
-        file: context.file,
-        content: context.content?.substring(0, 100) + '...'
-      }],
-      suggestions: this.generateSkillSuggestions(skill, category)
-    };
-
-    this.discoveredSkills.push(discoveredSkill);
-    await this.saveDiscoveredSkills();
-    
-    // Automatically insert skill into database for immediate availability
-    try {
-      await this.insertSkillToDatabase(skill, category.category, []);
-    } catch (error) {
-      console.warn(`⚠️ Failed to insert skill "${skill}" to database:`, error.message);
-    }
-    
-    console.log(`🔍 New skill discovered: "${skill}" (${category.category}, ${category.priority} priority)`);
-    if (similar.length > 0) {
-      console.log(`   Similar existing skills: ${similar.map(s => s.skill).join(', ')}`);
-    }
-    
-    return { status: 'new_discovery', skill, category: category.category, similar };
-  }
-
-  /**
-   * Generate suggestions for skill normalization
-   */
-  generateSkillSuggestions(skill, category) {
-    const suggestions = [];
-    
-    // Suggest using existing similar skills
-    const similar = this.findSimilarSkills(skill);
-    if (similar.length > 0) {
-      suggestions.push({
-        type: 'merge',
-        suggestion: `Consider using existing skill: "${similar[0].skill}"`,
-        action: 'replace',
-        target: similar[0].skill
-      });
-    }
-    
-    // Suggest standardization based on category
-    if (category.examples.length > 0) {
-      const bestMatch = category.examples.find(example => 
-        skill.toLowerCase().includes(example.toLowerCase()) || 
-        example.toLowerCase().includes(skill.toLowerCase())
-      );
-      
-      if (bestMatch) {
-        suggestions.push({
-          type: 'standardize',
-          suggestion: `Consider standardizing as: "${bestMatch}"`,
-          action: 'replace',
-          target: bestMatch
+    for (const [skillKey, skillData] of this.skillsCache) {
+      // Substring matching
+      if (inputLower.includes(skillKey) || skillKey.includes(inputLower)) {
+        similar.push({
+          skill: skillData.name,
+          type: 'substring',
+          confidence: Math.max(inputLower.length, skillKey.length) / Math.min(inputLower.length, skillKey.length)
         });
       }
-    }
-    
-    // Suggest adding as-is for high priority skills
-    if (category.priority === 'high') {
-      suggestions.push({
-        type: 'add',
-        suggestion: 'High priority skill - recommend adding to vocabulary',
-        action: 'approve',
-        target: skill
-      });
-    }
-    
-    return suggestions;
-  }
-
-  /**
-   * Get discovered skills grouped by category and priority
-   */
-  getDiscoveredSkillsReport() {
-    if (this.discoveredSkills.length === 0) {
-      return '✅ No new skills discovered.';
-    }
-
-    // Group by category and priority
-    const grouped = this.discoveredSkills.reduce((acc, skill) => {
-      const key = `${skill.category}-${skill.priority}`;
-      if (!acc[key]) {
-        acc[key] = { category: skill.category, priority: skill.priority, skills: [] };
-      }
-      acc[key].skills.push(skill);
-      return acc;
-    }, {});
-
-    // Sort groups by priority
-    const priorityOrder = { 'high': 0, 'medium': 1, 'low': 2 };
-    const sortedGroups = Object.values(grouped).sort((a, b) => 
-      priorityOrder[a.priority] - priorityOrder[b.priority]
-    );
-
-    let report = `\n📊 DISCOVERED SKILLS REPORT (${this.discoveredSkills.length} skills)\n`;
-    report += '=' + '='.repeat(60) + '\n\n';
-
-    sortedGroups.forEach(group => {
-      report += `🔸 ${group.category.toUpperCase()} (${group.priority} priority)\n`;
-      report += '-'.repeat(40) + '\n';
       
-      // Sort skills by occurrence count
-      const sortedSkills = group.skills.sort((a, b) => b.occurrences - a.occurrences);
+      // Word overlap matching
+      const inputWords = inputLower.split(/[\s&-]+/);
+      const skillWords = skillKey.split(/[\s&-]+/);
+      const overlap = inputWords.filter(word => skillWords.includes(word));
       
-      sortedSkills.forEach(skill => {
-        report += `  • "${skill.skill}" (${skill.occurrences}x)\n`;
-        
-        if (skill.similar.length > 0) {
-          report += `    Similar: ${skill.similar.slice(0, 2).map(s => s.skill).join(', ')}\n`;
+      if (overlap.length > 0) {
+        const confidence = overlap.length / Math.max(inputWords.length, skillWords.length);
+        if (confidence >= 0.3) { // Minimum confidence threshold
+          similar.push({
+            skill: skillData.name,
+            type: 'word_overlap',
+            confidence: confidence
+          });
         }
-        
-        if (skill.suggestions.length > 0) {
-          const topSuggestion = skill.suggestions[0];
-          report += `    💡 ${topSuggestion.suggestion}\n`;
-        }
-      });
-      report += '\n';
-    });
-
-    report += '🔧 BULK ACTIONS:\n';
-    report += '  npm run skills:approve-high     # Approve all high priority skills\n';
-    report += '  npm run skills:approve-category -- "Security"  # Approve by category\n';
-    report += '  npm run skills:interactive      # Interactive approval process\n';
-    
-    return report;
-  }
-
-  /**
-   * Approve skills by criteria
-   */
-  async approveSkills(criteria = {}) {
-    const { priority, category, skills: specificSkills } = criteria;
-    const approved = [];
-    
-    for (let i = this.discoveredSkills.length - 1; i >= 0; i--) {
-      const discovered = this.discoveredSkills[i];
-      let shouldApprove = false;
-      
-      if (specificSkills && specificSkills.includes(discovered.skill)) {
-        shouldApprove = true;
-      } else if (priority && discovered.priority === priority) {
-        shouldApprove = true;
-      } else if (category && discovered.category === category) {
-        shouldApprove = true;
-      }
-      
-      if (shouldApprove) {
-        this.controlledVocabulary.add(discovered.skill);
-        approved.push(discovered.skill);
-        this.discoveredSkills.splice(i, 1);
-        console.log(`✅ Approved skill: "${discovered.skill}"`);
       }
     }
     
-    if (approved.length > 0) {
-      await this.saveControlledVocabulary();
-      await this.saveDiscoveredSkills();
-      console.log(`🎉 Approved ${approved.length} skills: ${approved.join(', ')}`);
-    }
-    
-    return approved;
+    // Sort by confidence and return top matches
+    return similar
+      .sort((a, b) => b.confidence - a.confidence)
+      .slice(0, 5);
   }
 
   /**
-   * Save discovered skills to file
+   * Add new skill to database
    */
-  async saveDiscoveredSkills() {
-    const data = {
-      skills: this.discoveredSkills,
-      lastUpdated: new Date().toISOString(),
-      summary: {
-        total: this.discoveredSkills.length,
-        byPriority: this.discoveredSkills.reduce((acc, skill) => {
-          acc[skill.priority] = (acc[skill.priority] || 0) + 1;
-          return acc;
-        }, {}),
-        byCategory: this.discoveredSkills.reduce((acc, skill) => {
-          acc[skill.category] = (acc[skill.category] || 0) + 1;
-          return acc;
-        }, {})
-      }
-    };
-    
-    await fs.writeFile(DISCOVERED_SKILLS_PATH, JSON.stringify(data, null, 2));
-  }
-
-  /**
-   * Insert skill into database skills table
-   */
-  async insertSkillToDatabase(skillName, category = 'Other', aliases = []) {
+  async addSkill(skillName, category = 'Other', aliases = []) {
     try {
-      // Check if skill already exists
-      const { data: existing, error: selectError } = await supabase
-        .from('skills')
-        .select('name')
-        .eq('name', skillName)
-        .single();
-      
-      if (selectError && selectError.code !== 'PGRST116') { // PGRST116 = no rows found
-        throw selectError;
-      }
-      
-      if (existing) {
-        console.log(`⏭️  Skill "${skillName}" already exists in database`);
-        return existing;
-      }
-      
-      // Insert new skill
       const { data, error } = await supabase
         .from('skills')
         .insert({
           name: skillName,
           category: category,
-          aliases: aliases,
-          created_at: new Date().toISOString()
+          aliases: Array.isArray(aliases) ? aliases : []
         })
         .select('*')
         .single();
       
       if (error) throw error;
       
-      console.log(`✅ Added skill "${skillName}" to database (${category})`);
+      // Update cache
+      await this.refreshSkillsCache();
+      
+      console.log(`✅ Added new skill: "${skillName}" (${category})`);
       return data;
     } catch (error) {
-      console.error(`❌ Failed to insert skill "${skillName}":`, error);
+      if (error.code === '23505') { // Unique constraint violation
+        console.log(`⏭️  Skill "${skillName}" already exists`);
+        return null;
+      }
+      console.error(`❌ Failed to add skill "${skillName}":`, error);
       throw error;
     }
   }
 
   /**
-   * Bulk insert discovered skills to database
+   * Bulk add skills from discovered list
    */
-  async bulkInsertSkillsToDatabase(skillsList = null) {
-    const skillsToInsert = skillsList || this.discoveredSkills;
-    const inserted = [];
-    const failed = [];
+  async addDiscoveredSkills(discoveredSkills, category = 'Other') {
+    const results = { added: [], skipped: [], failed: [] };
     
-    for (const discoveredSkill of skillsToInsert) {
+    for (const skillName of discoveredSkills) {
       try {
-        const skillName = typeof discoveredSkill === 'string' ? discoveredSkill : discoveredSkill.skill;
-        const category = typeof discoveredSkill === 'object' ? discoveredSkill.category : 'Other';
-        
-        await this.insertSkillToDatabase(skillName, category, []);
-        inserted.push(skillName);
+        const result = await this.addSkill(skillName, category);
+        if (result) {
+          results.added.push(skillName);
+        } else {
+          results.skipped.push(skillName);
+        }
       } catch (error) {
-        failed.push({ skill: discoveredSkill, error: error.message });
+        results.failed.push({ skill: skillName, error: error.message });
       }
     }
     
-    console.log(`📊 Bulk insert results: ${inserted.length} successful, ${failed.length} failed`);
-    return { inserted, failed };
+    return results;
   }
 
   /**
-   * Save updated controlled vocabulary
+   * Get skills by category
    */
-  async saveControlledVocabulary() {
-    const config = {
-      controlled_vocabulary: Array.from(this.controlledVocabulary).sort(),
-      synonyms: this.synonyms
+  async getSkillsByCategory(category = null) {
+    await this.initialize();
+    
+    const skillsByCategory = {};
+    
+    for (const skillData of this.skillsCache.values()) {
+      const cat = skillData.category || 'Other';
+      if (!skillsByCategory[cat]) {
+        skillsByCategory[cat] = [];
+      }
+      skillsByCategory[cat].push(skillData.name);
+    }
+    
+    if (category) {
+      return skillsByCategory[category] || [];
+    }
+    
+    return skillsByCategory;
+  }
+
+  /**
+   * Log discovered skills and auto-add them to the skills table
+   */
+  async logDiscoveredSkills(skills) {
+    try {
+      const timestamp = new Date().toISOString();
+      console.log(`📝 [${timestamp}] Auto-adding ${skills.length} discovered skills to database:`, skills);
+      
+      // Auto-add discovered skills to the database
+      const results = await this.addDiscoveredSkills(skills, 'Other');
+      
+      console.log(`✅ Skills added: ${results.added.length}, skipped: ${results.skipped.length}, failed: ${results.failed.length}`);
+      
+      if (results.failed.length > 0) {
+        console.warn('⚠️ Failed to add some skills:', results.failed);
+      }
+      
+    } catch (error) {
+      console.warn('⚠️ Failed to log discovered skills:', error);
+    }
+  }
+
+  /**
+   * Get approved skills suggestions for a partial match
+   */
+  async getSkillSuggestions(partial, limit = 10) {
+    await this.initialize();
+    
+    const partialLower = partial.toLowerCase();
+    const suggestions = [];
+    
+    for (const skillData of this.skillsCache.values()) {
+      if (skillData.name.toLowerCase().includes(partialLower)) {
+        suggestions.push({
+          name: skillData.name,
+          category: skillData.category,
+          match: 'name'
+        });
+      }
+      
+      // Check aliases too
+      for (const alias of skillData.aliases || []) {
+        if (alias.toLowerCase().includes(partialLower)) {
+          suggestions.push({
+            name: skillData.name,
+            category: skillData.category,
+            match: 'alias',
+            matchedAlias: alias
+          });
+        }
+      }
+    }
+    
+    return suggestions.slice(0, limit);
+  }
+
+  /**
+   * Validate skills array against approved skills
+   */
+  async validateSkills(skills) {
+    if (!Array.isArray(skills)) return { valid: [], invalid: [], suggestions: [] };
+    
+    await this.initialize();
+    
+    const valid = [];
+    const invalid = [];
+    const suggestions = [];
+    
+    for (const skill of skills) {
+      const normalizedName = await this.normalizeSkillName(skill);
+      
+      if (normalizedName) {
+        valid.push(normalizedName);
+      } else {
+        invalid.push(skill);
+        const similar = await this.findSimilarSkills(skill);
+        if (similar.length > 0) {
+          suggestions.push({
+            original: skill,
+            suggestions: similar.slice(0, 3)
+          });
+        }
+      }
+    }
+    
+    return { valid, invalid, suggestions };
+  }
+
+  /**
+   * Get skills statistics
+   */
+  async getSkillsStats() {
+    await this.initialize();
+    
+    const stats = {
+      totalSkills: this.skillsCache.size,
+      totalAliases: this.synonymsCache.size,
+      byCategory: {}
     };
     
-    await fs.writeFile(SKILLS_CONFIG_PATH, JSON.stringify(config, null, 2));
+    for (const skillData of this.skillsCache.values()) {
+      const category = skillData.category || 'Other';
+      stats.byCategory[category] = (stats.byCategory[category] || 0) + 1;
+    }
+    
+    return stats;
   }
 }
 
-export default SkillDiscoveryService;
+export default DatabaseSkillsService;
