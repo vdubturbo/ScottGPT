@@ -129,6 +129,14 @@ class OptimizedDatabase {
       throw new Error(`Invalid embedding dimensions: ${embeddingArray?.length || 'none'}, expected 1024`);
     }
 
+    // Default to slovett user if no user_id provided (single-user system)
+    let user_id = chunkData.user_id;
+    if (!user_id) {
+      // For single-user system, default to slovett user
+      const SLOVETT_USER_ID = '345850e8-4f02-48cb-9789-d40e9cc3ee8e';
+      user_id = SLOVETT_USER_ID;
+    }
+
     // Prepare insert data WITHOUT embedding field
     const insertData = {
       source_id: chunkData.source_id,
@@ -142,6 +150,7 @@ class OptimizedDatabase {
       date_end: chunkData.date_end,
       token_count: chunkData.token_count,
       file_hash: chunkData.file_hash,
+      user_id: user_id,
       created_at: new Date().toISOString()
     };
 
@@ -234,6 +243,20 @@ class OptimizedDatabase {
         throw new Error(`Invalid query embedding dimensions: ${queryEmbedding.length}, expected 1024`);
       }
       
+      // Ensure dates are properly formatted as strings or null
+      const formatDateForDB = (dateValue) => {
+        if (!dateValue) return null;
+        // If it's already a string in YYYY-MM-DD format, use it
+        if (typeof dateValue === 'string' && /^\d{4}-\d{2}-\d{2}/.test(dateValue)) {
+          return dateValue.split('T')[0]; // Ensure only date part
+        }
+        // Convert Date object to string
+        if (dateValue instanceof Date) {
+          return dateValue.toISOString().split('T')[0];
+        }
+        return null;
+      };
+
       const { data, error } = await this.supabase
         .rpc('fast_similarity_search', {
           query_embedding: queryEmbedding,
@@ -241,8 +264,8 @@ class OptimizedDatabase {
           max_results: limit * 2,
           filter_skills: skills.length > 0 ? skills : null,
           filter_tags: tags.length > 0 ? tags : null,
-          date_after: dateRange?.start || null,
-          date_before: dateRange?.end || null,
+          date_after: formatDateForDB(dateRange?.start),
+          date_before: formatDateForDB(dateRange?.end),
           filter_user_id: userFilter
         });
 
