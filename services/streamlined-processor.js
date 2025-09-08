@@ -79,12 +79,12 @@ export class StreamlinedProcessor {
       const chunksWithEmbeddings = await this.generateChunkEmbeddings(extractedChunks);
       console.log(`🧠 Generated embeddings for ${chunksWithEmbeddings.length} chunks`);
       
-      // Step 4: Create minimal document record for attribution (no content stored)
-      const documentId = await this.createDocumentRecord(filename, buffer.length, extractedChunks.length);
-      console.log(`📋 Created document record: ${documentId}`);
+      // Step 4: Create individual job records for each extracted job
+      const jobRecords = await this.createJobRecords(chunksWithEmbeddings, filename);
+      console.log(`📋 Created ${jobRecords.length} individual job records`);
       
-      // Step 5: Store only chunks with embeddings (discard document)
-      const storageResults = await this.storeSearchableChunks(chunksWithEmbeddings, documentId);
+      // Step 5: Store chunks with their corresponding job source_id
+      const storageResults = await this.storeSearchableChunksWithJobs(chunksWithEmbeddings, jobRecords);
       console.log(`💾 Stored ${storageResults.stored} searchable chunks`);
       
       const processingTime = Date.now() - startTime;
@@ -120,11 +120,11 @@ export class StreamlinedProcessor {
       return {
         success: true,
         filename,
-        documentId,
+        jobRecords: jobRecords.length,
         chunksExtracted: extractedChunks.length,
         chunksStored: storageResults.stored,
         processingTime,
-        message: 'Document processed successfully - content is now searchable'
+        message: 'Document processed successfully - individual jobs are now searchable'
       };
       
     } catch (error) {
@@ -473,26 +473,81 @@ CRITICAL RULES:
   }
 
   /**
-   * Store searchable chunks in database
+   * Create individual job records for each extracted job in sources table
    */
-  async storeSearchableChunks(chunksWithEmbeddings, sourceId) {
-    console.log(`💾 [STORE] Storing ${chunksWithEmbeddings.length} searchable chunks...`);
+  async createJobRecords(chunksWithEmbeddings, filename) {
+    console.log(`📋 Creating individual job records from ${chunksWithEmbeddings.length} extracted jobs...`);
     
-    // sourceId is now passed in as the document ID from createDocumentRecord
+    const jobRecords = [];
     
-    const chunkRecords = chunksWithEmbeddings.map((chunk, index) => ({
-      source_id: sourceId,
-      title: chunk.title || null,
-      content: chunk.content,
-      content_summary: chunk.summary || null,
-      skills: chunk.skills || [],
-      tags: chunk.tags || [],
-      date_start: this.parseDate(chunk.date_start),
-      date_end: this.parseDate(chunk.date_end),
-      embedding: chunk.embedding ? `[${chunk.embedding.join(',')}]` : null
-    }));
+    for (const chunk of chunksWithEmbeddings) {
+      // Extract job details from YAML content
+      let jobData = {};
+      try {
+        const yamlMatch = chunk.content.match(/---\n([\s\S]*?)\n---/);
+        if (yamlMatch) {
+          jobData = yaml.load(yamlMatch[1]) || {};
+        }
+      } catch (error) {
+        console.warn('⚠️ Failed to parse job YAML, using chunk metadata');
+      }
+      
+      const jobRecord = {
+        id: crypto.randomUUID(),
+        title: jobData.title || chunk.title || 'Untitled Position',
+        org: jobData.org || 'Unknown Organization',
+        location: jobData.location || null,
+        type: 'job', // Always job for extracted positions
+        date_start: this.parseDate(jobData.date_start || chunk.date_start),
+        date_end: this.parseDate(jobData.date_end || chunk.date_end),
+        skills: chunk.skills || []
+        // Note: Removed fields that don't exist in sources table: description, industry_tags, outcomes, source_file
+      };
 
-    // Insert directly into content_chunks table (skip pipeline tables)
+      const { data, error } = await supabase
+        .from('sources')
+        .insert(jobRecord)
+        .select('id, title, org')
+        .single();
+
+      if (error) {
+        console.error(`❌ Failed to create job record for ${jobRecord.title}:`, error.message);
+        throw error;
+      }
+
+      console.log(`✅ Created job record: ${data.title} at ${jobRecord.org}`);
+      jobRecords.push({
+        ...data,
+        chunkIndex: chunksWithEmbeddings.indexOf(chunk)
+      });
+    }
+    
+    return jobRecords;
+  }
+
+  /**
+   * Store chunks with embeddings, linking to their individual job records
+   */
+  async storeSearchableChunksWithJobs(chunksWithEmbeddings, jobRecords) {
+    console.log(`💾 Storing ${chunksWithEmbeddings.length} chunks linked to individual jobs...`);
+    
+    const chunkRecords = chunksWithEmbeddings.map((chunk, index) => {
+      const correspondingJob = jobRecords[index];
+      
+      return {
+        source_id: correspondingJob.id,
+        title: chunk.title || null,
+        content: chunk.content,
+        content_summary: chunk.summary || null,
+        skills: chunk.skills || [],
+        tags: chunk.tags || [],
+        date_start: this.parseDate(chunk.date_start),
+        date_end: this.parseDate(chunk.date_end),
+        embedding: chunk.embedding ? `[${chunk.embedding.join(',')}]` : null
+      };
+    });
+
+    // Insert directly into content_chunks table
     const { data, error } = await supabase
       .from('content_chunks')
       .insert(chunkRecords)
@@ -503,37 +558,13 @@ CRITICAL RULES:
       throw error;
     }
 
-    console.log(`✅ Stored ${data.length} searchable chunks`);
+    console.log(`✅ Stored ${data.length} searchable chunks linked to individual jobs`);
     
     return {
       stored: data.length,
-      chunks: data
+      chunks: data,
+      jobs: jobRecords
     };
-  }
-
-  /**
-   * Create minimal document record for attribution (no content stored)
-   */
-  async createDocumentRecord(filename, fileSize, chunkCount) {
-    const documentRecord = {
-      id: crypto.randomUUID(),
-      title: filename,
-      type: 'job', // Use valid type from constraint: job, project, education, cert, bio
-      org: 'Streamlined Upload' // Required field
-    };
-
-    const { data, error } = await supabase
-      .from('sources')
-      .insert(documentRecord)
-      .select('id')
-      .single();
-
-    if (error) {
-      console.error('❌ Failed to create document record:', error.message);
-      throw error;
-    }
-
-    return data.id;
   }
 
   /**
