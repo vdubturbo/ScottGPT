@@ -152,17 +152,12 @@ function App() {
 
   const handleProcess = async () => {
     setProcessing(true);
-    // setIsProcessActive(true);
-    setProcessLog('🚀 Starting pipeline processing...\n');
-    setProcessStatus('🚀 Initializing processing pipeline...');
-    
-    let lastLogId = 0;
-    let pollInterval;
-    let pollTimeout;
+    setProcessLog('🚀 Starting streamlined processing...\n');
+    setProcessStatus('🚀 Processing cached files through streamlined architecture...');
     
     try {
-      // Start the process
-      const response = await fetch('/api/upload/process', {
+      // Use new streamlined processing endpoint for cached files
+      const response = await fetch('/api/upload/process-cached-streamlined', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json'
@@ -174,82 +169,25 @@ function App() {
       }
 
       const result = await response.json();
-      setProcessLog(prev => prev + `${result.message}\n`);
       
-      // Set up polling timeout (10 minutes max)
-      pollTimeout = setTimeout(() => {
-        if (pollInterval) {
-          clearInterval(pollInterval);
-          setProcessing(false);
-          // setIsProcessActive(false);
-          setProcessStatus('⚠️ Polling timed out - process may still be running');
-          setProcessLog(prev => prev + '\n⚠️ POLLING TIMED OUT - Check server logs for process status\n');
-        }
-      }, 600000); // 10 minutes
-      
-      // Start polling for logs
-      pollInterval = setInterval(async () => {
-        try {
-          const logsResponse = await fetch(`/api/upload/logs?since=${lastLogId}`);
-          const logsData = await logsResponse.json();
-          
-          if (logsData.success && logsData.logs.length > 0) {
-            // Update logs
-            const newLogs = logsData.logs.map(log => log.message).join('\n') + '\n';
-            setProcessLog(prev => {
-              const newLog = prev + newLogs;
-              // Auto-scroll to bottom
-              setTimeout(() => {
-                if (logRef.current) {
-                  logRef.current.scrollTop = logRef.current.scrollHeight;
-                }
-              }, 0);
-              return newLog;
-            });
-            
-            // Update last log ID
-            if (logsData.logs.length > 0) {
-              lastLogId = logsData.logs[logsData.logs.length - 1].id;
-            }
-            
-            // Update status based on latest log
-            const latestLog = logsData.logs[logsData.logs.length - 1];
-            if (latestLog) {
-              setProcessStatus(latestLog.message);
-            }
-          }
-          
-          // Check if processing is complete
-          if (!logsData.status.isActive) {
-            clearInterval(pollInterval);
-            clearTimeout(pollTimeout);
-            setProcessing(false);
-            // setIsProcessActive(false);
-            setProcessStatus('✅ Processing completed');
-            
-            // Show completion message
-            setProcessLog(prev => prev + '\n🎉 PROCESSING COMPLETED SUCCESSFULLY!\n');
-            
-            // Load updated stats
-            setTimeout(async () => {
-              await loadStats();
-            }, 1000);
-          }
-        } catch (pollError) {
-          console.error('Error polling logs:', pollError);
-        }
-      }, 500); // Poll every 500ms
+      if (result.success) {
+        setProcessLog(prev => prev + `✅ ${result.message}\n`);
+        setProcessLog(prev => prev + `📊 Processed ${result.stats.filesProcessed} files\n`);
+        setProcessLog(prev => prev + `💾 Stored ${result.stats.totalChunksStored} searchable chunks\n`);
+        setProcessStatus('✅ Streamlined processing completed successfully!');
+        
+        // Refresh cache stats
+        await fetchCacheStats();
+      } else {
+        throw new Error(result.message || 'Processing failed');
+      }
       
     } catch (error) {
-      setProcessLog(prev => prev + `\n❌ PROCESSING FAILED: ${error.message}\n`);
+      setProcessLog(prev => prev + `\n❌ STREAMLINED PROCESSING FAILED: ${error.message}\n`);
       setProcessStatus(`❌ Processing failed: ${error.message}`);
-      console.error('Processing error:', error);
+      console.error('Streamlined processing error:', error);
+    } finally {
       setProcessing(false);
-      // setIsProcessActive(false);
-      
-      // Clean up timeouts
-      if (pollInterval) clearInterval(pollInterval);
-      if (pollTimeout) clearTimeout(pollTimeout);
     }
     
     // Cleanup function will be handled by the polling interval check

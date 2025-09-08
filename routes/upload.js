@@ -7,6 +7,7 @@ import { promisify } from 'util';
 import rateLimit from 'express-rate-limit';
 import { api as logger } from '../utils/logger.js';
 import { processBatchUploads, clearUploadCache, getCacheStats as getUploadCacheStats, loadUploadCache } from '../utils/upload-optimizer.js';
+import { streamlinedProcessor } from '../services/streamlined-processor.js';
 import processLogger from '../utils/process-logger.js';
 import CONFIG from '../config/app-config.js';
 import dotenv from 'dotenv';
@@ -60,7 +61,221 @@ const upload = multer({
   }
 });
 
-// POST /api/upload - Upload files with duplicate detection
+// POST /api/upload/streamlined - NEW: Direct upload → extract → embed → discard processing
+router.post('/streamlined', uploadFileLimit, upload.array('files', 10), async (req, res) => {
+  const uploadStartTime = Date.now();
+  
+  try {
+    if (!req.files || req.files.length === 0) {
+      return res.status(400).json({
+        success: false,
+        error: 'No files uploaded',
+        message: 'Please select files to upload'
+      });
+    }
+
+    console.log(`🚀 [STREAMLINED] Processing ${req.files.length} files directly to searchable chunks`);
+    
+    const results = [];
+    let totalChunksStored = 0;
+    
+    // Process each file through streamlined pipeline
+    for (let i = 0; i < req.files.length; i++) {
+      const file = req.files[i];
+      console.log(`\n📄 [${i + 1}/${req.files.length}] Processing: ${file.originalname}`);
+      
+      try {
+        const result = await streamlinedProcessor.processUploadedFile(
+          file.buffer,
+          file.originalname,
+          file.mimetype
+        );
+        
+        results.push(result);
+        totalChunksStored += result.chunksStored;
+        
+        console.log(`✅ ${file.originalname}: ${result.chunksStored} chunks now searchable`);
+        
+      } catch (fileError) {
+        console.error(`❌ Failed to process ${file.originalname}:`, fileError.message);
+        results.push({
+          success: false,
+          filename: file.originalname,
+          error: fileError.message
+        });
+      }
+    }
+    
+    const totalTime = Date.now() - uploadStartTime;
+    const performanceStats = streamlinedProcessor.getPerformanceStats();
+    
+    console.log(`🎉 [STREAMLINED] Completed ${req.files.length} files in ${totalTime}ms`);
+    console.log(`📊 Total chunks stored: ${totalChunksStored} (immediately searchable)`);
+    
+    const successful = results.filter(r => r.success).length;
+    const failed = results.length - successful;
+    
+    res.json({
+      success: successful > 0,
+      message: `Processed ${successful} files successfully, ${failed} failed`,
+      results,
+      stats: {
+        filesProcessed: req.files.length,
+        filesSuccessful: successful,
+        filesFailed: failed,
+        totalChunksStored,
+        totalProcessingTime: totalTime,
+        averageTimePerFile: Math.round(totalTime / req.files.length),
+        performance: performanceStats
+      },
+      architecture: 'streamlined',
+      note: 'Files processed directly to searchable chunks - no document storage'
+    });
+    
+  } catch (error) {
+    console.error('❌ [STREAMLINED] Upload processing failed:', error.message);
+    
+    res.status(500).json({
+      success: false,
+      error: 'Streamlined processing failed',
+      message: error.message,
+      architecture: 'streamlined'
+    });
+  }
+});
+
+// POST /api/upload/process-cached-streamlined - Process cached files through streamlined architecture
+router.post('/process-cached-streamlined', async (req, res) => {
+  try {
+    console.log('🚀 [STREAMLINED-CACHED] Processing cached files through streamlined architecture...');
+    
+    // Get cached files with buffers
+    const cacheStats = getUploadCacheStats();
+    
+    if (cacheStats.totalCachedFiles === 0) {
+      return res.json({
+        success: true,
+        message: 'No cached files to process',
+        stats: {
+          filesProcessed: 0,
+          filesSuccessful: 0,
+          filesFailed: 0,
+          totalChunksStored: 0,
+          totalProcessingTime: 0
+        }
+      });
+    }
+    
+    console.log(`📁 Found ${cacheStats.totalCachedFiles} cached files to process`);
+    
+    const results = [];
+    let totalChunksStored = 0;
+    let filesSuccessful = 0;
+    let filesFailed = 0;
+    const startTime = Date.now();
+    
+    // Get the upload cache to access file buffers
+    const { loadUploadCache } = await import('../utils/upload-optimizer.js');
+    await loadUploadCache();
+    
+    // Process each cached file
+    for (const cacheEntry of cacheStats.cacheEntries) {
+      if (!cacheEntry.hasBuffer) {
+        console.warn(`⚠️ No buffer available for ${cacheEntry.fileName}, skipping`);
+        filesFailed++;
+        continue;
+      }
+      
+      try {
+        console.log(`\n📄 Processing cached file: ${cacheEntry.fileName}`);
+        
+        // Get the buffer from cache (we need to access the actual uploadCache)
+        const { uploadCache } = await import('../utils/upload-optimizer.js');
+        const fullHash = Array.from(uploadCache.keys()).find(hash => hash.startsWith(cacheEntry.hash));
+        
+        if (!fullHash) {
+          throw new Error(`Could not find full hash for ${cacheEntry.fileName}`);
+        }
+        
+        const cachedFile = uploadCache.get(fullHash);
+        if (!cachedFile || !cachedFile.buffer) {
+          throw new Error(`No buffer available for ${cacheEntry.fileName}`);
+        }
+        
+        // Determine MIME type from filename
+        const mimeType = cachedFile.mimetype || getMimeTypeFromFilename(cacheEntry.fileName);
+        
+        const result = await streamlinedProcessor.processUploadedFile(
+          cachedFile.buffer,
+          cacheEntry.fileName,
+          mimeType
+        );
+        
+        results.push(result);
+        totalChunksStored += result.chunksStored;
+        filesSuccessful++;
+        
+        console.log(`✅ ${cacheEntry.fileName}: ${result.chunksStored} chunks now searchable`);
+        
+      } catch (fileError) {
+        console.error(`❌ Failed to process ${cacheEntry.fileName}:`, fileError.message);
+        results.push({
+          success: false,
+          filename: cacheEntry.fileName,
+          error: fileError.message
+        });
+        filesFailed++;
+      }
+    }
+    
+    const totalProcessingTime = Date.now() - startTime;
+    
+    console.log(`\n🎉 [STREAMLINED-CACHED] Completed processing`);
+    console.log(`   📊 ${filesSuccessful} successful, ${filesFailed} failed`);
+    console.log(`   💾 ${totalChunksStored} total chunks stored`);
+    console.log(`   ⏱️ ${totalProcessingTime}ms total processing time`);
+    
+    res.json({
+      success: true,
+      message: `Processed ${filesSuccessful} cached files successfully, ${filesFailed} failed`,
+      results,
+      stats: {
+        filesProcessed: cacheStats.totalCachedFiles,
+        filesSuccessful,
+        filesFailed,
+        totalChunksStored,
+        totalProcessingTime,
+        averageTimePerFile: cacheStats.totalCachedFiles > 0 ? totalProcessingTime / cacheStats.totalCachedFiles : 0
+      },
+      architecture: 'streamlined'
+    });
+    
+  } catch (error) {
+    console.error('❌ [STREAMLINED-CACHED] Processing failed:', error.message);
+    
+    res.status(500).json({
+      success: false,
+      error: 'Cached file processing failed',
+      message: error.message,
+      architecture: 'streamlined'
+    });
+  }
+});
+
+// Helper function to determine MIME type from filename
+function getMimeTypeFromFilename(filename) {
+  const ext = filename.toLowerCase().split('.').pop();
+  const mimeTypes = {
+    'pdf': 'application/pdf',
+    'docx': 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+    'doc': 'application/msword',
+    'txt': 'text/plain',
+    'md': 'text/markdown'
+  };
+  return mimeTypes[ext] || 'text/plain';
+}
+
+// POST /api/upload - Legacy upload with duplicate detection (deprecated)
 router.post('/', uploadFileLimit, upload.array('files', 10), async (req, res) => {
   const uploadStartTime = Date.now();
   

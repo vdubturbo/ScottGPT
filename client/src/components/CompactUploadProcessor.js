@@ -378,101 +378,39 @@ const CompactUploadProcessor = () => {
         formData.append('files', file);
       });
 
-      console.log('📤 Starting file upload...');
-      const uploadResult = await fetch('/api/upload', {
+      // Use streamlined processing - upload and process in one step
+      console.log('🚀 Starting streamlined upload and processing...');
+      setStepDetails('Uploading and processing files through streamlined architecture...');
+      
+      // Upload and process in one step using streamlined endpoint
+      const streamlinedResponse = await fetch('/api/upload/streamlined', {
         method: 'POST',
         body: formData
       });
+      
+      if (!streamlinedResponse.ok) {
+        throw new Error(`Streamlined processing failed: ${streamlinedResponse.statusText}`);
+      }
 
-      console.log('📤 Upload response:', {
-        ok: uploadResult.ok,
-        status: uploadResult.status,
-        statusText: uploadResult.statusText
+      const streamlinedResult = await streamlinedResponse.json();
+      console.log('🎉 Streamlined processing result:', streamlinedResult);
+
+      setProgress(90); // Processing completed
+      setStepDetails(`Streamlined processing completed: ${streamlinedResult.stats.totalChunksStored} chunks stored`);
+      
+      // Set completion status
+      setProgress(100);
+      setProcessComplete(true);
+      setCurrentStep('complete');
+      
+      // Update processing stats
+      setProcessingStats({
+        filesProcessed: streamlinedResult.stats.filesProcessed,
+        chunksStored: streamlinedResult.stats.totalChunksStored,
+        processingTime: streamlinedResult.stats.totalProcessingTime
       });
-
-      if (!uploadResult.ok) {
-        throw new Error(`Upload failed: ${uploadResult.statusText}`);
-      }
-
-      const uploadData = await uploadResult.json();
-      console.log('📤 Upload result:', uploadData);
-
-      setProgress(10); // Upload completed
-      setStepDetails('Files uploaded successfully, starting processing pipeline...');
-
-      // Start processing with streaming
-      console.log('🚀 Starting processing request...');
-      const processResponse = await fetch('/api/upload/process', {
-        method: 'POST'
-      });
       
-      if (!processResponse.ok) {
-        throw new Error(`Processing failed: ${processResponse.statusText}`);
-      }
-
-      setProgress(15); // Processing initiated
-      setStepDetails('Processing pipeline started...');
-      
-      // Read the streaming response
-      const reader = processResponse.body.getReader();
-      const decoder = new TextDecoder();
-      let buffer = '';
-      
-      console.log('📖 Starting to read stream...');
-      
-      while (true) {
-        const { done, value } = await reader.read();
-        console.log('📦 Stream chunk read:', { done, valueLength: value ? value.length : 0 });
-        if (done) break;
-        
-        const chunk = decoder.decode(value, { stream: true });
-        console.log('📡 Decoded chunk (first 200 chars):', chunk.substring(0, 200));
-        buffer += chunk;
-        
-        // Update log immediately
-        setAdvancedLog(buffer);
-        
-        // Parse progress from each new chunk immediately
-        const newLines = chunk.split('\n');
-        console.log('📝 Processing', newLines.length, 'lines from chunk');
-        
-        for (const line of newLines) {
-          if (line.trim() && line.includes('📊')) {
-            console.log('🔍 Found potential progress line:', line);
-          }
-          
-          if (line.includes('📊 [PROGRESS]')) {
-            console.log('🎯 FOUND PROGRESS LINE:', line);
-            const match = line.match(/📊 \[PROGRESS\] (\d+)% - (.+)/);
-            if (match) {
-              const [, progressValue, details] = match;
-              const newProgress = parseInt(progressValue);
-              console.log('⚡ EXTRACTED PROGRESS:', newProgress, 'Details:', details);
-              console.log('🔍 Current progress:', progress, 'New progress:', newProgress);
-              if (newProgress > progress) {
-                console.log('📈 UPDATING PROGRESS:', progress, '→', newProgress);
-                setProgress(newProgress);
-                setStepDetails(details);
-                setCurrentStep(getCurrentStepFromProgress(newProgress));
-              } else {
-                console.log('⚠️ Not updating - new progress not higher than current');
-              }
-            } else {
-              console.log('❌ PROGRESS REGEX FAILED for:', line);
-              console.log('🔍 Regex pattern:', '/📊 \\[PROGRESS\\] (\\d+)% - (.+)/');
-            }
-          }
-          
-          if (line.includes('🎉 [SUCCESS]')) {
-            console.log('🎉 SUCCESS MESSAGE FOUND!');
-            setProgress(100);
-            setProcessComplete(true);
-            setStepDetails('Processing completed successfully');
-          }
-        }
-      }
-      
-      console.log('📝 Stream reading completed');
+      console.log('🎉 Streamlined processing completed successfully!');
 
     } catch (error) {
       console.error('Upload/Process error:', error);

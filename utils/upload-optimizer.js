@@ -322,3 +322,6 @@ export function markFileAsProcessedByName(fileName) {
   return false;
 }
 
+// Export the upload cache for direct access when needed
+export { uploadCache };
+
