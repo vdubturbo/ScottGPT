@@ -574,12 +574,21 @@ export class AuthService {
         });
 
       // Update profile view count
-      await this.supabase
+      // First get current count, then increment (simple approach)
+      const { data: profile } = await this.supabase
         .from('user_profiles')
-        .update({ 
-          profile_views: this.supabase.sql`profile_views + 1` 
-        })
-        .eq('id', profileId);
+        .select('profile_views')
+        .eq('id', profileId)
+        .single();
+      
+      if (profile) {
+        await this.supabase
+          .from('user_profiles')
+          .update({ 
+            profile_views: (profile.profile_views || 0) + 1 
+          })
+          .eq('id', profileId);
+      }
 
     } catch (error) {
       console.warn('Failed to record profile view:', error);

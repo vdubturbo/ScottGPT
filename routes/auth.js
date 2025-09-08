@@ -203,25 +203,27 @@ router.post('/logout', authenticateToken, async (req, res) => {
 
 /**
  * GET /api/auth/me
- * Get current user profile
+ * Get current user profile (optional authentication)
  */
-router.get('/me', authenticateToken, requireAuth, async (req, res) => {
+router.get('/me', authenticateToken, async (req, res) => {
   try {
-    const user = await AuthService.getCurrentUser();
-    
-    if (!user) {
-      return res.status(404).json({
-        error: 'User not found',
-        message: 'Current user profile could not be found'
+    // If no user is authenticated, return success with null user
+    if (!req.user) {
+      return res.json({
+        success: true,
+        authenticated: false,
+        user: null
       });
     }
 
+    // User is authenticated, return user profile
     res.json({
       success: true,
+      authenticated: true,
       user: {
-        id: user.id,
-        email: user.email,
-        profile: user.profile
+        id: req.user.id,
+        email: req.user.email,
+        profile: req.user.profile
       }
     });
 
