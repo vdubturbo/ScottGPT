@@ -6,6 +6,8 @@
 
 import React, { useState, useEffect, useCallback } from 'react';
 import { useUserDataAPI } from '../hooks/useUserDataAPI';
+import CompactUploadProcessor from './CompactUploadProcessor';
+import WorkHistoryManager from './WorkHistoryManager';
 import './ExportManager.css';
 
 const ExportManager = () => {
@@ -125,6 +127,18 @@ const ExportManager = () => {
       name: 'Overview',
       icon: '📊',
       description: 'Export statistics and quick access'
+    },
+    {
+      id: 'upload',
+      name: 'Upload Documents',
+      icon: '📁',
+      description: 'Upload and process resume documents'
+    },
+    {
+      id: 'work-history',
+      name: 'Review Work History',
+      icon: '💼',
+      description: 'Manage and edit your work experience'
     },
     {
       id: 'data-export',
@@ -677,6 +691,28 @@ const ExportManager = () => {
     }));
   };
 
+  // Render upload section
+  const renderUploadSection = () => (
+    <div className="upload-section">
+      <div className="section-header">
+        <h2>Upload Documents</h2>
+        <p>Upload and process resume documents for analysis</p>
+      </div>
+      <CompactUploadProcessor />
+    </div>
+  );
+
+  // Render work history section
+  const renderWorkHistorySection = () => (
+    <div className="work-history-section">
+      <div className="section-header">
+        <h2>Review Work History</h2>
+        <p>Manage and edit your work experience</p>
+      </div>
+      <WorkHistoryManager />
+    </div>
+  );
+
   // Render placeholder sections for now
   const renderPlaceholderSection = (title, description) => (
     <div className="placeholder-section">
@@ -702,7 +738,7 @@ const ExportManager = () => {
   );
 
   return (
-    <div className="export-manager">
+    <div className="dashboard-export-manager">
       {error && (
         <div className="error-banner">
           <span>{error}</span>
@@ -710,31 +746,29 @@ const ExportManager = () => {
         </div>
       )}
 
-      <div className="export-layout">
-        {/* Navigation Sidebar */}
-        <div className="export-nav">
+      <div className="dashboard-export-layout">
+        {/* Navigation Tabs */}
+        <div className="dashboard-export-nav">
           <div className="nav-header">
-            <h2>Export Tools</h2>
+            <h2>Content & Export Tools</h2>
+            <p>Manage your professional data and generate exports</p>
           </div>
-          <div className="nav-sections">
+          <div className="nav-tabs">
             {sections.map(section => (
               <button
                 key={section.id}
-                className={`nav-section ${activeSection === section.id ? 'active' : ''}`}
+                className={`nav-tab ${activeSection === section.id ? 'active' : ''}`}
                 onClick={() => setActiveSection(section.id)}
               >
-                <span className="section-icon">{section.icon}</span>
-                <div className="section-info">
-                  <span className="section-name">{section.name}</span>
-                  <span className="section-desc">{section.description}</span>
-                </div>
+                <span className="tab-icon">{section.icon}</span>
+                <span className="tab-name">{section.name}</span>
               </button>
             ))}
           </div>
         </div>
 
         {/* Main Content Area */}
-        <div className="export-content">
+        <div className="dashboard-export-content">
           {loading && (
             <div className="loading-state">
               <div className="loading-spinner"></div>
@@ -745,6 +779,8 @@ const ExportManager = () => {
           {!loading && (
             <>
               {activeSection === 'overview' && renderOverview()}
+              {activeSection === 'upload' && renderUploadSection()}
+              {activeSection === 'work-history' && renderWorkHistorySection()}
               {activeSection === 'data-export' && renderDataExport()}
               {activeSection === 'resume' && renderPlaceholderSection('Resume Generation', 'AI-powered resume creation with multiple templates and formats')}
               {activeSection === 'company-intelligence' && renderPlaceholderSection('Company Intelligence', 'Career progression insights and company analysis')}
