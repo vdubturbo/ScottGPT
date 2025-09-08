@@ -2,7 +2,7 @@ import fs from 'fs/promises';
 import path from 'path';
 import matter from 'gray-matter';
 import TagManager from './tag-manager.js';
-import SkillDiscoveryService from '../services/skills.js';
+import DatabaseSkillsService from '../services/skills.js';
 import { pipelineStorage } from '../services/pipeline-storage.js';
 
 // Legacy paths for fallback mode
@@ -35,44 +35,22 @@ function stripPII(text) {
 async function normalizeSkills(skills, context = {}) {
   if (!Array.isArray(skills)) {return [];}
   
-  const normalized = new Set();
-  
-  // Handle different config structures with safety checks
-  const controlledVocab = skillsConfig.controlled_vocabulary || {};
-  const allSkills = [
-    ...(controlledVocab.technical || []),
-    ...(controlledVocab.leadership || []),
-    ...(controlledVocab.business || []),
-    ...(controlledVocab.domain || [])
-  ];
-  
-  for (const skill of skills) {
-    // Check if skill is in controlled vocabulary
-    const found = allSkills.find(s => 
-      s.toLowerCase() === skill.toLowerCase() ||
-      skillsConfig.synonyms[s]?.some(synonym => 
-        synonym.toLowerCase() === skill.toLowerCase()
-      )
-    );
-    
-    if (found) {
-      normalized.add(found);
-    } else {
-      // Use skill discovery service to handle unknown skills
-      const discovery = await skillService.discoverSkill(skill, context);
-      
-      if (discovery.status === 'new_discovery') {
-        console.log(`🔍 New skill discovered: "${skill}" (${discovery.category}) - logged for approval`);
-      } else if (discovery.status === 'existing_discovery') {
-        console.log(`📈 Skill "${skill}" seen again (${discovery.occurrences}x total)`);
-      }
-      
-      // Still include the skill in output for now
-      normalized.add(skill);
-    }
+  // Use database-based skills service
+  if (!skillService) {
+    skillService = new DatabaseSkillsService();
+    await skillService.initialize();
   }
   
-  return Array.from(normalized);
+  try {
+    // Use database normalization instead of file-based config
+    const normalizedSkills = await skillService.normalizeSkills(skills);
+    console.log(`🔧 Skills normalized: ${skills.length} input → ${normalizedSkills.length} output`);
+    return normalizedSkills;
+  } catch (error) {
+    console.warn(`⚠️ Skills normalization failed: ${error.message}`);
+    // Fallback to original skills
+    return skills.filter(skill => skill && typeof skill === 'string' && skill.trim()).map(skill => skill.trim());
+  }
 }
 
 async function normalizeTags(tags, context = {}) {

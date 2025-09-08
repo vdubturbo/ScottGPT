@@ -31,7 +31,8 @@ class RetrievalService {
         maxResults = 12,
         minSimilarity = null,
         includeMetadata = true,
-        rerankResults = true
+        rerankResults = true,
+        userFilter = null
       } = options;
 
       console.log(`🔍 Retrieving context for: "${query}"`);
@@ -65,7 +66,8 @@ class RetrievalService {
             skills: filters.skills,
             tags: filters.tags,
             threshold: similarityThreshold,
-            limit: Math.max(maxResults * 2, 20) // Get more results for reranking
+            limit: Math.max(maxResults * 2, 20), // Get more results for reranking
+            userFilter: userFilter
           }),
           { 
             service: 'retrieval', 
@@ -81,7 +83,7 @@ class RetrievalService {
       // This ensures we always prioritize semantic understanding over keyword matching
       if (searchResults.length === 0) {
         console.log('🔄 No semantic results found, trying text search as fallback...');
-        const textSearchResults = await this.performTextSearch(query, filters, maxResults);
+        const textSearchResults = await this.performTextSearch(query, filters, maxResults, userFilter);
         if (textSearchResults.length > 0) {
           console.log(`📝 Text search found ${textSearchResults.length} results as fallback`);
           searchResults = textSearchResults; // Replace empty semantic results with text results
@@ -467,9 +469,10 @@ class RetrievalService {
    * @param {string} query - Original query
    * @param {Object} filters - Search filters
    * @param {number} maxResults - Maximum results to return
+   * @param {string|null} userFilter - User ID to filter content (for multi-tenant)
    * @returns {Promise<Array>} - Text search results
    */
-  async performTextSearch(query, filters, maxResults) {
+  async performTextSearch(query, filters, maxResults, userFilter = null) {
     try {
       const { db } = await import('../config/database.js');
       const queryLower = query.toLowerCase();
@@ -504,15 +507,21 @@ class RetrievalService {
       
       if (searchTerms.length === 0) return [];
       
-      const { data, error } = await db.supabase
+      let query = db.supabase
         .from('content_chunks')
         .select(`
           id, source_id, title, content, skills, tags,
           date_start, date_end, token_count,
           sources (id, type, title, org, location)
         `)
-        .or(searchTerms.join(','))
-        .limit(maxResults * 2);
+        .or(searchTerms.join(','));
+
+      // Apply user filter for multi-tenant support
+      if (userFilter) {
+        query = query.eq('user_id', userFilter);
+      }
+
+      const { data, error } = await query.limit(maxResults * 2);
         
       if (error) {
         console.error('Text search error:', error);

@@ -7,7 +7,7 @@ import { db, supabase } from '../config/database.js';
 import { validateEmbedding } from '../utils/embedding-utils.js';
 import { DateParser } from '../utils/date-parser.js';
 import CONFIG from '../config/app-config.js';
-import SkillDiscoveryService from '../services/skills.js';
+import DatabaseSkillsService from '../services/skills.js';
 import { 
   retryOperation, 
   circuitBreakers, 
@@ -620,7 +620,7 @@ async function generateSummary(content, title) {
 
 async function processSkillsDiscovery(skills, context) {
   if (!skillService) {
-    skillService = new SkillDiscoveryService();
+    skillService = new DatabaseSkillsService();
     await skillService.initialize();
   }
   
@@ -628,21 +628,16 @@ async function processSkillsDiscovery(skills, context) {
     return [];
   }
   
-  const processedSkills = [];
-  
-  for (const skill of skills) {
-    if (skill && typeof skill === 'string' && skill.trim()) {
-      try {
-        const discovery = await skillService.discoverSkill(skill.trim(), context);
-        processedSkills.push(skill.trim());
-      } catch (error) {
-        console.warn(`⚠️ Failed to process skill "${skill}":`, error.message);
-        processedSkills.push(skill.trim()); // Still include the skill
-      }
-    }
+  try {
+    // Use database-based skill normalization
+    const normalizedSkills = await skillService.normalizeSkills(skills);
+    console.log(`🔧 Skills processing: ${skills.length} input → ${normalizedSkills.length} normalized`);
+    return normalizedSkills;
+  } catch (error) {
+    console.warn(`⚠️ Failed to process skills normalization:`, error.message);
+    // Fallback to original skills if database processing fails
+    return skills.filter(skill => skill && typeof skill === 'string' && skill.trim()).map(skill => skill.trim());
   }
-  
-  return processedSkills;
 }
 
 async function upsertSource(data) {

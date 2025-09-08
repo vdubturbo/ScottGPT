@@ -40,7 +40,8 @@ class RAGService {
         includeContext = false,
         conversationHistory = [],
         temperature = 0.1,
-        maxTokens = 500
+        maxTokens = 500,
+        userFilter = null
       } = options;
 
       console.log(`🤖 Answering question: "${query}"`);
@@ -53,7 +54,8 @@ class RAGService {
       const contextResult = await this.retrieval.retrieveContext(processedQuery, {
         maxResults: maxContextChunks,
         includeMetadata: true,
-        rerankResults: true
+        rerankResults: true,
+        userFilter: userFilter
       });
 
       console.log(`⏱️  Context retrieved in ${Date.now() - startTime}ms`);

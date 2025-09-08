@@ -1,5 +1,5 @@
 import { supabase } from '../config/database.js';
-import SkillDiscoveryService from '../services/skills.js';
+import DatabaseSkillsService from '../services/skills.js';
 
 /**
  * Migration script to populate the skills reference table
@@ -7,11 +7,11 @@ import SkillDiscoveryService from '../services/skills.js';
  */
 
 async function migrateSkillsFromContentChunks() {
-  console.log('🔄 Starting skills migration from content_chunks...');
+  console.log('🔄 Starting database-based skills migration...');
   
   try {
-    // Initialize skill discovery service
-    const skillService = new SkillDiscoveryService();
+    // Initialize database skills service
+    const skillService = new DatabaseSkillsService();
     await skillService.initialize();
     
     // Get all unique skills from content_chunks
@@ -58,51 +58,56 @@ async function migrateSkillsFromContentChunks() {
     
     console.log(`📋 Total unique skills across both tables: ${allSkills.size}`);
     
-    // Categorize and insert each skill
-    const skillsArray = Array.from(allSkills).sort();
+    // Check which skills are already in the skills table
+    const skillsArray = Array.from(allSkills);
+    const unapprovedSkills = [];
+    
+    for (const skill of skillsArray) {
+      const isApproved = await skillService.isApprovedSkill(skill);
+      if (!isApproved) {
+        unapprovedSkills.push(skill);
+      }
+    }
+    
+    console.log(`🔍 Found ${unapprovedSkills.length} skills not yet in skills table`);
+    
+    if (unapprovedSkills.length === 0) {
+      console.log('✅ All discovered skills are already in the skills table');
+      return { inserted: [], skipped: skillsArray.length, failed: [] };
+    }
+    
+    // Categorize and insert discovered skills
     const results = {
       inserted: [],
       failed: [],
-      skipped: []
+      skipped: allSkills.size - unapprovedSkills.length
     };
     
-    console.log('🔧 Processing skills with categorization...');
+    console.log('🔧 Adding discovered skills to skills table...');
     
-    for (const skill of skillsArray) {
+    for (const skill of unapprovedSkills) {
       try {
-        // Use skill discovery service to categorize
-        const category = skillService.categorizeSkill(skill);
+        // Simple categorization based on common patterns
+        let category = 'Other';
+        const skillLower = skill.toLowerCase();
         
-        // Check if skill already exists in database
-        const { data: existing, error: selectError } = await supabase
-          .from('skills')
-          .select('name')
-          .eq('name', skill)
-          .single();
-        
-        if (selectError && selectError.code !== 'PGRST116') { // Not "no rows found"
-          throw selectError;
+        if (skillLower.includes('javascript') || skillLower.includes('python') || skillLower.includes('react') || skillLower.includes('node')) {
+          category = 'technical';
+        } else if (skillLower.includes('management') || skillLower.includes('leadership') || skillLower.includes('team')) {
+          category = 'leadership';
+        } else if (skillLower.includes('strategy') || skillLower.includes('business') || skillLower.includes('process')) {
+          category = 'business';
         }
         
-        if (existing) {
-          results.skipped.push(skill);
-          continue;
+        const result = await skillService.addSkill(skill, category);
+        
+        if (result) {
+          results.inserted.push({ name: skill, category: category });
+          console.log(`✅ Added: ${skill} (${category})`);
+        } else {
+          results.skipped++;
+          console.log(`⏭️ Skipped: ${skill} (already exists)`);
         }
-        
-        // Insert the skill
-        const { error: insertError } = await supabase
-          .from('skills')
-          .insert({
-            name: skill,
-            category: category.category,
-            aliases: [],
-            created_at: new Date().toISOString()
-          });
-        
-        if (insertError) throw insertError;
-        
-        results.inserted.push({ name: skill, category: category.category, priority: category.priority });
-        console.log(`✅ Added: ${skill} (${category.category}, ${category.priority})`);
         
       } catch (error) {
         results.failed.push({ skill, error: error.message });

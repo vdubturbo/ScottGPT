@@ -81,6 +81,10 @@ async function startServer() {
   const advancedUserDataRoutes = await import('./routes/advanced-user-data.js');
   const dataExportRoutes = await import('./routes/data-export.js');
   const resumeGenerationRoutes = await import('./routes/resume-generation.js');
+  
+  // Multi-tenant SaaS routes
+  const authRoutes = await import('./routes/auth.js');
+  const adminRoutes = await import('./routes/admin.js');
 
   // API Routes with specific rate limiting
   app.use('/api/chat', chatLimit, chatRoutes.default);
@@ -91,10 +95,49 @@ async function startServer() {
   app.use('/api/user', dataLimit, advancedUserDataRoutes.default);
   app.use('/api/user/export', dataLimit, dataExportRoutes.default);
   app.use('/api/user/generate', dataLimit, resumeGenerationRoutes.default);
+  
+  // Multi-tenant SaaS routes
+  app.use('/api/auth', authRoutes.default);
+  app.use('/api/admin', adminRoutes.default);
 
   // Health check endpoint
   app.get('/api/health', (req, res) => {
     res.json({ status: 'ok', message: 'ScottGPT API is running' });
+  });
+
+  // Public profile routing by URL slug (before wildcard)
+  // This allows URLs like https://scottgpt.com/john-doe to load John's profile
+  app.get('/:slug([a-z0-9-]+)', async (req, res) => {
+    try {
+      const { slug } = req.params;
+      
+      // Import auth middleware for profile access check
+      const { authenticateToken, checkProfileAccess, trackProfileView } = await import('./middleware/auth.js');
+      
+      // Apply middleware to check if profile exists and is accessible
+      authenticateToken(req, res, () => {
+        // Add slug to params for checkProfileAccess middleware
+        req.params.slug = slug;
+        
+        checkProfileAccess(req, res, (err) => {
+          if (err || !req.targetProfile) {
+            // Profile not found or not accessible - serve React app for 404 handling
+            return res.sendFile(path.join(__dirname, 'client/build', 'index.html'));
+          }
+          
+          // Track profile view
+          trackProfileView(req, res, () => {
+            // Profile exists and is accessible - serve React app with profile data
+            res.sendFile(path.join(__dirname, 'client/build', 'index.html'));
+          });
+        });
+      });
+      
+    } catch (error) {
+      console.error('Profile routing error:', error);
+      // Serve React app for error handling
+      res.sendFile(path.join(__dirname, 'client/build', 'index.html'));
+    }
   });
 
   // Serve React app for all other routes

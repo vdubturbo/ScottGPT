@@ -216,7 +216,8 @@ class OptimizedDatabase {
       threshold = 0.3, 
       skills = [], 
       tags = [], 
-      dateRange = null 
+      dateRange = null,
+      userFilter = null
     } = options;
 
     console.log(`🚀 Using optimized pgvector search (threshold: ${threshold})`);
@@ -241,7 +242,8 @@ class OptimizedDatabase {
           filter_skills: skills.length > 0 ? skills : null,
           filter_tags: tags.length > 0 ? tags : null,
           date_after: dateRange?.start || null,
-          date_before: dateRange?.end || null
+          date_before: dateRange?.end || null,
+          filter_user_id: userFilter
         });
 
       if (error) {
@@ -288,7 +290,7 @@ class OptimizedDatabase {
    * Legacy search using JavaScript similarity calculation
    */
   async searchChunksLegacy(queryEmbedding, options = {}) {
-    const { limit = 10, threshold = 0.3, skills = [], tags = [], dateRange = null } = options;
+    const { limit = 10, threshold = 0.3, skills = [], tags = [], dateRange = null, userFilter = null } = options;
 
     console.log(`🔄 Using legacy JavaScript search (threshold: ${threshold})`);
     console.log(`📊 Query embedding dimensions: ${queryEmbedding?.length || 'none'}`);
@@ -308,6 +310,9 @@ class OptimizedDatabase {
     // Apply date filters at query level
     if (dateRange?.start) query = query.gte('date_start', dateRange.start);
     if (dateRange?.end) query = query.lte('date_end', dateRange.end);
+
+    // Apply user filter for multi-tenant support
+    if (userFilter) query = query.eq('user_id', userFilter);
 
     // Limit to 1000 records (the current workaround)
     query = query.limit(1000);
@@ -420,6 +425,7 @@ class OptimizedDatabase {
    * Main search function that automatically uses the best available method
    */
   async searchChunks(queryEmbedding, options = {}) {
+    const { userFilter = null } = options;
     const useVector = await this.checkVectorOptimization();
     
     // DEBUG: Log decision process
@@ -427,6 +433,7 @@ class OptimizedDatabase {
     console.log(`  - useVector: ${useVector}`);
     console.log(`  - isArray: ${Array.isArray(queryEmbedding)}`);
     console.log(`  - embedding length: ${queryEmbedding?.length}`);
+    console.log(`  - userFilter: ${userFilter ? 'applied' : 'none'}`);
     
     if (useVector && Array.isArray(queryEmbedding) && queryEmbedding.length === 1024) {
       try {
