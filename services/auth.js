@@ -147,12 +147,21 @@ export class AuthService {
       // Update last active timestamp
       await this.updateLastActive(authData.user.id);
 
-      return {
+      const result = {
         success: true,
         user: authData.user,
         profile: profile,
         session: authData.session
       };
+
+      console.log('🔍 Auth Debug: Login successful, returning result:', { 
+        success: result.success, 
+        userId: result.user?.id,
+        profileId: result.profile?.id,
+        hasSession: !!result.session
+      });
+
+      return result;
 
     } catch (error) {
       console.error('Login error:', error);

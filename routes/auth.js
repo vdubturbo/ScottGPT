@@ -133,8 +133,15 @@ router.post('/login', rateLimitPerUser({ requests: 10, window: 15 }), async (req
 
     const result = await AuthService.loginUser(email, password);
 
+    console.log('🔍 Auth Route Debug: Service returned result:', { 
+      success: result.success, 
+      hasUser: !!result.user,
+      hasProfile: !!result.profile,
+      error: result.error
+    });
+
     if (result.success) {
-      res.json({
+      const responseData = {
         success: true,
         user: {
           id: result.user.id,
@@ -151,7 +158,15 @@ router.post('/login', rateLimitPerUser({ requests: 10, window: 15 }), async (req
           refresh_token: result.session.refresh_token,
           expires_at: result.session.expires_at
         }
+      };
+
+      console.log('🔍 Auth Route Debug: Sending response:', { 
+        success: responseData.success,
+        userId: responseData.user?.id,
+        profileSlug: responseData.profile?.url_slug
       });
+
+      res.json(responseData);
     } else {
       res.status(401).json({
         error: 'Login failed',
