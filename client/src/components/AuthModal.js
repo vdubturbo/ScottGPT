@@ -112,26 +112,34 @@ const AuthModal = ({ isOpen, onClose, initialTab = 'register' }) => {
   const handleRegisterSubmit = async (e) => {
     e.preventDefault();
     
+    console.log('🔍 Frontend Debug: Registration form submitted');
+    console.log('🔍 Frontend Debug: Form data:', { ...formData, password: '[HIDDEN]' });
+    
     const required = ['full_name', 'display_name', 'email', 'password', 'url_slug'];
     const missing = required.filter(field => !formData[field]);
     
     if (missing.length > 0) {
+      console.log('🔍 Frontend Debug: Missing required fields:', missing);
       setFormError('Please fill in all required fields');
       return;
     }
 
     if (!formData.email.includes('@')) {
+      console.log('🔍 Frontend Debug: Invalid email format');
       setFormError('Please enter a valid email address');
       return;
     }
 
     if (formData.password.length < 6) {
+      console.log('🔍 Frontend Debug: Password too short');
       setFormError('Password must be at least 6 characters long');
       return;
     }
 
     try {
+      console.log('🔍 Frontend Debug: Calling register function...');
       const result = await register(formData);
+      console.log('🔍 Frontend Debug: Register result:', result);
       
       if (result.success) {
         onClose();

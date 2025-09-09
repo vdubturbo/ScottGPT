@@ -118,10 +118,15 @@ export const AuthProvider = ({ children }) => {
 
   const register = async (userData) => {
     try {
+      console.log('🔍 Auth Context Debug: Starting registration');
+      console.log('🔍 Auth Context Debug: User data:', { ...userData, password: '[HIDDEN]' });
+      
       setLoading(true);
       setError(null);
 
+      console.log('🔍 Auth Context Debug: Making API call to /api/auth/register');
       const response = await axios.post('/api/auth/register', userData);
+      console.log('🔍 Auth Context Debug: API response:', response.data);
 
       if (response.data.success) {
         return { 
