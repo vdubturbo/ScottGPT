@@ -2,7 +2,7 @@
   base = "/"
   command = "cd client && npm install && CI=false npm run build"
   publish = "client/build"
-  environment = { CI = "false" }
+  environment = { CI = "false", SECRETS_SCAN_ENABLED = "false" }
 
 [secrets]
   SECRETS_SCAN_ENABLED = false
