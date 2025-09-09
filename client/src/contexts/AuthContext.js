@@ -154,6 +154,9 @@ export const AuthProvider = ({ children }) => {
       delete axios.defaults.headers.common['Authorization'];
       setUser(null);
       setError(null);
+      
+      // Redirect to landing page
+      window.location.href = '/';
     }
   };
 

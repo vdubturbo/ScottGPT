@@ -110,47 +110,10 @@ const PublicProfile = () => {
     <div className="public-profile">
       {/* Profile Header */}
       <header className="profile-header">
-        <div className="profile-info">
-          <h1>{profile.display_name || profile.full_name}</h1>
-          {profile.job_title && <h2 className="job-title">{profile.job_title}</h2>}
-          {profile.location && <p className="location">📍 {profile.location}</p>}
-          
-          <div className="profile-links">
-            {profile.website_url && (
-              <a href={profile.website_url} target="_blank" rel="noopener noreferrer" className="profile-link">
-                🌐 Website
-              </a>
-            )}
-            {profile.linkedin_url && (
-              <a href={profile.linkedin_url} target="_blank" rel="noopener noreferrer" className="profile-link">
-                💼 LinkedIn
-              </a>
-            )}
-            {profile.github_url && (
-              <a href={profile.github_url} target="_blank" rel="noopener noreferrer" className="profile-link">
-                💻 GitHub
-              </a>
-            )}
-            {profile.portfolio_url && (
-              <a href={profile.portfolio_url} target="_blank" rel="noopener noreferrer" className="profile-link">
-                🎨 Portfolio
-              </a>
-            )}
-          </div>
-          
-          {profile.bio && (
-            <div className="bio">
-              <p>{profile.bio}</p>
-            </div>
-          )}
+        <div className="profile-header-logo">
+          <img src="/Logo3.png" alt="SplitOut.ai" className="profile-logo" />
         </div>
-
-        <div className="profile-stats">
-          <div className="stat">
-            <span className="stat-number">{profile.profile_views || 0}</span>
-            <span className="stat-label">Profile Views</span>
-          </div>
-        </div>
+        
       </header>
 
       {/* Main Content */}
@@ -161,7 +124,6 @@ const PublicProfile = () => {
           
           {chatHistory.length === 0 && (
             <div className="chat-welcome">
-              <p>Hi! I'm an AI assistant that can answer questions about {profile.display_name || profile.full_name}'s professional experience and background.</p>
               <div className="suggested-questions">
                 <h4>Try asking:</h4>
                 <button 

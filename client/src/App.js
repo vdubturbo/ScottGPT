@@ -9,7 +9,7 @@ import RegisterForm from './components/auth/RegisterForm';
 import Dashboard from './components/Dashboard';
 import PublicProfile from './components/PublicProfile';
 import AdminDashboard from './components/AdminDashboard';
-import DefaultLandingPage from './components/DefaultLandingPage';
+import LandingPage from './components/LandingPage';
 import LoadingSpinner from './components/LoadingSpinner';
 import './App.css';
 
@@ -118,10 +118,10 @@ const AppContent = () => {
         {/* Dynamic Profile Routes (URL slug routing) */}
         <Route path="/:slug" element={<PublicProfile />} />
 
-        {/* Default Route - Original ScottGPT Landing Page */}
+        {/* Default Route - New Landing Page */}
         <Route 
           path="/" 
-          element={<DefaultLandingPage />}
+          element={<LandingPage />}
         />
 
         {/* 404 Route */}

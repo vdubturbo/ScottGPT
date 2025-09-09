@@ -53,6 +53,8 @@ const CompactUploadProcessor = () => {
   };
 
   const resetUpload = () => {
+    console.log('🔄 Resetting upload component to initial state...');
+    
     setSelectedFiles([]);
     setProcessComplete(false);
     setError(null);
@@ -61,9 +63,19 @@ const CompactUploadProcessor = () => {
     setStepDetails('');
     setProcessingStats(null);
     setAdvancedLog('');
+    setProcessing(false);
+    setShowAdvancedLog(false);
+    setSessionId(null);
+    setConnectionState('disconnected');
+    
+    // Disconnect any active SSE connection
+    disconnectSSE();
+    
     if (fileInputRef.current) {
       fileInputRef.current.value = '';
     }
+    
+    console.log('✅ Upload component reset complete');
   };
 
   const parseProgressFromLog = (logContent) => {
@@ -588,15 +600,29 @@ const CompactUploadProcessor = () => {
             {processingStats && (
               <div className="completion-stats">
                 <div className="stat">
-                  <span className="stat-icon">📊</span>
-                  <span className="stat-label">Chunks Created:</span>
-                  <span className="stat-value">{processingStats.chunks || 'N/A'}</span>
+                  <span className="stat-icon">📄</span>
+                  <span className="stat-label">Files Processed:</span>
+                  <span className="stat-value">{processingStats.filesProcessed || selectedFiles.length}</span>
                 </div>
                 <div className="stat">
-                  <span className="stat-icon">🎯</span>
-                  <span className="stat-label">Quality Score:</span>
-                  <span className="stat-value">{processingStats.quality || 'N/A'}%</span>
+                  <span className="stat-icon">📊</span>
+                  <span className="stat-label">Chunks Created:</span>
+                  <span className="stat-value">{processingStats.chunksStored || processingStats.chunks || 'N/A'}</span>
                 </div>
+                {processingStats.quality && (
+                  <div className="stat">
+                    <span className="stat-icon">🎯</span>
+                    <span className="stat-label">Quality Score:</span>
+                    <span className="stat-value">{processingStats.quality}%</span>
+                  </div>
+                )}
+                {processingStats.processingTime && (
+                  <div className="stat">
+                    <span className="stat-icon">⏱️</span>
+                    <span className="stat-label">Processing Time:</span>
+                    <span className="stat-value">{processingStats.processingTime}</span>
+                  </div>
+                )}
               </div>
             )}
 
@@ -605,7 +631,7 @@ const CompactUploadProcessor = () => {
                 className="btn btn-primary" 
                 onClick={resetUpload}
               >
-                Upload More Files
+                📁 Upload More Documents
               </button>
             </div>
           </div>

@@ -60,7 +60,7 @@ const LoginForm = ({ onSuccess, redirectTo = '/dashboard' }) => {
       <div className="auth-card">
         <div className="auth-header">
           <h2>Welcome Back</h2>
-          <p>Sign in to your ScottGPT account</p>
+          <p>Sign in to your SplitOut.ai account</p>
         </div>
 
         {currentError && (
@@ -133,20 +133,6 @@ const LoginForm = ({ onSuccess, redirectTo = '/dashboard' }) => {
           </div>
         </div>
 
-        <div className="auth-demo">
-          <h4>Demo Accounts</h4>
-          <div className="demo-accounts">
-            <div className="demo-account">
-              <strong>Job Seeker:</strong> demo@jobseeker.com / demo123
-            </div>
-            <div className="demo-account">
-              <strong>Recruiter:</strong> demo@recruiter.com / demo123
-            </div>
-            <div className="demo-account">
-              <strong>Admin:</strong> admin@scottgpt.com / admin123
-            </div>
-          </div>
-        </div>
       </div>
     </div>
   );

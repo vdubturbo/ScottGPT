@@ -186,7 +186,7 @@ const RegisterForm = ({ onSuccess, redirectTo = '/dashboard' }) => {
       <div className="auth-card">
         <div className="auth-header">
           <h2>Create Your Account</h2>
-          <p>Join ScottGPT and showcase your professional experience</p>
+          <p>Join SplitOut.ai and showcase your professional experience</p>
         </div>
 
         {currentError && (
