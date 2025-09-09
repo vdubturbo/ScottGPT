@@ -107,10 +107,17 @@ async function startServer() {
 
   // Public profile routing by URL slug (before wildcard)
   // This allows URLs like https://scottgpt.com/john-doe to load John's profile
+  // Exclude reserved routes like dashboard, admin, etc.
   app.get('/:slug([a-z0-9-]+)', async (req, res) => {
+    const { slug } = req.params;
+    
+    // Skip reserved routes - let React handle these
+    const reservedRoutes = ['dashboard', 'admin', 'login', 'register', 'api'];
+    if (reservedRoutes.includes(slug)) {
+      return res.sendFile(path.join(__dirname, 'client/build', 'index.html'));
+    }
+    
     try {
-      const { slug } = req.params;
-      
       // Import auth middleware for profile access check
       const { authenticateToken, checkProfileAccess, trackProfileView } = await import('./middleware/auth.js');
       
