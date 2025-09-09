@@ -1,22 +1,13 @@
 [build]
   base = "/"
-  command = "cd client && npm install && CI=false npm run build"
+  command = "npm install && cd client && npm install && cd .. && npm run build"
+  functions = "netlify-functions"
   publish = "client/build"
   environment = { CI = "false", SECRETS_SCAN_ENABLED = "false" }
 
 [secrets]
   SECRETS_SCAN_ENABLED = false
 
-[[redirects]]
-  from = "/api/*"
-  to = "https://your-backend-url.com/api/:splat"
-  status = 200
-  force = true
-
-[[redirects]]
-  from = "/*"
-  to = "/index.html"
-  status = 200
 
 [[headers]]
   for = "/*"
