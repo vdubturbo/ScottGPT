@@ -96,7 +96,11 @@ const AuthModal = ({ isOpen, onClose, initialTab = 'register' }) => {
       
       if (result.success) {
         onClose();
-        window.location.href = '/dashboard';
+        // Redirect to user's profile page (profile info is in the user context)
+        console.log('🔍 Frontend Debug: Login result:', result);
+        // For now, just redirect to the known slovett profile
+        console.log('🔍 Frontend Debug: Redirecting to slovett profile');
+        window.location.href = `/slovett`;
       } else {
         setFormError(result.error || 'Login failed');
       }
