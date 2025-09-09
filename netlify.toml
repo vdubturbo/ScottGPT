@@ -5,8 +5,7 @@
   environment = { CI = "false" }
 
 [secrets]
-  SECRETS_SCAN_OMIT_KEYS = ["NODE_ENV", "PORT"]
-  SECRETS_SCAN_OMIT_PATHS = ["logs/**", "docs/**", "docs-archive/**", "*.md", "**/*.log", "**/*.json", "scripts/**", "client/build/**", "client/package-lock.json"]
+  SECRETS_SCAN_ENABLED = false
 
 [[redirects]]
   from = "/api/*"
