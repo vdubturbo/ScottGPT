@@ -18,6 +18,15 @@ import environmentDetector from '../utils/environment-detector.js';
 // Load environment variables first
 dotenv.config();
 
+// Debug: Log available environment variables for debugging
+console.log('🔍 Debug: Environment variables check');
+console.log('NODE_ENV:', process.env.NODE_ENV);
+console.log('SUPABASE_URL present:', !!process.env.SUPABASE_URL);
+console.log('OPENAI_API_KEY present:', !!process.env.OPENAI_API_KEY);
+console.log('COHERE_API_KEY present:', !!process.env.COHERE_API_KEY);
+console.log('All env vars:', Object.keys(process.env).filter(k => k.includes('SUPABASE') || k.includes('OPENAI') || k.includes('COHERE')));
+console.log('🔍 Debug complete');
+
 // Get current environment
 const NODE_ENV = process.env.NODE_ENV || 'development';
 const IS_PRODUCTION = NODE_ENV === 'production';

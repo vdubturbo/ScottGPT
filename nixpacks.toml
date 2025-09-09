@@ -1,5 +1,5 @@
 [variables]
-NODE_ENV = "development"
+NODE_ENV = "production"
 CI = "false"
 
 [phases.install]
