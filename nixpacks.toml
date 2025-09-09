@@ -1,5 +1,6 @@
 [variables]
 NODE_ENV = "development"
+CI = "false"
 
 [phases.install]
 cmds = ["npm install", "cd client && npm install"]
