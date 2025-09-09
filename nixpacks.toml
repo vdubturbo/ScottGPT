@@ -1,13 +1,10 @@
-[phases.setup]
-nixPkgs = ["nodejs", "npm"]
+[variables]
+NODE_ENV = "development"
 
 [phases.install]
-cmds = [
-  "npm ci --include=dev",
-  "cd client && npm ci --include=dev && cd .."
-]
+cmds = ["npm install", "cd client && npm install"]
 
-[phases.build]
+[phases.build] 
 cmds = ["npm run build"]
 
 [start]
