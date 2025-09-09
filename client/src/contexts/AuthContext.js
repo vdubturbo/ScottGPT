@@ -124,8 +124,19 @@ export const AuthProvider = ({ children }) => {
       setLoading(true);
       setError(null);
 
+      // Transform field names from snake_case to camelCase for API
+      const apiData = {
+        email: userData.email,
+        password: userData.password,
+        fullName: userData.full_name,
+        displayName: userData.display_name,
+        urlSlug: userData.url_slug,
+        role: userData.role
+      };
+
+      console.log('🔍 Auth Context Debug: Transformed API data:', { ...apiData, password: '[HIDDEN]' });
       console.log('🔍 Auth Context Debug: Making API call to /api/auth/register');
-      const response = await axios.post('/api/auth/register', userData);
+      const response = await axios.post('/api/auth/register', apiData);
       console.log('🔍 Auth Context Debug: API response:', response.data);
 
       if (response.data.success) {
