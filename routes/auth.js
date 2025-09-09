@@ -160,11 +160,21 @@ router.post('/login', rateLimitPerUser({ requests: 10, window: 15 }), async (req
     }
 
   } catch (error) {
-    console.error('Login route error:', error);
-    res.status(500).json({
-      error: 'Login failed',
-      message: 'An unexpected error occurred during login'
-    });
+    console.error('🔍 Auth Route Debug: Login route error:', error.message);
+    console.error('🔍 Auth Route Debug: Full error:', error);
+    
+    // Handle auth-specific errors differently
+    if (error.message.includes('Invalid login credentials') || error.message.includes('Login failed')) {
+      res.status(401).json({
+        error: 'Authentication failed',
+        message: error.message
+      });
+    } else {
+      res.status(500).json({
+        error: 'Login failed',
+        message: 'An unexpected error occurred during login'
+      });
+    }
   }
 });
 

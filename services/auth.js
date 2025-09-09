@@ -126,7 +126,12 @@ export class AuthService {
 
       if (authError) {
         console.error('❌ Auth Debug: Login error:', authError);
-        throw new Error(`Login failed: ${authError.message}`);
+        return {
+          success: false,
+          error: authError.message,
+          user: null,
+          profile: null
+        };
       }
 
       console.log('🔍 Auth Debug: Getting user profile for:', authData.user.id);
