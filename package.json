@@ -6,7 +6,8 @@
   "type": "module",
   "scripts": {
     "start": "node server.js",
-    "dev": "npx concurrently \"nodemon server.js\" \"cd client && npm start\"",
+    "dev": "./scripts/dev-start.sh",
+    "dev:raw": "npx concurrently \"nodemon server.js\" \"cd client && npm start\"",
     "server": "nodemon server.js",
     "client": "cd client && npm start",
     "build": "npm run build:client",

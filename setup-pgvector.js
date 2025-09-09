@@ -131,8 +131,8 @@ BEGIN
     AND (1 - (cc.embedding_vector <=> query_embedding)) >= similarity_threshold
     AND (filter_skills IS NULL OR cc.skills && filter_skills)
     AND (filter_tags IS NULL OR cc.tags && filter_tags)
-    AND (date_after IS NULL OR cc.date_start >= date_after)
-    AND (date_before IS NULL OR cc.date_end <= date_before)
+    AND (date_after IS NULL OR cc.date_start >= date_after::DATE)
+    AND (date_before IS NULL OR cc.date_end <= date_before::DATE)
   ORDER BY cc.embedding_vector <=> query_embedding
   LIMIT max_results;
 END;

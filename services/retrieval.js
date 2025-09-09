@@ -67,6 +67,7 @@ class RetrievalService {
             tags: filters.tags,
             threshold: similarityThreshold,
             limit: Math.max(maxResults * 2, 20), // Get more results for reranking
+            dateRange: filters.dateAfter ? { start: filters.dateAfter, end: null } : null,
             userFilter: userFilter
           }),
           { 
@@ -477,56 +478,73 @@ class RetrievalService {
       const { db } = await import('../config/database.js');
       const queryLower = query.toLowerCase();
       
-      // Build text search conditions
-      const searchTerms = [];
+      // Simplified text search approach - use individual queries and merge results
+      let allResults = [];
       
-      // Add specific keyword searches with proper Supabase syntax
+      // Search patterns with proper escaping
+      const searchPatterns = [];
+      
       if (queryLower.includes('iot') || queryLower.includes('internet of things')) {
-        searchTerms.push('content.ilike.*iot*', 'content.ilike.*internet*', 'skills.cs.{IoT}', 'tags.cs.{IoT}');
+        searchPatterns.push('iot', 'internet');
       }
       
       if (queryLower.includes('coca-cola') || queryLower.includes('coca cola')) {
-        searchTerms.push('content.ilike.*coca*', 'sources.org.ilike.*coca*');
+        searchPatterns.push('coca');
       }
       
       if (queryLower.includes('mckesson')) {
-        searchTerms.push('content.ilike.*mckesson*', 'sources.org.ilike.*mckesson*');
+        searchPatterns.push('mckesson');
       }
       
       if (queryLower.includes('oldp') || queryLower.includes('operations leadership') || queryLower.includes('leadership development')) {
-        searchTerms.push('content.ilike.*oldp*', 'content.ilike.*leadership*', 'title.ilike.*leadership*');
+        searchPatterns.push('oldp', 'leadership');
       }
       
-      if (searchTerms.length === 0) {
-        // Generic text search
+      if (searchPatterns.length === 0) {
+        // Generic search - use the main query words
         const words = query.split(/\s+/).filter(word => word.length > 2);
-        words.forEach(word => {
-          searchTerms.push(`content.ilike.*${word}*`);
-        });
+        searchPatterns.push(...words.slice(0, 3)); // Limit to first 3 words
       }
       
-      if (searchTerms.length === 0) return [];
+      if (searchPatterns.length === 0) return [];
       
-      let query = db.supabase
-        .from('content_chunks')
-        .select(`
-          id, source_id, title, content, skills, tags,
-          date_start, date_end, token_count,
-          sources (id, type, title, org, location)
-        `)
-        .or(searchTerms.join(','));
+      // Execute multiple simple searches and merge results
+      const seenIds = new Set();
+      
+      for (const pattern of searchPatterns) {
+        try {
+          let dbQuery = db.supabase
+            .from('content_chunks')
+            .select(`
+              id, source_id, title, content, skills, tags,
+              date_start, date_end, token_count,
+              sources (id, type, title, org, location)
+            `)
+            .or(`content.ilike.%${pattern}%,title.ilike.%${pattern}%`);
 
-      // Apply user filter for multi-tenant support
-      if (userFilter) {
-        query = query.eq('user_id', userFilter);
+          // Apply user filter for multi-tenant support
+          if (userFilter) {
+            dbQuery = dbQuery.eq('user_id', userFilter);
+          }
+
+          const { data, error } = await dbQuery.limit(10);
+          
+          if (!error && data) {
+            // Add unique results
+            data.forEach(item => {
+              if (!seenIds.has(item.id)) {
+                seenIds.add(item.id);
+                allResults.push(item);
+              }
+            });
+          }
+        } catch (patternError) {
+          console.warn(`Text search pattern '${pattern}' failed:`, patternError.message);
+        }
       }
 
-      const { data, error } = await query.limit(maxResults * 2);
-        
-      if (error) {
-        console.error('Text search error:', error);
-        return [];
-      }
+      // Use the collected results
+      const data = allResults.slice(0, maxResults * 2);
       
       // Calculate proper text search scores instead of artificial similarity
       const searchContext = { query, skills: filters.skills || [], tags: filters.tags || [] };
