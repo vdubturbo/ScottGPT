@@ -33,6 +33,9 @@ export class AuthService {
     try {
       const { email, password, fullName, displayName, role = 'job_seeker', urlSlug } = userData;
 
+      console.log('🔍 Auth Debug: Starting registration for:', email);
+      console.log('🔍 Auth Debug: Full user data:', userData);
+
       // Validate input
       if (!email || !password || !fullName) {
         throw new Error('Email, password, and full name are required');
@@ -41,6 +44,8 @@ export class AuthService {
       if (!['job_seeker', 'recruiter', 'job_poster'].includes(role)) {
         throw new Error('Invalid role specified');
       }
+
+      console.log('🔍 Auth Debug: Validation passed, calling Supabase auth.signUp...');
 
       // Register with Supabase Auth
       const { data: authData, error: authError } = await this.supabase.auth.signUp({
@@ -55,12 +60,20 @@ export class AuthService {
         }
       });
 
+      console.log('🔍 Auth Debug: Supabase auth.signUp result:', { 
+        success: !authError, 
+        error: authError?.message, 
+        userId: authData?.user?.id 
+      });
+
       if (authError) {
+        console.error('❌ Auth Debug: Supabase auth error:', authError);
         throw new Error(`Registration failed: ${authError.message}`);
       }
 
       // Create user profile (this will be handled by trigger after auth confirms)
       if (authData.user) {
+        console.log('🔍 Auth Debug: Creating user profile...');
         const profileData = await this.createUserProfile({
           id: authData.user.id,
           email,
@@ -97,18 +110,34 @@ export class AuthService {
    */
   async loginUser(email, password) {
     try {
+      console.log('🔍 Auth Debug: Starting login for:', email);
+
       // Sign in with Supabase Auth
       const { data: authData, error: authError } = await this.supabase.auth.signInWithPassword({
         email,
         password
       });
 
+      console.log('🔍 Auth Debug: Supabase login result:', { 
+        success: !authError, 
+        error: authError?.message, 
+        userId: authData?.user?.id 
+      });
+
       if (authError) {
+        console.error('❌ Auth Debug: Login error:', authError);
         throw new Error(`Login failed: ${authError.message}`);
       }
 
+      console.log('🔍 Auth Debug: Getting user profile for:', authData.user.id);
+
       // Get user profile
       const profile = await this.getUserProfile(authData.user.id);
+
+      console.log('🔍 Auth Debug: Profile lookup result:', { 
+        found: !!profile, 
+        profileId: profile?.id 
+      });
 
       // Update last active timestamp
       await this.updateLastActive(authData.user.id);
