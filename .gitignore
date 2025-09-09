@@ -56,6 +56,10 @@ incoming/
 processed/
 archives/
 sources/
+logs/
+docs/
+docs-archive/
+*.md
 logs/pending-tags.json
 .cleanup-backup/
 
