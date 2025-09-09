@@ -91,7 +91,7 @@ export const AuthProvider = ({ children }) => {
       });
 
       if (response.data.success) {
-        const { user, session } = response.data;
+        const { user, profile, session } = response.data;
         
         // Store token
         localStorage.setItem('auth_token', session.access_token);
@@ -100,10 +100,10 @@ export const AuthProvider = ({ children }) => {
         // Set axios header
         axios.defaults.headers.common['Authorization'] = `Bearer ${session.access_token}`;
         
-        // Update state
+        // Update state  
         setUser(user);
         
-        return { success: true, user };
+        return { success: true, user, profile };
       } else {
         throw new Error(response.data.message || 'Login failed');
       }

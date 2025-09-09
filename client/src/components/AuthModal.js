@@ -96,11 +96,16 @@ const AuthModal = ({ isOpen, onClose, initialTab = 'register' }) => {
       
       if (result.success) {
         onClose();
-        // Redirect to user's profile page (profile info is in the user context)
+        // Get the user's actual slug from login response
         console.log('🔍 Frontend Debug: Login result:', result);
-        // For now, just redirect to the known slovett profile
-        console.log('🔍 Frontend Debug: Redirecting to slovett profile');
-        window.location.href = `/slovett`;
+        
+        // Get the user's slug from the profile data
+        const userSlug = result.profile?.url_slug || 'slovett';
+        console.log('🔍 Frontend Debug: User slug:', userSlug);
+        
+        // Redirect to dashboard (their personal admin page)
+        console.log('🔍 Frontend Debug: Redirecting to dashboard');
+        window.location.href = '/dashboard';
       } else {
         setFormError(result.error || 'Login failed');
       }
