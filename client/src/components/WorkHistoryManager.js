@@ -23,7 +23,7 @@ const WorkHistoryManager = ({ onViewDuplicates }) => {
   const [duplicatesSummary, setDuplicatesSummary] = useState(null);
   const [selectedJob, setSelectedJob] = useState(null);
   const [showEditor, setShowEditor] = useState(false);
-  const [view, setView] = useState('grid'); // grid, list
+  const [view, setView] = useState('grid'); // grid, list, company
   const [sortBy, setSortBy] = useState('date_start');
   const [sortOrder, setSortOrder] = useState('desc');
   const [searchTerm, setSearchTerm] = useState('');
@@ -235,6 +235,289 @@ const WorkHistoryManager = ({ onViewDuplicates }) => {
     }
     
     return `${years}y ${months}m`;
+  };
+
+  // Group jobs by company with progression analysis
+  const groupJobsByCompany = (jobs) => {
+    const companies = {};
+    
+    jobs.forEach(job => {
+      const companyName = job.org || 'Unknown Company';
+      if (!companies[companyName]) {
+        companies[companyName] = {
+          name: companyName,
+          jobs: [],
+          totalDuration: 0,
+          startDate: null,
+          endDate: null
+        };
+      }
+      companies[companyName].jobs.push(job);
+    });
+
+    // Process each company
+    Object.values(companies).forEach(company => {
+      // Sort jobs by start date
+      company.jobs.sort((a, b) => {
+        const aDate = new Date(a.date_start || '1900-01-01');
+        const bDate = new Date(b.date_start || '1900-01-01');
+        return aDate - bDate;
+      });
+
+      // Calculate company tenure
+      const startDates = company.jobs.map(j => new Date(j.date_start || '1900-01-01')).filter(d => d.getFullYear() > 1900);
+      const endDates = company.jobs.map(j => j.date_end ? new Date(j.date_end) : new Date()).filter(d => d);
+
+      if (startDates.length > 0) {
+        company.startDate = new Date(Math.min(...startDates));
+        company.endDate = endDates.length > 0 ? new Date(Math.max(...endDates)) : new Date();
+        
+        // Calculate total duration
+        const diffTime = Math.abs(company.endDate - company.startDate);
+        const diffMonths = Math.ceil(diffTime / (1000 * 60 * 60 * 24 * 30));
+        company.totalDuration = diffMonths;
+      }
+
+      // Add progression indicators and analyze career growth
+      company.jobs.forEach((job, index) => {
+        job.isFirst = index === 0;
+        job.isLast = index === company.jobs.length - 1;
+        job.progressionIndex = index;
+        
+        // Analyze progression type
+        if (index > 0) {
+          const prevJob = company.jobs[index - 1];
+          job.progressionType = analyzeProgression(prevJob, job);
+        }
+      });
+      
+      // Calculate overall career progression score
+      const progressionTypes = company.jobs.filter(j => j.progressionType).map(j => j.progressionType);
+      const promotions = progressionTypes.filter(type => type === 'promotion').length;
+      const lateral = progressionTypes.filter(type => type === 'lateral').length;
+      
+      company.progressionScore = promotions > 0 ? 'strong' : lateral > 0 ? 'moderate' : 'stable';
+      company.totalPromotions = promotions;
+    });
+
+    // Sort companies by most recent end date
+    return Object.values(companies).sort((a, b) => {
+      const aDate = a.endDate || new Date('1900-01-01');
+      const bDate = b.endDate || new Date('1900-01-01');
+      return bDate - aDate;
+    });
+  };
+
+  // Get progression icon based on career movement
+  const getProgressionIcon = (progressionType, isFirst) => {
+    if (isFirst) return '🎯'; // Starting position
+    
+    switch (progressionType) {
+      case 'promotion': return '⬆️'; // Promotion
+      case 'lateral': return '↔️'; // Lateral move
+      case 'step_back': return '⬇️'; // Step back
+      case 'similar': return '🔄'; // Similar role
+      default: return '•'; // Unknown/default
+    }
+  };
+
+  // Analyze career progression between two positions
+  const analyzeProgression = (prevJob, currentJob) => {
+    if (!prevJob || !currentJob) return 'unknown';
+    
+    const prevTitle = (prevJob.title || '').toLowerCase();
+    const currentTitle = (currentJob.title || '').toLowerCase();
+    
+    // Keywords that typically indicate seniority levels
+    const seniorityKeywords = [
+      { level: 5, words: ['executive', 'chief', 'president', 'vp', 'vice president'] },
+      { level: 4, words: ['director', 'head of', 'principal', 'lead'] },
+      { level: 3, words: ['senior manager', 'sr manager', 'manager'] },
+      { level: 2, words: ['senior', 'sr', 'lead'] },
+      { level: 1, words: ['junior', 'jr', 'associate', 'analyst'] },
+      { level: 0, words: ['intern', 'trainee', 'entry'] }
+    ];
+    
+    const getSeniorityLevel = (title) => {
+      for (const level of seniorityKeywords) {
+        if (level.words.some(word => title.includes(word))) {
+          return level.level;
+        }
+      }
+      return 2; // Default middle level if no keywords found
+    };
+    
+    const prevLevel = getSeniorityLevel(prevTitle);
+    const currentLevel = getSeniorityLevel(currentTitle);
+    
+    if (currentLevel > prevLevel) {
+      return 'promotion';
+    } else if (currentLevel < prevLevel) {
+      return 'step_back';
+    } else {
+      // Same level - check for role expansion or specialization
+      if (currentTitle.length > prevTitle.length || 
+          currentTitle.includes('specialist') || 
+          currentTitle.includes('consultant')) {
+        return 'lateral';
+      }
+      return 'similar';
+    }
+  };
+
+  // Format company duration
+  const formatCompanyDuration = (totalMonths, startDate, endDate) => {
+    if (!totalMonths || totalMonths <= 0) return '';
+    
+    const years = Math.floor(totalMonths / 12);
+    const months = totalMonths % 12;
+    
+    let duration = '';
+    if (years > 0) {
+      duration += `${years} year${years !== 1 ? 's' : ''}`;
+      if (months > 0) {
+        duration += ` ${months} month${months !== 1 ? 's' : ''}`;
+      }
+    } else {
+      duration = `${months} month${months !== 1 ? 's' : ''}`;
+    }
+
+    const startYear = startDate ? startDate.getFullYear() : '';
+    const endYear = endDate ? (endDate > new Date('2030-01-01') ? 'Present' : endDate.getFullYear()) : '';
+    const yearRange = startYear && endYear ? `${startYear}-${endYear}` : '';
+
+    return yearRange ? `${yearRange} • ${duration}` : duration;
+  };
+
+  // Render company-grouped view
+  const renderCompanyView = () => {
+    const groupedCompanies = groupJobsByCompany(processedJobs);
+    
+    return (
+      <div className="company-grouped-view">
+        {groupedCompanies.map((company, companyIndex) => (
+          <div key={company.name} className="company-section">
+            <div className="company-header">
+              <div className="company-info">
+                <h3 className="company-name">🏢 {company.name}</h3>
+                <div className="company-meta">
+                  {formatCompanyDuration(company.totalDuration, company.startDate, company.endDate)}
+                  <span className="position-count">
+                    • {company.jobs.length} position{company.jobs.length !== 1 ? 's' : ''}
+                  </span>
+                </div>
+              </div>
+            </div>
+            
+            <div className="company-timeline">
+              {company.jobs.map((job, jobIndex) => (
+                <div key={job.id} className="timeline-job">
+                  <div className="timeline-connector">
+                    <div className={`timeline-dot ${job.progressionType || 'initial'}`}>
+                      {getProgressionIcon(job.progressionType, job.isFirst)}
+                    </div>
+                    {!job.isLast && <div className="timeline-line"></div>}
+                  </div>
+                  
+                  <div className="timeline-content">
+                    <div className="job-card-compact">
+                      <div className="job-header-compact">
+                        <label className="job-checkbox-compact">
+                          <input
+                            type="checkbox"
+                            checked={selectedJobs.has(job.id)}
+                            onChange={(e) => {
+                              e.stopPropagation();
+                              handleJobCheckbox(job.id, e.target.checked);
+                            }}
+                          />
+                        </label>
+                        <div className="job-title-section-compact">
+                          <h4 className="job-title-compact" onClick={() => handleJobSelect(job)}>
+                            {job.title}
+                          </h4>
+                          <div className="job-dates-compact">
+                            {formatDate(job.date_start)} - {formatDate(job.date_end)}
+                            <span className="job-duration-compact">
+                              ({calculateDuration(job.date_start, job.date_end)})
+                            </span>
+                          </div>
+                        </div>
+                        <div className="job-actions-compact">
+                          <button 
+                            className="btn-edit-compact"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleJobSelect(job);
+                            }}
+                            title="Edit job"
+                          >
+                            ✏️
+                          </button>
+                          <button 
+                            className="btn-delete-compact"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleJobDelete(job);
+                            }}
+                            title="Delete job"
+                          >
+                            🗑️
+                          </button>
+                        </div>
+                      </div>
+                      
+                      {job.location && (
+                        <div className="job-location-compact">📍 {job.location}</div>
+                      )}
+                      
+                      {job.description && (
+                        <div className="job-description-compact">
+                          {job.description.slice(0, 150)}
+                          {job.description.length > 150 && '...'}
+                        </div>
+                      )}
+                      
+                      {job.skills && job.skills.length > 0 && (
+                        <div className="job-skills-compact">
+                          {job.skills.slice(0, 8).map((skill, i) => (
+                            <span key={i} className="skill-tag-compact">{skill}</span>
+                          ))}
+                          {job.skills.length > 8 && (
+                            <span className="skill-tag-compact more">+{job.skills.length - 8}</span>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+            
+            {company.jobs.length > 1 && (
+              <div className="company-progression">
+                <div className={`progression-summary ${company.progressionScore}`}>
+                  <div className="progression-header">
+                    {company.progressionScore === 'strong' && '🚀'}
+                    {company.progressionScore === 'moderate' && '📈'}
+                    {company.progressionScore === 'stable' && '🏛️'}
+                    <strong>Career Progression at {company.name}</strong>
+                  </div>
+                  <div className="progression-details">
+                    <span>{company.jobs.length} positions over {formatCompanyDuration(company.totalDuration, company.startDate, company.endDate).split('•')[1]?.trim() || 'multiple years'}</span>
+                    {company.totalPromotions > 0 && (
+                      <span className="promotions-badge">
+                        ⬆️ {company.totalPromotions} promotion{company.totalPromotions !== 1 ? 's' : ''}
+                      </span>
+                    )}
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
+        ))}
+      </div>
+    );
   };
 
   // Render grid view (replaces timeline)
@@ -493,6 +776,12 @@ const WorkHistoryManager = ({ onViewDuplicates }) => {
             >
               List
             </button>
+            <button
+              className={view === 'company' ? 'active' : ''}
+              onClick={() => setView('company')}
+            >
+              Company
+            </button>
           </div>
 
           <div className="sort-controls">
@@ -541,7 +830,9 @@ const WorkHistoryManager = ({ onViewDuplicates }) => {
           </div>
         ) : (
           <>
-            {view === 'grid' ? renderGridView() : renderListView()}
+            {view === 'grid' && renderGridView()}
+            {view === 'list' && renderListView()}
+            {view === 'company' && renderCompanyView()}
           </>
         )}
       </div>

@@ -45,6 +45,91 @@ const PublicProfile = () => {
     }
   };
 
+  // Format AI response with proper paragraph structure
+  const formatResponse = (content) => {
+    if (!content) return null;
+    
+    // Split content into paragraphs
+    const paragraphs = content.split('\n\n').filter(p => p.trim());
+    
+    return (
+      <div className="formatted-response">
+        {paragraphs.map((paragraph, index) => {
+          const trimmedParagraph = paragraph.trim();
+          
+          // Check if paragraph looks like a header (short and ends without punctuation)
+          const isHeader = trimmedParagraph.length < 100 && 
+                          !trimmedParagraph.endsWith('.') && 
+                          !trimmedParagraph.endsWith('!') &&
+                          !trimmedParagraph.includes('\n') &&
+                          (trimmedParagraph.includes('experience') || 
+                           trimmedParagraph.includes('background') ||
+                           trimmedParagraph.includes('skills') ||
+                           index === 0);
+          
+          // Check for bullet points
+          const hasBullets = trimmedParagraph.includes('- ') || trimmedParagraph.includes('• ');
+          
+          if (hasBullets) {
+            const lines = trimmedParagraph.split('\n');
+            const bulletItems = [];
+            let currentText = '';
+            
+            lines.forEach(line => {
+              if (line.trim().startsWith('- ') || line.trim().startsWith('• ')) {
+                if (currentText) {
+                  // Add any preceding text as a paragraph
+                  bulletItems.push(
+                    <p key={`text-${bulletItems.length}`} className="response-text">
+                      {currentText.trim()}
+                    </p>
+                  );
+                  currentText = '';
+                }
+                bulletItems.push(line.trim().substring(2));
+              } else {
+                currentText += line + '\n';
+              }
+            });
+            
+            // Add any remaining text
+            if (currentText) {
+              bulletItems.push(
+                <p key={`text-${bulletItems.length}`} className="response-text">
+                  {currentText.trim()}
+                </p>
+              );
+            }
+            
+            // Separate bullet points from text elements
+            const textElements = bulletItems.filter(item => typeof item !== 'string');
+            const bullets = bulletItems.filter(item => typeof item === 'string');
+            
+            return (
+              <div key={index}>
+                {textElements}
+                {bullets.length > 0 && (
+                  <ul className="response-bullet-list">
+                    {bullets.map((bullet, bulletIndex) => (
+                      <li key={bulletIndex}>{bullet}</li>
+                    ))}
+                  </ul>
+                )}
+              </div>
+            );
+          }
+          
+          // Regular paragraph - use proper HTML paragraph tag
+          return (
+            <p key={index} className={isHeader ? 'response-header' : 'response-text'}>
+              {trimmedParagraph}
+            </p>
+          );
+        })}
+      </div>
+    );
+  };
+
   const handleChatSubmit = async (e) => {
     e.preventDefault();
     if (!message.trim() || chatLoading) return;
@@ -148,54 +233,86 @@ const PublicProfile = () => {
             </div>
           )}
 
-          {/* Chat History */}
-          <div className="chat-history">
+          {/* Chat History - Enhanced for Long Content */}
+          <div className="enhanced-chat-history">
             {chatHistory.map((msg, index) => (
-              <div key={index} className={`chat-message ${msg.role}`}>
+              <div key={index} className={`enhanced-chat-message ${msg.role}`}>
                 {msg.role === 'user' ? (
-                  <div className="message-content user-message">
-                    <p>{msg.content}</p>
+                  <div className="user-message-container">
+                    <div className="message-avatar user-avatar">
+                      <span>👤</span>
+                    </div>
+                    <div className="user-message-bubble">
+                      <p>{msg.content}</p>
+                    </div>
                   </div>
                 ) : (
-                  <div className="message-content ai-message">
-                    <div className="message-text">
+                  <div className="ai-message-container">
+                    <div className="message-avatar ai-avatar">
+                      <span>🤖</span>
+                    </div>
+                    <div className="ai-message-content">
                       {msg.error ? (
-                        <p className="error-message">{msg.content}</p>
+                        <div className="error-response">
+                          <p className="error-message">{msg.content}</p>
+                        </div>
                       ) : (
-                        <div>
-                          <p style={{whiteSpace: 'pre-wrap'}}>{msg.content}</p>
-                          {msg.confidence && (
-                            <span className={`confidence-badge confidence-${msg.confidence}`}>
-                              Confidence: {msg.confidence}
-                            </span>
+                        <div className="ai-response-card">
+                          <div className="response-header">
+                            <span className="response-title">Response #{index/2 + 1}</span>
+                            {msg.confidence && (
+                              <span className={`confidence-badge confidence-${msg.confidence}`}>
+                                {msg.confidence} confidence
+                              </span>
+                            )}
+                          </div>
+                          
+                          <div className="response-content">
+                            {formatResponse(msg.content)}
+                          </div>
+                          
+                          {msg.sources && msg.sources.length > 0 && (
+                            <details className="response-sources">
+                              <summary className="sources-toggle">
+                                📚 View Sources ({msg.sources.length})
+                              </summary>
+                              <div className="sources-list">
+                                {msg.sources.map((source, idx) => (
+                                  <div key={idx} className="source-item">
+                                    <div className="source-title">{source.title}</div>
+                                    <div className="source-meta">
+                                      {source.organization} • {source.type}
+                                    </div>
+                                  </div>
+                                ))}
+                              </div>
+                            </details>
                           )}
                         </div>
                       )}
                     </div>
-                    {msg.sources && msg.sources.length > 0 && (
-                      <div className="message-sources">
-                        <h5>Sources:</h5>
-                        <ul>
-                          {msg.sources.map((source, idx) => (
-                            <li key={idx}>
-                              {source.title} - {source.organization} ({source.type})
-                            </li>
-                          ))}
-                        </ul>
-                      </div>
-                    )}
                   </div>
                 )}
               </div>
             ))}
             
             {chatLoading && (
-              <div className="chat-message assistant">
-                <div className="message-content ai-message">
-                  <div className="typing-indicator">
-                    <span></span>
-                    <span></span>
-                    <span></span>
+              <div className="enhanced-chat-message assistant">
+                <div className="ai-message-container">
+                  <div className="message-avatar ai-avatar">
+                    <span>🤖</span>
+                  </div>
+                  <div className="ai-message-content">
+                    <div className="ai-response-card loading">
+                      <div className="response-header">
+                        <span className="response-title">Thinking...</span>
+                      </div>
+                      <div className="typing-indicator">
+                        <span></span>
+                        <span></span>
+                        <span></span>
+                      </div>
+                    </div>
                   </div>
                 </div>
               </div>
