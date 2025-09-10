@@ -1,459 +1,107 @@
 import RetrievalService from './retrieval.js';
-import QueryProcessor from './query-processor.js';
 import OpenAI from 'openai';
 import CONFIG from '../config/app-config.js';
-import openaiProtection from '../utils/openai-protection.js';
-import { 
-  retryOperation, 
-  circuitBreakers, 
-  handleError, 
-  APIError, 
-  ProcessingError,
-  RecoveryStrategies 
-} from '../utils/error-handling.js';
 
+/**
+ * Clean, minimal RAG service
+ * Vector search only - no fallbacks
+ */
 class RAGService {
   constructor() {
-    // Configuration validation handled by centralized config
     this.retrieval = new RetrievalService();
-    this.queryProcessor = new QueryProcessor();
     this.openai = new OpenAI({ apiKey: CONFIG.ai.openai.apiKey });
     this.model = CONFIG.ai.openai.model;
-    this.config = CONFIG.ai.openai;
-    
-    // AI Features Killswitch - CRITICAL SECURITY CONTROL
-    this.AI_ENABLED = process.env.AI_ENABLED === 'true';
-    this.AI_DISABLE_REASON = 'temporary-cost-protection';
-    this.AI_DISABLE_MESSAGE = 'AI chat functionality temporarily disabled to prevent OpenAI API costs';
   }
 
   /**
-   * Answer a question using RAG pipeline
-   * @param {string} query - User question
-   * @param {Object} options - Generation options
-   * @returns {Promise<Object>} - Answer with context and metadata
+   * Answer question using RAG pipeline
    */
   async answerQuestion(query, options = {}) {
+    const {
+      maxContextChunks = 8,
+      userFilter = null,
+      temperature = 0.7,
+      maxTokens = 1500
+    } = options;
+
+    console.log(`🤖 RAG Query: "${query.substring(0, 50)}..."`);
+    const startTime = Date.now();
+
     try {
-      const {
-        maxContextChunks = 8,
-        includeContext = false,
-        conversationHistory = [],
-        temperature = 0.1,
-        maxTokens = 500,
-        userFilter = null
-      } = options;
-
-      console.log(`🤖 Answering question: "${query}"`);
-      const startTime = Date.now();
-
-      // Step 1: Process and expand query
-      const processedQuery = await this.queryProcessor.expandAcronyms(query);
-
-      // Step 2: Retrieve relevant context
-      const contextResult = await this.retrieval.retrieveContext(processedQuery, {
+      // 1. Retrieve context using vector search only
+      const contextResult = await this.retrieval.retrieveContext(query, {
         maxResults: maxContextChunks,
-        includeMetadata: true,
-        rerankResults: true,
         userFilter: userFilter
       });
 
-      console.log(`⏱️  Context retrieved in ${Date.now() - startTime}ms`);
+      console.log(`📊 Retrieved ${contextResult.chunks.length} chunks (avg similarity: ${contextResult.avgSimilarity.toFixed(3)})`);
 
-      // Step 2: Build context for the LLM (moved up for debug logging)
-      const contextText = this.buildContextText(contextResult.chunks);
-
-      // Debug logging for context quality
-      console.log(`📊 Context quality check:`);
-      console.log(`   - Chunks found: ${contextResult.chunks.length}`);
-      console.log(`   - Avg similarity: ${contextResult.avgSimilarity}`);
-      console.log(`   - Sources: ${contextResult.sources?.map(s => s.title).join(', ') || 'none'}`);
-      console.log(`   - Context preview: ${contextText.substring(0, 200)}...`);
-
-      if (contextResult.chunks.length > 0) {
-        console.log(`   - Best chunk similarity: ${contextResult.chunks[0].similarity}`);
-        console.log(`   - Worst chunk similarity: ${contextResult.chunks[contextResult.chunks.length - 1].similarity}`);
-      }
-
-      if (contextResult.chunks.length === 0) {
-        return {
-          answer: 'I don\'t have any information about that topic in my knowledge base. This could mean:\n\n• The information hasn\'t been uploaded yet\n• Try rephrasing your question\n• The topic might be outside of Scott\'s documented experience\n\nFeel free to ask about Scott\'s work in cybersecurity, AI/ML, program management, or specific companies and projects!',
-          confidence: 'low',
-          sources: [],
-          contextUsed: contextResult,
-          processingTime: Date.now() - startTime,
-          reasoning: 'No relevant context found in knowledge base'
-        };
-      }
-
-      console.log(`📄 Built context: ${contextText.length} characters`);
-
-      // Step 3: Generate system prompt
-      const systemPrompt = this.buildSystemPrompt(query, contextResult);
-
-      // Step 4: Build conversation with context
-      const messages = this.buildMessages(systemPrompt, query, contextText, conversationHistory);
-
-      // Step 5: AI KILLSWITCH CHECK - CRITICAL SECURITY CONTROL
-      if (!this.AI_ENABLED) {
-        console.log('🚫 AI features disabled - returning fallback response');
-        return {
-          answer: `I apologize, but AI chat functionality is currently disabled.\n\n**Reason:** ${this.AI_DISABLE_MESSAGE}\n\nHowever, I can still help you access information from the knowledge base. The system found ${contextResult.chunks.length} relevant pieces of information about "${query}".\n\n**Available information sources:**\n${contextResult.sources?.map(s => `• ${s.title} (${s.org})`).join('\n') || 'None available'}\n\nPlease try:\n• Browsing the work history section\n• Searching for specific companies or technologies\n• Asking more specific questions about documented experience`,
-          confidence: 'system_disabled',
-          sources: contextResult.sources || [],
-          contextUsed: contextResult,
-          processingTime: Date.now() - startTime,
-          reasoning: 'AI features disabled for cost protection',
-          aiDisabled: true,
-          aiDisableReason: this.AI_DISABLE_REASON
-        };
-      }
-
-      // Step 5: PROTECTION CHECK - Ultra-aggressive OpenAI protection
-      const requestKey = `rag_${Date.now()}_${query.substring(0, 20).replace(/\s/g, '_')}`;
-      const protectionCheck = openaiProtection.canMakeRequest(requestKey);
+      // 2. Build context for OpenAI
+      const contextText = this.buildContext(contextResult.chunks);
       
-      if (!protectionCheck.allowed) {
-        console.log(`🛡️ OpenAI request blocked by protection: ${protectionCheck.reason}`);
-        return {
-          answer: `I apologize, but I cannot process your question right now due to API protection limits.\n\n**Reason:** ${protectionCheck.details}\n\nThis protection system prevents unexpected API costs. You can still access information directly:\n\n**Found ${contextResult.chunks.length} relevant pieces of information:**\n${contextResult.chunks.slice(0, 3).map((chunk, i) => `${i + 1}. ${chunk.title || 'Untitled'} (similarity: ${Math.round(chunk.similarity * 100)}%)`).join('\n')}\n\n**Sources:** ${contextResult.sources?.map(s => s.title).join(', ') || 'None'}\n\nPlease try again in ${protectionCheck.minutesRemaining || 10} minutes.`,
-          confidence: 'blocked_by_protection',
-          sources: contextResult.sources || [],
-          contextUsed: contextResult,
-          processingTime: Date.now() - startTime,
-          reasoning: `Request blocked: ${protectionCheck.reason}`,
-          protectionActive: true,
-          minutesUntilAvailable: protectionCheck.minutesRemaining
-        };
-      }
+      // 3. Generate response
+      const messages = [
+        {
+          role: 'system',
+          content: `You are an AI assistant answering questions about Scott Lovett's professional background and experience. Use only the provided context to answer questions accurately.
 
-      // Register request with protection system
-      openaiProtection.registerRequest(requestKey);
+Context:
+${contextText}
 
-      // Step 5: Generate answer with circuit breaker and retry logic (PROTECTED)
-      console.log('🔮 Generating answer with protection...');
-      let completion;
-      try {
-        completion = await circuitBreakers.openai.execute(async () => {
-          return await retryOperation(
-            async () => await this.openai.chat.completions.create({
-              model: this.model,
-              messages: messages,
-              temperature: temperature,
-              max_tokens: maxTokens,
-              presence_penalty: 0.1,  // Encourage diverse vocabulary
-              frequency_penalty: 0.1  // Reduce repetition
-            }),
-            { 
-              service: 'rag', 
-              operation: 'openai_completion',
-              query: query.substring(0, 50) // First 50 chars for context
-            }
-          );
-        });
-        
-        // Record success with protection system
-        openaiProtection.recordSuccess(requestKey);
-      } catch (error) {
-        // Record failure with protection system
-        openaiProtection.recordFailure(error, requestKey);
-        throw error;
-      }
+Guidelines:
+- Answer based only on the provided context
+- If the context doesn't contain relevant information, say so
+- Be specific and detailed when information is available
+- Cite specific experiences and accomplishments`
+        },
+        {
+          role: 'user',
+          content: query
+        }
+      ];
 
-      const answer = completion.choices[0].message.content;
-      const tokensUsed = completion.usage?.total_tokens || 0;
+      const response = await this.openai.chat.completions.create({
+        model: this.model,
+        messages: messages,
+        temperature: temperature,
+        max_tokens: maxTokens
+      });
 
-      // Step 6: Post-process and analyze answer
-      const confidence = this.calculateAnswerConfidence(contextResult, answer);
-      const reasoning = this.generateReasoning(contextResult, answer);
-      
-      console.log(`✅ Answer generated in ${Date.now() - startTime}ms (${tokensUsed} tokens)`);
+      const answer = response.choices[0].message.content;
+      const processingTime = Date.now() - startTime;
+
+      console.log(`✅ Generated response in ${processingTime}ms`);
 
       return {
-        answer: answer.trim(),
-        confidence,
-        sources: contextResult.sources,
-        contextUsed: includeContext ? contextResult : undefined,
-        processingTime: Date.now() - startTime,
-        tokensUsed,
-        reasoning,
-        avgSimilarity: contextResult.avgSimilarity,
-        totalChunksFound: contextResult.totalFound
+        answer: answer,
+        confidence: contextResult.avgSimilarity > 0.4 ? 'high' : contextResult.avgSimilarity > 0.3 ? 'medium' : 'low',
+        sources: contextResult.chunks.map(chunk => ({
+          title: chunk.title,
+          org: chunk.source_org,
+          type: chunk.source_type,
+          similarity: chunk.similarity
+        })),
+        performance: {
+          processingTime: processingTime,
+          chunksUsed: contextResult.chunks.length,
+          avgSimilarity: contextResult.avgSimilarity,
+          searchMethod: 'vector'
+        }
       };
 
     } catch (error) {
-      const handledError = handleError(error, {
-        service: 'rag',
-        operation: 'answerQuestion',
-        query: query.substring(0, 100) // First 100 chars for context
-      });
-      
-      // Provide user-friendly error messages based on error type
-      if (handledError.name === 'RateLimitError') {
-        throw new APIError(
-          'Service temporarily unavailable due to high demand. Please try again in a moment.',
-          handledError.apiProvider,
-          429,
-          { userFriendly: true }
-        );
-      } else if (handledError.name === 'ConfigurationError') {
-        throw new APIError(
-          'Service configuration error. Please contact support.',
-          handledError.apiProvider,
-          500,
-          { userFriendly: true }
-        );
-      } else if (handledError.name === 'NetworkError') {
-        throw new ProcessingError(
-          'Network connectivity issue. Please check your connection and try again.',
-          'answerQuestion',
-          { userFriendly: true }
-        );
-      } else {
-        throw new ProcessingError(
-          `Failed to generate answer: ${handledError.message}`,
-          'answerQuestion',
-          { userFriendly: true, originalError: handledError }
-        );
-      }
+      console.error('❌ RAG pipeline failed:', error.message);
+      throw error; // Fail fast - no fallbacks
     }
   }
 
   /**
    * Build context text from chunks
-   * @param {Array} chunks - Retrieved chunks
-   * @returns {string} - Formatted context
    */
-  buildContextText(chunks) {
+  buildContext(chunks) {
     return chunks.map((chunk, index) => {
-      const sourceInfo = `[Source: ${chunk.source_title}${chunk.source_org ? ` at ${chunk.source_org}` : ''}]`;
-      const dateInfo = chunk.displayDateRange ? `[${chunk.displayDateRange}]` : '';
-      
-      return `Context ${index + 1}: ${sourceInfo} ${dateInfo}\n${chunk.content}\n`;
-    }).join('\n---\n\n');
-  }
-
-  /**
-   * Build system prompt based on query and context
-   * @param {string} query - User query
-   * @param {Object} contextResult - Context retrieval result
-   * @returns {string} - System prompt
-   */
-  buildSystemPrompt(query, contextResult) {
-    const hasRecentWork = contextResult.chunks.some(chunk => 
-      chunk.recency_score && chunk.recency_score > 0.7
-    );
-    
-    const hasQuantitativeResults = contextResult.chunks.some(chunk =>
-      chunk.content && /\d+[%$]/.test(chunk.content)
-    );
-
-    let prompt = `You are ScottGPT, an AI assistant that answers questions about Scott Lovett's professional experience and background. You have access to Scott's verified work history, projects, skills, and achievements.
-
-CRITICAL INSTRUCTIONS:
-• Answer questions primarily using the information provided in the context below
-• You may synthesize and connect information across different sources in the context
-• If the context provides relevant information but lacks some details, focus on what you can confidently share
-• Provide comprehensive, detailed responses when the context supports it
-• Provide detailed, substantive answers that fully address the question when sufficient context is available
-• Include specific examples, metrics, and outcomes when they appear in the context
-• Be conversational and engaging, as if you're Scott speaking about his experience
-• Use first person ("I worked on..." not "Scott worked on...")
-• Cite sources naturally like "During my time at [Company]" or "In the [Project] project"
-• Focus on what IS in the context and make meaningful connections between related information
-• If asked for specific metrics or dates not in the context, acknowledge the limitation while providing related information that is available`;
-
-    // Add query-specific guidance
-    const queryLower = query.toLowerCase();
-    
-    if (queryLower.includes('leadership') || queryLower.includes('management')) {
-      prompt += '\n• Focus on leadership examples, team sizes, and management outcomes';
-    }
-    
-    if (queryLower.includes('technical') || queryLower.includes('technology')) {
-      prompt += '\n• Emphasize technical implementations, architectures, and tools used';
-    }
-    
-    if (queryLower.includes('achievement') || queryLower.includes('success')) {
-      prompt += '\n• Highlight quantified results, metrics, and business impact';
-    }
-
-    if (hasQuantitativeResults) {
-      prompt += '\n• Include specific numbers, percentages, and measurable outcomes';
-    }
-
-    if (hasRecentWork) {
-      prompt += '\n• Emphasize recent and current experience when relevant';
-    }
-
-    return prompt;
-  }
-
-  /**
-   * Build message array for OpenAI API
-   * @param {string} systemPrompt - System prompt
-   * @param {string} query - User query
-   * @param {string} context - Retrieved context
-   * @param {Array} conversationHistory - Previous messages
-   * @returns {Array} - Message array
-   */
-  buildMessages(systemPrompt, query, context, conversationHistory = []) {
-    const messages = [
-      { role: 'system', content: systemPrompt }
-    ];
-
-    // Add recent conversation history (limit to last 4 exchanges to manage token usage)
-    const recentHistory = conversationHistory.slice(-8); // Last 4 Q&A pairs
-    messages.push(...recentHistory);
-
-    // Add current query with context
-    const userMessage = `Based STRICTLY on the following verified information about Scott's experience, please answer this question: "${query}"
-
-IMPORTANT: Only use facts that are explicitly stated in the context below. Do not add details, assume information, or extrapolate beyond what is written.
-
-CONTEXT:
-${context}
-
-Please provide an answer based ONLY on the information above. If the context doesn't contain enough information to fully answer the question, acknowledge what you can't answer based on the available information.`;
-
-    messages.push({ role: 'user', content: userMessage });
-
-    return messages;
-  }
-
-  /**
-   * Calculate confidence score for the answer
-   * @param {Object} contextResult - Context retrieval result
-   * @param {string} answer - Generated answer
-   * @returns {string} - Confidence level
-   */
-  calculateAnswerConfidence(contextResult, answer) {
-    let score = 0;
-    
-    // Base score from context quality
-    if (contextResult.avgSimilarity >= 0.85) {score += 40;}
-    else if (contextResult.avgSimilarity >= 0.80) {score += 35;}
-    else if (contextResult.avgSimilarity >= 0.75) {score += 30;}
-    else if (contextResult.avgSimilarity >= 0.70) {score += 20;}
-    else {score += 10;}
-    
-    // Number of relevant chunks
-    const chunkCount = contextResult.chunks.length;
-    if (chunkCount >= 6) {score += 25;}
-    else if (chunkCount >= 4) {score += 20;}
-    else if (chunkCount >= 2) {score += 15;}
-    else {score += 5;}
-    
-    // Answer quality indicators
-    if (answer.length > 200) {score += 15;} // Comprehensive answer
-    if (answer.includes('$') || answer.includes('%') || /\d+/.test(answer)) {score += 10;} // Specific metrics
-    if (answer.toLowerCase().includes('i ')) {score += 5;} // First person (good for this use case)
-    
-    // Recent vs historical context
-    const hasRecentContext = contextResult.chunks.some(chunk => chunk.recency_score > 0.7);
-    if (hasRecentContext) {score += 10;}
-    
-    if (score >= 85) {return 'very-high';}
-    if (score >= 70) {return 'high';}
-    if (score >= 55) {return 'medium';}
-    if (score >= 40) {return 'low';}
-    return 'very-low';
-  }
-
-  /**
-   * Generate reasoning for the answer
-   * @param {Object} contextResult - Context retrieval result
-   * @param {string} answer - Generated answer
-   * @returns {string} - Reasoning explanation
-   */
-  generateReasoning(contextResult, answer) {
-    const reasons = [];
-    
-    reasons.push(`Found ${contextResult.chunks.length} relevant context chunks`);
-    
-    if (contextResult.avgSimilarity >= 0.80) {
-      reasons.push('with high semantic similarity');
-    } else if (contextResult.avgSimilarity >= 0.70) {
-      reasons.push('with good semantic similarity');
-    }
-    
-    const sources = contextResult.sources.length;
-    if (sources > 1) {
-      reasons.push(`from ${sources} different sources`);
-    }
-    
-    const hasMetrics = /\d+[%$]/.test(answer);
-    if (hasMetrics) {
-      reasons.push('including specific metrics and outcomes');
-    }
-    
-    const timeSpan = this.calculateTimeSpanFromSources(contextResult.sources);
-    if (timeSpan) {
-      reasons.push(timeSpan);
-    }
-
-    return reasons.join(', ');
-  }
-
-  /**
-   * Calculate time span from sources
-   * @param {Array} sources - Source metadata
-   * @returns {string|null} - Time span description
-   */
-  calculateTimeSpanFromSources(sources) {
-    // This would require additional source metadata
-    // For now, return null - could be enhanced later
-    return null;
-  }
-
-  /**
-   * Generate follow-up questions
-   * @param {string} query - Original query
-   * @param {Object} contextResult - Context retrieval result
-   * @returns {Array} - Suggested follow-up questions
-   */
-  generateFollowUpQuestions(query, contextResult) {
-    const followUps = [];
-    const sources = contextResult.sources;
-    
-    // Suggest drilling into specific companies/projects
-    sources.forEach(source => {
-      if (source.type === 'job' && source.org) {
-        followUps.push(`Tell me more about your work at ${source.org}`);
-      } else if (source.type === 'project') {
-        followUps.push(`What were the key outcomes of ${source.title}?`);
-      }
-    });
-    
-    // Suggest related topics based on skills found
-    const topSkills = this.extractTopSkillsFromContext(contextResult);
-    topSkills.forEach(skill => {
-      followUps.push(`What experience do you have with ${skill}?`);
-    });
-    
-    return followUps.slice(0, 3); // Limit to 3 suggestions
-  }
-
-  /**
-   * Extract top skills from context
-   * @param {Object} contextResult - Context retrieval result
-   * @returns {Array} - Top skills
-   */
-  extractTopSkillsFromContext(contextResult) {
-    const skillCounts = {};
-    
-    contextResult.chunks.forEach(chunk => {
-      if (chunk.skills) {
-        chunk.skills.forEach(skill => {
-          skillCounts[skill] = (skillCounts[skill] || 0) + 1;
-        });
-      }
-    });
-    
-    return Object.entries(skillCounts)
-      .sort(([,a], [,b]) => b - a)
-      .map(([skill]) => skill)
-      .slice(0, 3);
+      return `[${index + 1}] ${chunk.title} (${chunk.source_org})\n${chunk.content}\n`;
+    }).join('\n---\n');
   }
 }
 

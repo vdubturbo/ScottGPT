@@ -44,8 +44,9 @@ router.post('/public', async (req, res) => {
       maxContextChunks: 8,
       includeContext: false,
       temperature: 0.7,
-      similarityThreshold: 0.20,
+      similarityThreshold: 0.20, // Restored to original
       conversationHistory: conversationHistory || [],
+      userFilter: process.env.DEFAULT_USER_ID || '345850e8-4f02-48cb-9789-d40e9cc3ee8e', // Configurable default user
       ...options
     });
 

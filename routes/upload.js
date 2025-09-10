@@ -10,6 +10,7 @@ import { processBatchUploads, clearUploadCache, getCacheStats as getUploadCacheS
 import { streamlinedProcessor } from '../services/streamlined-processor.js';
 import processLogger from '../utils/process-logger.js';
 import CONFIG from '../config/app-config.js';
+import { authenticateToken, requireAuth } from '../middleware/auth.js';
 import dotenv from 'dotenv';
 
 // Ensure environment variables are loaded
@@ -62,7 +63,7 @@ const upload = multer({
 });
 
 // POST /api/upload/streamlined - NEW: Direct upload → extract → embed → discard processing
-router.post('/streamlined', uploadFileLimit, upload.array('files', 10), async (req, res) => {
+router.post('/streamlined', authenticateToken, requireAuth, uploadFileLimit, upload.array('files', 10), async (req, res) => {
   const uploadStartTime = Date.now();
   
   try {
@@ -88,7 +89,8 @@ router.post('/streamlined', uploadFileLimit, upload.array('files', 10), async (r
         const result = await streamlinedProcessor.processUploadedFile(
           file.buffer,
           file.originalname,
-          file.mimetype
+          file.mimetype,
+          req.user.id // Pass authenticated user_id
         );
         
         results.push(result);
@@ -145,7 +147,7 @@ router.post('/streamlined', uploadFileLimit, upload.array('files', 10), async (r
 });
 
 // POST /api/upload/process-cached-streamlined - Process cached files through streamlined architecture (FOR MANUAL USE ONLY)
-router.post('/process-cached-streamlined', async (req, res) => {
+router.post('/process-cached-streamlined', authenticateToken, requireAuth, async (req, res) => {
   // Add warning that this should not be part of normal upload workflow
   console.warn('⚠️ [DEPRECATED] /process-cached-streamlined called - should use /streamlined for normal uploads');
   try {
@@ -215,7 +217,8 @@ router.post('/process-cached-streamlined', async (req, res) => {
         const result = await streamlinedProcessor.processUploadedFile(
           cachedFile.buffer,
           cacheEntry.fileName,
-          mimeType
+          mimeType,
+          req.user.id // Pass authenticated user_id
         );
         
         results.push(result);

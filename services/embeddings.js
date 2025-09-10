@@ -298,6 +298,11 @@ class EmbeddingService {
       threshold = 0.25;
       queryType = 'OLDP/Leadership';
     }
+    // Special handling for PMO and program management queries
+    else if (queryLower.includes('pmo') || queryLower.includes('program management') || queryLower.includes('program office')) {
+      threshold = 0.25;
+      queryType = 'PMO/Program Management';
+    }
     // Special handling for common resume queries
     else {
       const resumeQueries = [
