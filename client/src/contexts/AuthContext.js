@@ -245,6 +245,11 @@ export const AuthProvider = ({ children }) => {
   const hasRole = (role) => user?.profile?.role === role;
   const hasAnyRole = (roles) => roles.includes(user?.profile?.role);
 
+  // Get current authentication token
+  const getToken = () => {
+    return localStorage.getItem('auth_token');
+  };
+
   const value = {
     user,
     loading,
@@ -263,6 +268,7 @@ export const AuthProvider = ({ children }) => {
     isJobSeeker,
     hasRole,
     hasAnyRole,
+    getToken,
     setError // Allow components to clear errors
   };
 
