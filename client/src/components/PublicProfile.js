@@ -163,7 +163,7 @@ const PublicProfile = () => {
                         <p className="error-message">{msg.content}</p>
                       ) : (
                         <div>
-                          <p>{msg.content}</p>
+                          <p style={{whiteSpace: 'pre-wrap'}}>{msg.content}</p>
                           {msg.confidence && (
                             <span className={`confidence-badge confidence-${msg.confidence}`}>
                               Confidence: {msg.confidence}

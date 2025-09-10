@@ -31,9 +31,9 @@ class RetrievalService {
       const threshold = this.embeddings.calculateSimilarityThreshold(query);
       console.log(`📊 Using similarity threshold: ${threshold}`);
 
-      // 3. Vector search only - no fallbacks
+      // 3. Vector search only - no fallbacks, lower threshold for richer results
       const results = await db.searchSimilar(queryEmbedding, {
-        threshold: Math.min(threshold, similarityThreshold),
+        threshold: Math.min(threshold, similarityThreshold, 0.2), // Lower threshold for more context
         maxResults: maxResults,
         userFilter: userFilter
       });
