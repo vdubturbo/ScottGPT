@@ -239,6 +239,26 @@ export const useUserDataAPI = () => {
     return apiCall(() => axios.post(`${API_BASE}/regenerate-all-embeddings`, options));
   }, [apiCall]);
 
+  // Document Management API calls
+  const getUploadedDocuments = useCallback(async (options = {}) => {
+    const params = new URLSearchParams(options);
+    setLoading(true);
+    setError(null);
+    try {
+      const result = await axios.get(`${API_BASE}/documents?${params}`);
+      console.log('Documents API raw result:', result.data);
+      // For documents endpoint, return the full response to get pagination
+      return result.data;
+    } catch (err) {
+      console.error('API call error:', err);
+      const errorMessage = err.response?.data?.message || err.response?.data?.error || err.message;
+      setError(errorMessage);
+      throw err;
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
   return {
     loading,
     error,
@@ -301,7 +321,10 @@ export const useUserDataAPI = () => {
     bulkMergeDuplicates,
     
     // System Operations
-    regenerateAllEmbeddings
+    regenerateAllEmbeddings,
+    
+    // Document Management
+    getUploadedDocuments
   };
 };
 

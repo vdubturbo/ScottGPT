@@ -3355,6 +3355,26 @@
   box-shadow: 0 8px 25px rgba(139, 92, 246, 0.15);
 }
 
+.metric-card.clickable {
+  cursor: pointer;
+  position: relative;
+}
+
+.metric-card.clickable::after {
+  content: '→';
+  position: absolute;
+  top: 1rem;
+  right: 1rem;
+  font-size: 1.2rem;
+  opacity: 0;
+  transition: opacity 0.3s ease;
+  color: #8b5cf6;
+}
+
+.metric-card.clickable:hover::after {
+  opacity: 1;
+}
+
 .metric-card.warning {
   border-color: rgba(245, 158, 11, 0.5);
   background: linear-gradient(135deg, rgba(245, 158, 11, 0.1) 0%, rgba(217, 119, 6, 0.1) 100%);

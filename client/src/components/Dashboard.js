@@ -7,20 +7,23 @@ import { Link } from 'react-router-dom';
 import { useUserDataAPI } from '../hooks/useUserDataAPI';
 import CompactUploadProcessor from './CompactUploadProcessor';
 import WorkHistoryManager from './WorkHistoryManager';
+import DocumentsModal from './DocumentsModal';
 
 const Dashboard = () => {
   const { user, logout, isAdmin } = useAuth();
   const [activeTab, setActiveTab] = useState('overview');
   const [dashboardStats, setDashboardStats] = useState(null);
-  const { getWorkHistory, getExportStats, getDuplicatesSummary } = useUserDataAPI();
+  const [showDocumentsModal, setShowDocumentsModal] = useState(false);
+  const { getWorkHistory, getExportStats, getDuplicatesSummary, getUploadedDocuments } = useUserDataAPI();
 
   // Load dashboard statistics
   const loadDashboardStats = useCallback(async () => {
     try {
-      const [workHistory, exportStats, duplicatesSummary] = await Promise.allSettled([
+      const [workHistory, exportStats, duplicatesSummary, uploadedDocs] = await Promise.allSettled([
         getWorkHistory(),
         getExportStats(),
-        getDuplicatesSummary()
+        getDuplicatesSummary(),
+        getUploadedDocuments({ limit: 0 }) // Just get count, not the docs themselves
       ]);
 
       const stats = {
@@ -29,8 +32,8 @@ const Dashboard = () => {
           new Set(workHistory.value?.jobs?.map(job => job.org).filter(Boolean)).size : 0,
         exportStats: exportStats.status === 'fulfilled' ? exportStats.value : null,
         duplicates: duplicatesSummary.status === 'fulfilled' ? duplicatesSummary.value : null,
-        documentsUploaded: exportStats.status === 'fulfilled' ? 
-          (exportStats.value?.totalDocuments || 0) : 0
+        documentsUploaded: uploadedDocs.status === 'fulfilled' ? 
+          (uploadedDocs.value?.pagination?.total || uploadedDocs.value?.length || 0) : 0
       };
 
       setDashboardStats(stats);
@@ -45,7 +48,7 @@ const Dashboard = () => {
         documentsUploaded: 0
       });
     }
-  }, [getWorkHistory, getExportStats, getDuplicatesSummary]);
+  }, [getWorkHistory, getExportStats, getDuplicatesSummary, getUploadedDocuments]);
 
   useEffect(() => {
     if (user) {
@@ -147,7 +150,12 @@ const Dashboard = () => {
                     <div className="metric-label">Companies</div>
                   </div>
                 </div>
-                <div className="metric-card">
+                <div 
+                  className="metric-card clickable" 
+                  onClick={() => setShowDocumentsModal(true)}
+                  style={{ cursor: 'pointer' }}
+                  title="Click to view uploaded documents"
+                >
                   <div className="metric-icon">📄</div>
                   <div className="metric-content">
                     <div className="metric-number">{dashboardStats?.documentsUploaded || 0}</div>
@@ -296,6 +304,12 @@ const Dashboard = () => {
           </div>
         )}
       </main>
+
+      {/* Documents Modal */}
+      <DocumentsModal 
+        isOpen={showDocumentsModal} 
+        onClose={() => setShowDocumentsModal(false)} 
+      />
     </div>
   );
 };

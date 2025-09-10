@@ -1149,6 +1149,122 @@ function generateDuplicateRecommendations(duplicate) {
 router.use('/duplicates', duplicateManagementRoutes);
 
 /**
+ * GET /api/user/documents
+ * Get list of uploaded documents from pipeline_documents table
+ * Query parameters:
+ *   - limit: number - Maximum number of documents to return (default: 100)
+ *   - offset: number - Number of documents to skip for pagination (default: 0)
+ *   - status: string - Filter by processing_status (optional)
+ */
+router.get('/documents', async (req, res) => {
+  try {
+    const { limit = 100, offset = 0, status } = req.query;
+    
+    logger.info('Fetching uploaded documents', { 
+      ip: req.ip,
+      limit,
+      offset,
+      status
+    });
+
+    // If limit is 0, just return the count
+    if (parseInt(limit) === 0) {
+      let countQuery = supabase
+        .from('pipeline_documents')
+        .select('*', { count: 'exact', head: true });
+      
+      if (status) {
+        countQuery = countQuery.eq('processing_status', status);
+      }
+      
+      const { count, error: countError } = await countQuery;
+      
+      if (countError) {
+        logger.error('Failed to get document count', { error: countError });
+        return res.status(500).json({
+          error: 'Failed to get document count',
+          message: countError.message
+        });
+      }
+      
+      return res.json({
+        success: true,
+        data: [],
+        pagination: {
+          limit: 0,
+          offset: 0,
+          total: count || 0
+        }
+      });
+    }
+
+    // Build query for actual documents
+    let query = supabase
+      .from('pipeline_documents')
+      .select('*')
+      .order('created_at', { ascending: false })
+      .range(parseInt(offset), parseInt(offset) + parseInt(limit) - 1);
+
+    // Add status filter if provided
+    if (status) {
+      query = query.eq('processing_status', status);
+    }
+
+    const { data: documents, error } = await query;
+
+    if (error) {
+      logger.error('Failed to fetch documents', { error });
+      return res.status(500).json({
+        error: 'Failed to fetch documents',
+        message: error.message
+      });
+    }
+
+    // Get total count for pagination
+    let countQuery = supabase
+      .from('pipeline_documents')
+      .select('*', { count: 'exact', head: true });
+    
+    if (status) {
+      countQuery = countQuery.eq('processing_status', status);
+    }
+    
+    const { count, error: countError } = await countQuery;
+
+    if (countError) {
+      logger.warn('Failed to get document count', { error: countError });
+    }
+
+    logger.info('Documents fetched successfully', { 
+      count: documents?.length || 0,
+      totalCount: count || 0
+    });
+
+    res.json({
+      success: true,
+      data: documents || [],
+      pagination: {
+        limit: parseInt(limit),
+        offset: parseInt(offset),
+        total: count || documents?.length || 0
+      }
+    });
+
+  } catch (error) {
+    logger.error('Error fetching documents', { 
+      error: error.message,
+      stack: error.stack,
+      ip: req.ip
+    });
+
+    res.status(500).json({
+      error: 'Failed to fetch documents',
+      message: 'An unexpected error occurred while fetching documents'
+    });
+  }
+});
+
+/**
  * Error handling middleware
  */
 router.use((error, req, res, next) => {
