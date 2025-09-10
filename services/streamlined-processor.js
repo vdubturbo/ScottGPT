@@ -50,11 +50,16 @@ export class StreamlinedProcessor {
    * @param {Buffer} buffer - File content buffer
    * @param {string} filename - Original filename
    * @param {string} mimeType - File MIME type
+   * @param {string} userId - User ID for content association
    * @returns {Promise<Object>} Processing results
    */
-  async processUploadedFile(buffer, filename, mimeType) {
+  async processUploadedFile(buffer, filename, mimeType, userId) {
     const startTime = Date.now();
-    console.log(`🚀 [STREAMLINED] Processing ${filename} (${buffer.length} bytes)`);
+    console.log(`🚀 [STREAMLINED] Processing ${filename} (${buffer.length} bytes) for user ${userId}`);
+    
+    if (!userId) {
+      throw new Error('User ID is required for document processing');
+    }
     
     try {
       // Step 1: Convert buffer to text content (in memory)
@@ -80,15 +85,15 @@ export class StreamlinedProcessor {
       console.log(`🧠 Generated embeddings for ${chunksWithEmbeddings.length} chunks`);
       
       // Step 4: Create document record to track the processed file
-      const documentRecord = await this.createDocumentRecord(filename, buffer.length, extractedChunks.length);
+      const documentRecord = await this.createDocumentRecord(filename, buffer.length, extractedChunks.length, userId);
       console.log(`📋 Created document record: ${documentRecord.id} for ${filename}`);
       
       // Step 5: Create individual job records for each extracted job
-      const jobRecords = await this.createJobRecords(chunksWithEmbeddings, filename, documentRecord.id);
+      const jobRecords = await this.createJobRecords(chunksWithEmbeddings, filename, documentRecord.id, userId);
       console.log(`📋 Created ${jobRecords.length} individual job records`);
       
       // Step 6: Store chunks with their corresponding job source_id
-      const storageResults = await this.storeSearchableChunksWithJobs(chunksWithEmbeddings, jobRecords);
+      const storageResults = await this.storeSearchableChunksWithJobs(chunksWithEmbeddings, jobRecords, userId);
       console.log(`💾 Stored ${storageResults.stored} searchable chunks`);
       
       const processingTime = Date.now() - startTime;
@@ -215,18 +220,19 @@ export class StreamlinedProcessor {
     console.log(`📄 [DEBUG] Input content length: ${textContent.length} characters`);
     console.log(`📄 [DEBUG] Content preview (first 200 chars): ${textContent.substring(0, 200)}...`);
     
-    const systemPrompt = `You are a professional resume data extraction specialist. Extract career information from the provided content and create structured records in YAML format.
+    const systemPrompt = `You are a professional resume data extraction specialist. Extract career information from the provided content and create structured records with BOTH YAML metadata AND descriptive content.
+
+CRITICAL REQUIREMENT: You MUST provide both YAML frontmatter AND descriptive content for each position. Do not skip the descriptive sections.
 
 INSTRUCTIONS:
 1. Process ONLY the content provided in the input
 2. Extract job roles, companies, achievements, and skills mentioned in the actual text
-3. Create one YAML block per distinct role/position found in the content
-4. Do NOT add information not present in the source content
-5. Do NOT fabricate or assume details not explicitly stated
+3. Create one complete entry per distinct role/position found in the content
+4. Each entry MUST include YAML metadata followed by detailed descriptive content
+5. Do NOT add information not present in the source content
+6. Do NOT fabricate or assume details not explicitly stated
 
-REQUIRED YAML FORMAT:
-
-For each position/role found in the content, create a YAML block with this exact structure:
+REQUIRED FORMAT FOR EACH POSITION:
 
 ---
 id: "unique_identifier_from_org_title_dates"
@@ -250,24 +256,29 @@ summary: "Brief role summary from content description"
 pii_allow: false
 ---
 
-# Position Details
+# Position Details for [Job Title] at [Company]
 
 ## Role Overview
-Detailed description from the actual content about this role.
+Write a detailed description of this role based on the actual content provided. Include the context of the position, what the person did, and how it fits into their career progression. If this is part of a program (like OLDP, internship program, etc.), mention that context clearly.
 
-## Key Achievements  
-- Accomplishment mentioned in source
-- Project or initiative from content
-- Results or metrics if provided
+## Key Responsibilities & Achievements
+- [List specific responsibilities mentioned in the source content]
+- [Include quantified achievements from the source]
+- [Mention any projects, initiatives, or major accomplishments]
+- [Include any leadership or management aspects]
 
-## Skills & Technologies
-- Technical skills mentioned in content
-- Tools and platforms stated in content
+## Skills & Technologies Used
+- [List technical skills explicitly mentioned]
+- [Include tools, platforms, and technologies used]
+- [Mention methodologies or processes learned]
+
+## Program/Context Information
+[If this position was part of a larger program, rotation, or career development initiative, describe that context here. For example, if it's part of OLDP (Operations Leadership Development Program), explain how this role fit into the overall program structure.]
 
 ---NEXT_EXTRACTION---
 
-EXAMPLE (for reference only):
-If the content mentions "Software Engineer at TechCorp from 2022-Present in San Francisco, worked with React and Node.js, built 5 features", the output should be:
+EXAMPLE OUTPUT:
+If the content mentions "Software Engineer at TechCorp from 2022-Present in San Francisco, worked with React and Node.js, built 5 features as part of the product team rotation program":
 
 ---
 id: "software_engineer_techcorp_2022_present"
@@ -284,15 +295,38 @@ skills:
   - "Node.js"
 outcomes:
   - "Built 5 features"
-summary: "Software Engineer working with React and Node.js to build features"
+summary: "Software Engineer working with React and Node.js to build features as part of product team rotation"
 pii_allow: false
 ---
 
+# Position Details for Software Engineer at TechCorp
+
+## Role Overview
+This Software Engineer position at TechCorp focuses on building web applications using modern JavaScript technologies. The role is part of a structured product team rotation program designed to give engineers exposure to different aspects of the product development lifecycle.
+
+## Key Responsibilities & Achievements
+- Developed and deployed 5 new features using React and Node.js
+- Collaborated with cross-functional product teams
+- Contributed to the company's web application stack
+
+## Skills & Technologies Used
+- React for frontend development
+- Node.js for backend services
+- JavaScript/ES6+ programming
+- Web application development
+
+## Program/Context Information
+This position is part of TechCorp's product team rotation program, which provides engineers with comprehensive experience across different product areas and development methodologies.
+
+---NEXT_EXTRACTION---
+
 CRITICAL RULES:
-- Use actual values from the content, not placeholders
-- If information is not mentioned, use null (not brackets or placeholders)
-- Generate realistic ids based on org, title, and dates
-- Extract only what is explicitly stated in the source material`;
+- You MUST include both YAML metadata AND the descriptive content sections
+- Use actual values from the content, not placeholders or brackets
+- If information is not mentioned, use null in YAML (not brackets)
+- Generate realistic IDs based on org, title, and dates
+- In the descriptive sections, use actual content details, not template text
+- Always include program context if the position was part of a larger initiative`;
 
     const userPrompt = `Extract all distinct career information from this content. Process only what is explicitly mentioned in the text below:\n\n${textContent}\n\nIMPORTANT: Only extract information that is actually present in the above content. Do not add predetermined roles, companies, or achievements that are not mentioned in the source material.`;
     
@@ -375,27 +409,65 @@ CRITICAL RULES:
   }
 
   /**
-   * Parse YAML blocks from OpenAI response
+   * Parse YAML blocks with descriptive content from OpenAI response
    */
   async parseYamlBlocks(extractionText) {
-    console.log(`🧩 [DEBUG] Parsing YAML blocks from ${extractionText.length} character response`);
+    console.log(`🧩 [DEBUG] Parsing enhanced YAML blocks from ${extractionText.length} character response`);
     
     const chunks = [];
-    const yamlBlocks = extractionText.split('---').filter(block => block.trim());
     
-    console.log(`🧩 [DEBUG] Found ${yamlBlocks.length} potential YAML blocks after splitting by '---'`);
+    // Split on ---NEXT_EXTRACTION--- or multiple --- to separate complete entries
+    const entries = extractionText.split(/---NEXT_EXTRACTION---|(?=---\s*\n?id:)/i).filter(entry => entry.trim());
     
-    for (let i = 0; i < yamlBlocks.length; i++) {
-      const block = yamlBlocks[i].trim();
-      console.log(`🧩 [DEBUG] Processing block ${i}: ${block.length} chars, starts with: "${block.substring(0, 100)}..."`);
+    console.log(`🧩 [DEBUG] Found ${entries.length} potential complete entries`);
+    
+    for (let i = 0; i < entries.length; i++) {
+      const entry = entries[i].trim();
+      console.log(`🧩 [DEBUG] Processing entry ${i}: ${entry.length} chars`);
       
-      if (!block || !block.includes(':')) {
-        console.log(`🧩 [DEBUG] Skipping block ${i}: empty or no colons`);
+      if (!entry || !entry.includes(':')) {
+        console.log(`🧩 [DEBUG] Skipping entry ${i}: empty or no colons`);
         continue;
       }
       
       try {
-        const yamlData = yaml.load(block);
+        // Split entry into YAML frontmatter and descriptive content
+        const yamlMatch = entry.match(/^---\s*\n?([\s\S]*?)\n?---([\s\S]*)$/);
+        
+        let yamlContent = '';
+        let descriptiveContent = '';
+        
+        if (yamlMatch) {
+          yamlContent = yamlMatch[1].trim();
+          descriptiveContent = yamlMatch[2].trim();
+        } else {
+          // Fallback: try to find YAML at the beginning
+          const lines = entry.split('\n');
+          let yamlEndIndex = -1;
+          
+          for (let j = 0; j < lines.length; j++) {
+            if (lines[j].trim() === '---' && j > 0) {
+              yamlEndIndex = j;
+              break;
+            }
+          }
+          
+          if (yamlEndIndex > 0) {
+            yamlContent = lines.slice(0, yamlEndIndex).join('\n').replace(/^---\s*\n?/, '');
+            descriptiveContent = lines.slice(yamlEndIndex + 1).join('\n').trim();
+          } else {
+            yamlContent = entry.replace(/^---\s*\n?/, '').replace(/\n?---[\s\S]*$/, '');
+          }
+        }
+        
+        console.log(`🧩 [DEBUG] Entry ${i} - YAML: ${yamlContent.length} chars, Descriptive: ${descriptiveContent.length} chars`);
+        
+        if (!yamlContent) {
+          console.log(`🧩 [DEBUG] Skipping entry ${i}: no YAML content found`);
+          continue;
+        }
+        
+        const yamlData = yaml.load(yamlContent);
         console.log(`🧩 [DEBUG] Parsed YAML data:`, yamlData);
         
         if (yamlData && yamlData.id && yamlData.title && yamlData.org) {
@@ -407,34 +479,91 @@ CRITICAL RULES:
             source: 'extraction'
           });
           
-          // Convert YAML data to chunk format
+          // Create enhanced content combining YAML metadata with descriptive content
+          const enhancedContent = this.createEnhancedContent(yamlData, descriptiveContent, yamlContent);
+          
+          // Convert YAML data to chunk format with enhanced content
           const chunk = {
-            content: `---\n${block}\n---`,
+            content: enhancedContent,
             title: yamlData.title,
             summary: yamlData.summary,
             skills: normalizedSkills,
             tags: Array.isArray(yamlData.industry_tags) ? yamlData.industry_tags : [],
             date_start: yamlData.date_start,
             date_end: yamlData.date_end,
-            extraction_method: 'streamlined-openai'
+            extraction_method: 'streamlined-openai-enhanced'
           };
           
-          console.log(`✅ [DEBUG] Created valid chunk: "${chunk.title}" at "${chunk.org}"`);
+          console.log(`✅ [DEBUG] Created enhanced chunk: "${chunk.title}" at "${yamlData.org}" (${enhancedContent.length} chars)`);
           if (extractedSkills.length !== normalizedSkills.length) {
             console.log(`🔧 [DEBUG] Skills normalized for "${chunk.title}": ${extractedSkills.length} → ${normalizedSkills.length}`);
           }
           chunks.push(chunk);
         } else {
-          console.log(`🧩 [DEBUG] Skipping block ${i}: missing required fields (id: ${yamlData?.id}, title: ${yamlData?.title}, org: ${yamlData?.org})`);
+          console.log(`🧩 [DEBUG] Skipping entry ${i}: missing required fields (id: ${yamlData?.id}, title: ${yamlData?.title}, org: ${yamlData?.org})`);
         }
       } catch (parseError) {
-        console.warn(`⚠️ [DEBUG] Failed to parse YAML block ${i}:`, parseError.message);
-        console.warn(`⚠️ [DEBUG] Block content: "${block.substring(0, 200)}..."`);
+        console.warn(`⚠️ [DEBUG] Failed to parse entry ${i}:`, parseError.message);
+        console.warn(`⚠️ [DEBUG] Entry content: "${entry.substring(0, 200)}..."`);
       }
     }
     
-    console.log(`🧩 [DEBUG] Successfully parsed ${chunks.length} valid chunks`);
+    console.log(`🧩 [DEBUG] Successfully parsed ${chunks.length} enhanced chunks`);
     return chunks;
+  }
+
+  /**
+   * Create enhanced content combining YAML metadata with descriptive content for better embeddings
+   */
+  createEnhancedContent(yamlData, descriptiveContent, yamlContent) {
+    // Start with structured metadata for reference
+    let enhancedContent = `---\n${yamlContent}\n---\n\n`;
+    
+    // Add rich title and organization context
+    enhancedContent += `# ${yamlData.title} at ${yamlData.org}\n\n`;
+    
+    // Add location and dates if available
+    if (yamlData.location && yamlData.location !== 'null') {
+      enhancedContent += `**Location:** ${yamlData.location}\n`;
+    }
+    
+    if (yamlData.date_start || yamlData.date_end) {
+      const dateRange = `${yamlData.date_start || 'Unknown'} - ${yamlData.date_end || 'Present'}`;
+      enhancedContent += `**Duration:** ${dateRange}\n`;
+    }
+    
+    enhancedContent += '\n';
+    
+    // Add summary for context
+    if (yamlData.summary) {
+      enhancedContent += `**Summary:** ${yamlData.summary}\n\n`;
+    }
+    
+    // Add the descriptive content if it exists
+    if (descriptiveContent && descriptiveContent.length > 10) {
+      enhancedContent += descriptiveContent + '\n\n';
+    }
+    
+    // Add skills context
+    if (Array.isArray(yamlData.skills) && yamlData.skills.length > 0) {
+      enhancedContent += `**Key Skills Used:** ${yamlData.skills.join(', ')}\n\n`;
+    }
+    
+    // Add achievements/outcomes context
+    if (Array.isArray(yamlData.outcomes) && yamlData.outcomes.length > 0) {
+      enhancedContent += `**Key Achievements:**\n`;
+      yamlData.outcomes.forEach(outcome => {
+        enhancedContent += `- ${outcome}\n`;
+      });
+      enhancedContent += '\n';
+    }
+    
+    // Add industry context
+    if (Array.isArray(yamlData.industry_tags) && yamlData.industry_tags.length > 0) {
+      enhancedContent += `**Industry Context:** ${yamlData.industry_tags.join(', ')}\n`;
+    }
+    
+    return enhancedContent;
   }
 
   /**
@@ -480,13 +609,14 @@ CRITICAL RULES:
   /**
    * Create document record in pipeline_documents table to track processed file
    */
-  async createDocumentRecord(filename, fileSize, chunkCount) {
+  async createDocumentRecord(filename, fileSize, chunkCount, userId) {
     const documentRecord = {
       original_name: filename,
       file_hash: crypto.createHash('sha256').update(filename + Date.now()).digest('hex'), // Simple hash for tracking
       document_type: this._getDocumentType(filename),
       character_count: fileSize,
       processing_status: 'completed',
+      user_id: userId,
       stage_timestamps: {
         uploaded: new Date().toISOString(),
         completed: new Date().toISOString()
@@ -511,7 +641,7 @@ CRITICAL RULES:
   /**
    * Create individual job records for each extracted job in sources table
    */
-  async createJobRecords(chunksWithEmbeddings, filename, documentId = null) {
+  async createJobRecords(chunksWithEmbeddings, filename, documentId = null, userId) {
     console.log(`📋 Creating individual job records from ${chunksWithEmbeddings.length} extracted jobs...`);
     
     const jobRecords = [];
@@ -536,7 +666,8 @@ CRITICAL RULES:
         type: 'job', // Always job for extracted positions
         date_start: this.parseDate(jobData.date_start || chunk.date_start),
         date_end: this.parseDate(jobData.date_end || chunk.date_end),
-        skills: chunk.skills || []
+        skills: chunk.skills || [],
+        user_id: userId
         // Note: Removed fields that don't exist in sources table: description, industry_tags, outcomes, source_file
       };
 
@@ -564,7 +695,7 @@ CRITICAL RULES:
   /**
    * Store chunks with embeddings, linking to their individual job records
    */
-  async storeSearchableChunksWithJobs(chunksWithEmbeddings, jobRecords) {
+  async storeSearchableChunksWithJobs(chunksWithEmbeddings, jobRecords, userId) {
     console.log(`💾 Storing ${chunksWithEmbeddings.length} chunks linked to individual jobs...`);
     
     const chunkRecords = chunksWithEmbeddings.map((chunk, index) => {
@@ -579,7 +710,8 @@ CRITICAL RULES:
         tags: chunk.tags || [],
         date_start: this.parseDate(chunk.date_start),
         date_end: this.parseDate(chunk.date_end),
-        embedding: chunk.embedding ? `[${chunk.embedding.join(',')}]` : null
+        embedding: chunk.embedding ? `[${chunk.embedding.join(',')}]` : null,
+        user_id: userId
       };
     });
 

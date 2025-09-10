@@ -115,13 +115,15 @@ ${contextText}`
 
 CRITICAL INSTRUCTIONS:
 • Answer questions primarily using the information provided in the context below
+• UTILIZE ALL AVAILABLE DETAILS from the context - if rich descriptive content is provided, use it fully
 • You may synthesize and connect information across different sources in the context
-• If the context provides relevant information but lacks some details, focus on what you can confidently share
-• Provide comprehensive, detailed responses when the context supports it
-• Include specific examples, metrics, and outcomes when they appear in the context
+• When context contains detailed role descriptions, achievements, and specific information, include those details
+• Provide comprehensive, detailed responses that match the richness of the context provided
+• Include specific examples, projects, metrics, outcomes, and achievements when they appear in the context
 • Be conversational and engaging, as if you're Scott speaking about his experience
 • Use first person ("I worked on..." not "Scott worked on...")
 • Cite sources naturally like "During my time at [Company]" or "In the [Project] project"
+• Extract and present concrete details: locations, timeframes, specific projects, technologies, and measurable results
 • Focus on what IS in the context and make meaningful connections between related information
 
 CRITICAL FORMATTING REQUIREMENTS - MUST FOLLOW EXACTLY:
@@ -156,26 +158,155 @@ Earlier in my career at [Earlier Company], I [role and key contributions].
 
 Overall, my PMO experience demonstrates [summary of key strengths]."`; // Fixed missing closing backtick
 
-    // Add query-specific guidance
-    const queryLower = query.toLowerCase();
-    
-    if (queryLower.includes('leadership') || queryLower.includes('management') || queryLower.includes('pmo')) {
-      prompt += '\n• Focus on leadership examples, team sizes, and management outcomes';
-    }
-    
-    if (queryLower.includes('technical') || queryLower.includes('technology')) {
-      prompt += '\n• Emphasize technical implementations, architectures, and tools used';
-    }
-    
-    if (queryLower.includes('achievement') || queryLower.includes('success')) {
-      prompt += '\n• Highlight measurable outcomes and achievements';
-    }
+    // Dynamic query guidance based on retrieved content characteristics
+    const dynamicGuidance = this.generateDynamicGuidance(query, contextResult.chunks);
+    prompt += dynamicGuidance;
 
     if (hasQuantitativeResults) {
       prompt += '\n• Include specific metrics and quantitative results when available';
     }
 
     return prompt;
+  }
+
+  /**
+   * Generate dynamic query guidance based on content analysis
+   */
+  generateDynamicGuidance(query, chunks) {
+    let guidance = '';
+    
+    // Analyze query characteristics
+    const queryLower = query.toLowerCase();
+    const queryTerms = queryLower.split(/\s+/);
+    
+    // Analyze chunk characteristics
+    const contentAnalysis = this.analyzeChunks(chunks);
+    
+    // Basic query type guidance
+    if (queryLower.includes('leadership') || queryLower.includes('management') || queryLower.includes('pmo')) {
+      guidance += '\n• Focus on leadership examples, team sizes, and management outcomes';
+    }
+    
+    if (queryLower.includes('technical') || queryLower.includes('technology')) {
+      guidance += '\n• Emphasize technical implementations, architectures, and tools used';
+    }
+    
+    if (queryLower.includes('achievement') || queryLower.includes('success')) {
+      guidance += '\n• Highlight measurable outcomes and achievements';
+    }
+    
+    // Dynamic guidance based on content analysis
+    if (contentAnalysis.isProgram) {
+      guidance += `
+• This content contains structured program/development experience - provide comprehensive coverage
+• Explain the program structure, duration, and overall purpose
+• Detail each role/rotation within the program with specific responsibilities and achievements  
+• Include concrete examples of projects, challenges, and skills gained across different positions
+• Mention specific locations, timeframes, and measurable outcomes from the context
+• Connect different roles to show career progression and learning path within the program
+• Use all available details from the context about different roles and experiences`;
+    }
+    
+    if (contentAnalysis.hasMultipleRoles) {
+      guidance += '\n• Multiple roles detected - show progression and connections between different positions';
+    }
+    
+    if (contentAnalysis.hasRotations) {
+      guidance += '\n• Rotational experience detected - explain how different rotations contributed to overall development';
+    }
+    
+    if (contentAnalysis.hasSpecificProjects) {
+      guidance += '\n• Specific projects mentioned - include detailed project descriptions and outcomes';
+    }
+    
+    if (contentAnalysis.hasLocationChanges) {
+      guidance += '\n• Multiple locations detected - mention geographic scope and location-specific experiences';
+    }
+    
+    if (contentAnalysis.hasSkillProgression) {
+      guidance += '\n• Skill development apparent - highlight how skills evolved across different roles';
+    }
+    
+    if (contentAnalysis.hasIndustryContext) {
+      guidance += '\n• Industry-specific context available - include relevant industry background and implications';
+    }
+    
+    return guidance;
+  }
+
+  /**
+   * Analyze chunks to determine content characteristics
+   */
+  analyzeChunks(chunks) {
+    const analysis = {
+      isProgram: false,
+      hasMultipleRoles: false,
+      hasRotations: false,
+      hasSpecificProjects: false,
+      hasLocationChanges: false,
+      hasSkillProgression: false,
+      hasIndustryContext: false
+    };
+    
+    if (chunks.length === 0) return analysis;
+    
+    // Combine all content for analysis
+    const allContent = chunks.map(chunk => chunk.content?.toLowerCase() || '').join(' ');
+    const allTitles = chunks.map(chunk => chunk.title?.toLowerCase() || '').join(' ');
+    const allTags = chunks.flatMap(chunk => chunk.tags || []).map(tag => tag.toLowerCase());
+    
+    // Program detection - look for program-like patterns
+    const programKeywords = [
+      'program', 'development program', 'leadership development', 'rotation', 'rotations',
+      'participant', 'fellowship', 'training program', 'internship program', 'graduate program'
+    ];
+    
+    const rotationKeywords = [
+      'rotation', 'rotations', 'rotated', 'assignment', 'assignments', 
+      'various roles', 'different roles', 'multiple roles', 'positions'
+    ];
+    
+    const projectKeywords = [
+      'project', 'projects', 'initiative', 'initiatives', 'built', 'developed', 
+      'created', 'implemented', 'managed', 'led', 'delivered'
+    ];
+    
+    // Check for program characteristics
+    analysis.isProgram = programKeywords.some(keyword => 
+      allContent.includes(keyword) || allTitles.includes(keyword)
+    );
+    
+    analysis.hasRotations = rotationKeywords.some(keyword => 
+      allContent.includes(keyword)
+    );
+    
+    analysis.hasSpecificProjects = projectKeywords.some(keyword => 
+      allContent.includes(keyword)
+    ) && (allContent.match(/\b(project|built|developed|created|implemented)\b/g) || []).length > 2;
+    
+    // Multiple roles detection
+    analysis.hasMultipleRoles = chunks.length > 1 || 
+      allContent.includes('various roles') || 
+      allContent.includes('different positions') ||
+      allContent.includes('multiple roles');
+    
+    // Location changes detection
+    const locations = chunks.map(chunk => chunk.location).filter(loc => loc && loc !== 'null');
+    analysis.hasLocationChanges = new Set(locations).size > 1;
+    
+    // Skills progression detection
+    const allSkills = chunks.flatMap(chunk => chunk.skills || []);
+    analysis.hasSkillProgression = allSkills.length > 3 || 
+      allContent.includes('learned') || 
+      allContent.includes('gained') ||
+      allContent.includes('developed skills');
+    
+    // Industry context detection
+    analysis.hasIndustryContext = allTags.length > 0 || 
+      chunks.some(chunk => chunk.source_org) ||
+      programKeywords.some(keyword => allContent.includes(keyword));
+    
+    return analysis;
   }
 }
 
