@@ -2195,16 +2195,16 @@
   background: rgba(20, 20, 20, 0.9);
   border-bottom: 1px solid #3a3a3a;
   backdrop-filter: blur(10px);
-  padding: 3rem 0;
+  padding: 1.5rem 0; /* Reduced from 3rem to 1.5rem */
   text-align: center;
 }
 
 .profile-header-logo {
-  margin-bottom: 2rem;
+  margin-bottom: 0.5rem; /* Reduced from 2rem to 0.5rem */
 }
 
 .profile-logo {
-  height: 240px;
+  height: 120px; /* Reduced from 240px to 120px */
   width: auto;
   filter: drop-shadow(0 4px 12px rgba(139, 92, 246, 0.3));
 }
@@ -2887,7 +2887,7 @@
   }
   
   .profile-logo {
-    height: 180px;
+    height: 90px; /* Reduced mobile size from 180px to 90px */
   }
   
   .profile-info {
