@@ -28,6 +28,26 @@
   font-size: 0.95rem;
 }
 
+.auth-required-message {
+  padding: 2rem 1rem;
+  background: rgba(255, 193, 7, 0.1);
+  border: 1px solid rgba(255, 193, 7, 0.3);
+  border-radius: 8px;
+  margin-top: 1rem;
+}
+
+.auth-required-message h3 {
+  margin: 0 0 1rem 0;
+  color: #ffc107;
+  font-size: 1.2rem;
+}
+
+.auth-required-message p {
+  margin: 0 0 0.5rem 0;
+  opacity: 0.9;
+  line-height: 1.5;
+}
+
 .processor-content {
   padding: 1.5rem;
 }

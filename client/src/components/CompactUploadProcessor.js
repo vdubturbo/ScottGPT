@@ -1,8 +1,10 @@
 /* eslint-disable */
 import React, { useState, useRef, useEffect } from 'react';
+import { useAuth } from '../contexts/AuthContext';
 import './CompactUploadProcessor.css';
 
 const CompactUploadProcessor = () => {
+  const { user, getToken } = useAuth();
   const [selectedFiles, setSelectedFiles] = useState([]);
   const [processing, setProcessing] = useState(false);
   const [currentStep, setCurrentStep] = useState('');
@@ -394,9 +396,18 @@ const CompactUploadProcessor = () => {
       console.log('🚀 Starting streamlined upload and processing...');
       setStepDetails('Uploading and processing files through streamlined architecture...');
       
+      // Get authentication token
+      const token = getToken();
+      if (!token) {
+        throw new Error('Authentication required. Please log in to upload files.');
+      }
+
       // Upload and process in one step using streamlined endpoint
       const streamlinedResponse = await fetch('/api/upload/streamlined', {
         method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`
+        },
         body: formData
       });
       
@@ -453,6 +464,22 @@ const CompactUploadProcessor = () => {
     const i = Math.floor(Math.log(bytes) / Math.log(k));
     return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
   };
+
+  // Show authentication message if not logged in
+  if (!user) {
+    return (
+      <div className="compact-upload-processor">
+        <div className="processor-header">
+          <h2>📄 Document Upload & Processing</h2>
+          <div className="auth-required-message">
+            <h3>🔐 Authentication Required</h3>
+            <p>Please log in to upload and process documents.</p>
+            <p>File upload requires authentication to ensure your documents are processed securely and associated with your account.</p>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="compact-upload-processor">
