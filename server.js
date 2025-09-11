@@ -86,17 +86,20 @@ async function startServer() {
   // Multi-tenant SaaS routes
   const authRoutes = await import('./routes/auth.js');
   const adminRoutes = await import('./routes/admin.js');
+  
+  // Auth middleware
+  const { authenticateToken, requireAuth } = await import('./middleware/auth.js');
 
   // API Routes with specific rate limiting
   app.use('/api/chat', chatLimit, chatRoutes.default);
   app.use('/api/data', dataLimit, dataRoutes.default);
   app.use('/api/upload', uploadRoutes.default);
   app.use('/api/tags', generalLimit, tagsRoutes.default);
-  app.use('/api/user', dataLimit, userDataRoutes.default);
-  app.use('/api/user', dataLimit, advancedUserDataRoutes.default);
-  app.use('/api/user/export', dataLimit, dataExportRoutes.default);
-  app.use('/api/user/export', dataLimit, resumeExportRoutes.default);
-  app.use('/api/user/generate', dataLimit, resumeGenerationRoutes.default);
+  app.use('/api/user', dataLimit, authenticateToken, requireAuth, userDataRoutes.default);
+  app.use('/api/user', dataLimit, authenticateToken, requireAuth, advancedUserDataRoutes.default);
+  app.use('/api/user/export', dataLimit, authenticateToken, requireAuth, dataExportRoutes.default);
+  app.use('/api/user/export', dataLimit, authenticateToken, requireAuth, resumeExportRoutes.default);
+  app.use('/api/user/generate', dataLimit, authenticateToken, requireAuth, resumeGenerationRoutes.default);
   
   // Multi-tenant SaaS routes
   app.use('/api/auth', authRoutes.default);

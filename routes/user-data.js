@@ -109,6 +109,7 @@ router.get('/work-history', async (req, res) => {
         updated_at
       `)
       .eq('type', 'job')
+      .eq('user_id', req.user.id)
       .order('date_start', { ascending: false });
 
     if (error) {
@@ -376,6 +377,7 @@ router.get('/sources/:id', async (req, res) => {
       .select('*')
       .eq('id', id)
       .eq('type', 'job')
+      .eq('user_id', req.user.id)
       .single();
 
     if (sourceError) {
@@ -485,6 +487,7 @@ router.put('/sources/:id', updateLimiter, async (req, res) => {
       .select('*')
       .eq('id', id)
       .eq('type', 'job')
+      .eq('user_id', req.user.id)
       .single();
 
     if (fetchError) {
@@ -501,7 +504,8 @@ router.put('/sources/:id', updateLimiter, async (req, res) => {
     const { data: allJobs, error: jobsError } = await supabaseTransaction
       .from('sources')
       .select('id, title, org, date_start, date_end')
-      .eq('type', 'job');
+      .eq('type', 'job')
+      .eq('user_id', req.user.id);
 
     if (jobsError) {
       throw jobsError;
@@ -747,6 +751,7 @@ router.delete('/sources/bulk', deleteLimiter, async (req, res) => {
           .select('*')
           .eq('id', id)
           .eq('type', 'job')
+          .eq('user_id', req.user.id)
           .single();
 
         if (fetchError) {
@@ -873,6 +878,7 @@ router.delete('/sources/:id', deleteLimiter, async (req, res) => {
       .select('*')
       .eq('id', id)
       .eq('type', 'job')
+      .eq('user_id', req.user.id)
       .single();
 
     if (fetchError) {
@@ -959,6 +965,7 @@ router.get('/debug/sources', async (req, res) => {
     const { data: sources, error } = await supabase
       .from('sources')
       .select('id, type, title, org, created_at')
+      .eq('user_id', req.user.id)
       .order('created_at', { ascending: false })
       .limit(20);
 
@@ -1005,6 +1012,7 @@ router.get('/duplicates', async (req, res) => {
       .from('sources')
       .select('*')
       .eq('type', 'job')
+      .eq('user_id', req.user.id)
       .order('date_start', { ascending: false });
 
     if (error) {
@@ -1171,7 +1179,8 @@ router.get('/documents', async (req, res) => {
     if (parseInt(limit) === 0) {
       let countQuery = supabase
         .from('pipeline_documents')
-        .select('*', { count: 'exact', head: true });
+        .select('*', { count: 'exact', head: true })
+        .eq('user_id', req.user.id);
       
       if (status) {
         countQuery = countQuery.eq('processing_status', status);
@@ -1202,6 +1211,7 @@ router.get('/documents', async (req, res) => {
     let query = supabase
       .from('pipeline_documents')
       .select('*')
+      .eq('user_id', req.user.id)
       .order('created_at', { ascending: false })
       .range(parseInt(offset), parseInt(offset) + parseInt(limit) - 1);
 
@@ -1223,7 +1233,8 @@ router.get('/documents', async (req, res) => {
     // Get total count for pagination
     let countQuery = supabase
       .from('pipeline_documents')
-      .select('*', { count: 'exact', head: true });
+      .select('*', { count: 'exact', head: true })
+      .eq('user_id', req.user.id);
     
     if (status) {
       countQuery = countQuery.eq('processing_status', status);
