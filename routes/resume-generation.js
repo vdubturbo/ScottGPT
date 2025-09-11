@@ -1,12 +1,14 @@
 /**
  * Resume Generation API Routes
- * Provides AI-powered resume generation in multiple formats
+ * Provides AI-powered resume generation using actual user data and RAG system
  */
 
 import express from 'express';
 import rateLimit from 'express-rate-limit';
 import winston from 'winston';
-import { ResumeGenerationService } from '../services/resume-generation.js';
+import { z } from 'zod';
+import ResumeGenerationService from '../services/resume-generation.js';
+import { authenticateToken } from '../middleware/auth.js';
 
 const router = express.Router();
 
@@ -51,97 +53,94 @@ const previewLimiter = rateLimit({
  * POST /api/user/generate/resume
  * Generate a complete resume from user data
  */
-router.post('/resume', resumeLimiter, async (req, res) => {
+router.post('/resume', authenticateToken, resumeLimiter, async (req, res) => {
   try {
     const {
-      template = 'professional',
-      outputFormat = 'markdown',
-      targetRole = null,
-      maxPositions = 8,
-      skillCategories = 'auto',
-      includeProjects = true,
-      includeEducation = true,
-      customSections = [],
-      enhanceContent = true,
-      personalInfo = {},
+      jobDescription,
+      style = 'professional',
+      maxBulletPoints = 5,
+      prioritizeKeywords = true,
+      outputFormat = 'html',
       preview = false
     } = req.body;
 
+    // Validate required fields
+    if (!jobDescription || jobDescription.trim().length < 50) {
+      return res.status(400).json({
+        error: 'Invalid job description',
+        message: 'Job description must be at least 50 characters long'
+      });
+    }
+
+    // Get user ID from authenticated request
+    const userId = req.user?.id;
+    if (!userId) {
+      return res.status(401).json({
+        error: 'Authentication required',
+        message: 'User must be authenticated to generate resume'
+      });
+    }
+
     const options = {
-      template,
-      outputFormat,
-      targetRole,
-      maxPositions,
-      skillCategories,
-      includeProjects,
-      includeEducation,
-      customSections,
-      enhanceContent: enhanceContent && !preview, // Don't enhance for previews
-      personalInfo
+      style,
+      maxBulletPoints,
+      prioritizeKeywords
     };
 
     logger.info('Resume generation requested', { 
-      template, 
-      outputFormat, 
-      targetRole,
+      userId,
+      style, 
+      maxBulletPoints,
       preview,
+      jobDescriptionLength: jobDescription.length,
       ip: req.ip 
     });
 
-    // Validate template
-    const availableTemplates = resumeService.getAvailableTemplates();
-    if (!availableTemplates[template]) {
-      return res.status(400).json({
-        error: 'Invalid template',
-        message: `Template '${template}' not found`,
-        availableTemplates: Object.keys(availableTemplates)
+    // Generate resume using actual user data and RAG
+    const result = await resumeService.generateResume(jobDescription, userId, options);
+
+    if (!result.success) {
+      return res.status(500).json({
+        error: 'Resume generation failed',
+        message: result.error || 'Unknown error occurred'
       });
-    }
-
-    // Validate output format
-    const supportedFormats = resumeService.getSupportedFormats();
-    if (!supportedFormats[outputFormat]) {
-      return res.status(400).json({
-        error: 'Invalid output format',
-        message: `Format '${outputFormat}' not supported`,
-        supportedFormats: Object.keys(supportedFormats)
-      });
-    }
-
-    // Generate resume
-    const result = await resumeService.generateResume(options);
-
-    // Set appropriate headers for non-preview requests
-    if (!preview) {
-      const timestamp = new Date().toISOString().split('T')[0];
-      const filename = `resume-${template}-${timestamp}.${supportedFormats[outputFormat].extension}`;
-      
-      res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
-      res.setHeader('Content-Type', supportedFormats[outputFormat].mimeType);
     }
 
     // Return based on format and preview status
     if (preview || outputFormat === 'json') {
       res.json({
         success: true,
-        data: result,
-        isPreview: preview,
+        data: {
+          resumeHTML: result.resume,
+          matchScore: result.matchScore,
+          extractedKeywords: result.extractedKeywords,
+          sourceData: result.sourceData,
+          isPreview: preview
+        },
         timestamp: new Date().toISOString()
       });
-    } else if (outputFormat === 'markdown' || outputFormat === 'html') {
-      res.send(result.content);
+    } else if (outputFormat === 'html') {
+      res.setHeader('Content-Type', 'text/html; charset=utf-8');
+      res.send(result.resume);
     } else {
-      // For PDF/DOCX - these would be binary formats
+      // For future PDF/DOCX support
       res.json({
         success: true,
-        message: `${outputFormat.toUpperCase()} generation completed`,
-        metadata: result.metadata,
-        downloadUrl: `/api/user/generate/download/${result.metadata.id}` // Would be implemented
+        message: `${outputFormat.toUpperCase()} generation not yet implemented`,
+        data: {
+          resumeHTML: result.resume,
+          matchScore: result.matchScore,
+          sourceData: result.sourceData
+        }
       });
     }
 
   } catch (error) {
-    logger.error('Error in resume generation endpoint', { error: error.message });
+    logger.error('Error in resume generation endpoint', { 
+      error: error.message,
+      stack: error.stack,
+      userId: req.user?.id 
+    });
     res.status(500).json({
       error: 'Failed to generate resume',
       message: error.message
@@ -190,8 +189,8 @@ router.get('/formats', async (req, res) => {
         key,
         {
           ...format,
-          features: this.getFormatFeatures(key),
-          availability: this.getFormatAvailability(key)
+          features: getFormatFeatures(key),
+          availability: getFormatAvailability(key)
         }
       ])
     );
@@ -219,43 +218,81 @@ router.get('/formats', async (req, res) => {
  * POST /api/user/generate/preview
  * Generate a preview of resume content
  */
-router.post('/preview', previewLimiter, async (req, res) => {
+router.post('/preview', authenticateToken, previewLimiter, async (req, res) => {
   try {
+    const {
+      jobDescription,
+      style = 'professional',
+      maxBulletPoints = 3 // Reduced for preview
+    } = req.body;
+
+    // Validate required fields
+    if (!jobDescription || jobDescription.trim().length < 20) {
+      return res.status(400).json({
+        error: 'Invalid job description',
+        message: 'Job description must be at least 20 characters for preview'
+      });
+    }
+
+    // Get user ID from authenticated request
+    const userId = req.user?.id;
+    if (!userId) {
+      return res.status(401).json({
+        error: 'Authentication required',
+        message: 'User must be authenticated to generate preview'
+      });
+    }
+
     const options = {
-      ...req.body,
-      preview: true,
-      enhanceContent: false, // Disable AI enhancement for previews
-      maxPositions: Math.min(req.body.maxPositions || 5, 5) // Limit positions for preview
+      style,
+      maxBulletPoints,
+      prioritizeKeywords: true
     };
 
     logger.info('Resume preview requested', { 
-      template: options.template,
-      outputFormat: options.outputFormat,
+      userId,
+      style,
+      jobDescriptionLength: jobDescription.length,
       ip: req.ip 
     });
 
-    const result = await resumeService.generateResume(options);
+    const result = await resumeService.generateResume(jobDescription, userId, options);
     
-    // For previews, always return JSON structure
+    if (!result.success) {
+      return res.status(500).json({
+        error: 'Preview generation failed',
+        message: result.error || 'Unknown error occurred'
+      });
+    }
+
+    // For previews, return truncated content
+    const previewHTML = result.resume.substring(0, 2000) + (result.resume.length > 2000 ? '...' : '');
+    
     res.json({
       success: true,
       data: {
         preview: true,
-        structure: result.structure,
-        metadata: result.metadata,
-        recommendations: result.recommendations,
-        sampleContent: this.generateSampleContent(result.structure, options.outputFormat),
+        resumeHTML: previewHTML,
+        matchScore: result.matchScore,
+        extractedKeywords: result.extractedKeywords,
+        sourceData: {
+          ...result.sourceData,
+          note: 'Preview limited to first 2000 characters'
+        },
         limitations: {
-          maxPositions: 5,
-          enhancementDisabled: true,
-          estimatedFullSize: await this.estimateFullResumeSize(result.metadata)
+          maxBulletPoints: 3,
+          previewLength: 2000,
+          fullLength: result.resume.length
         }
       },
       timestamp: new Date().toISOString()
     });
 
   } catch (error) {
-    logger.error('Error in resume preview endpoint', { error: error.message });
+    logger.error('Error in resume preview endpoint', { 
+      error: error.message,
+      userId: req.user?.id 
+    });
     res.status(500).json({
       error: 'Failed to generate preview',
       message: error.message
@@ -270,14 +307,13 @@ router.post('/preview', previewLimiter, async (req, res) => {
 router.post('/validate', previewLimiter, async (req, res) => {
   try {
     const {
-      template = 'professional',
-      outputFormat = 'markdown',
-      targetRole = null,
-      maxPositions = 8,
-      personalInfo = {}
+      jobDescription,
+      style = 'professional',
+      maxBulletPoints = 5,
+      outputFormat = 'html'
     } = req.body;
 
-    logger.info('Resume validation requested', { template, outputFormat, ip: req.ip });
+    logger.info('Resume validation requested', { style, outputFormat, ip: req.ip });
 
     const validation = {
       isValid: true,
@@ -286,11 +322,17 @@ router.post('/validate', previewLimiter, async (req, res) => {
       recommendations: []
     };
 
-    // Validate template
-    const availableTemplates = resumeService.getAvailableTemplates();
-    if (!availableTemplates[template]) {
+    // Validate job description
+    if (!jobDescription || jobDescription.trim().length < 50) {
       validation.isValid = false;
-      validation.errors.push(`Invalid template: ${template}`);
+      validation.errors.push('Job description must be at least 50 characters long');
+    }
+
+    // Validate style
+    const availableTemplates = resumeService.getAvailableTemplates();
+    if (!availableTemplates[style]) {
+      validation.isValid = false;
+      validation.errors.push(`Invalid style: ${style}`);
     }
 
     // Validate output format
@@ -300,38 +342,29 @@ router.post('/validate', previewLimiter, async (req, res) => {
       validation.errors.push(`Unsupported output format: ${outputFormat}`);
     }
 
-    // Validate personal info
-    if (!personalInfo.name || personalInfo.name.trim() === '') {
-      validation.warnings.push('Name not provided - will use default');
-    }
-
-    if (!personalInfo.email || personalInfo.email.trim() === '') {
-      validation.warnings.push('Email not provided - consider adding for contact info');
-    }
-
-    // Validate position limits
-    if (maxPositions < 3) {
-      validation.warnings.push('Very few positions selected - resume may appear incomplete');
-    } else if (maxPositions > 15) {
-      validation.warnings.push('Many positions selected - resume may be too long');
+    // Validate bullet points
+    if (maxBulletPoints < 2) {
+      validation.warnings.push('Very few bullet points - resume may appear incomplete');
+    } else if (maxBulletPoints > 8) {
+      validation.warnings.push('Many bullet points - resume may be too verbose');
     }
 
     // Add recommendations
-    if (targetRole) {
-      validation.recommendations.push('Targeting specific role - content will be optimized accordingly');
-    } else {
-      validation.recommendations.push('Consider specifying target role for better optimization');
+    if (jobDescription && jobDescription.length > 500) {
+      validation.recommendations.push('Good detailed job description provided - will enable better targeting');
+    } else if (jobDescription && jobDescription.length < 200) {
+      validation.recommendations.push('Consider providing more details in job description for better targeting');
     }
 
     if (outputFormat === 'pdf' || outputFormat === 'docx') {
-      validation.warnings.push(`${outputFormat.toUpperCase()} format requires additional processing time`);
+      validation.warnings.push(`${outputFormat.toUpperCase()} format not yet implemented - will return HTML`);
     }
 
     res.json({
       success: true,
       data: {
         validation,
-        estimatedGenerationTime: this.estimateGenerationTime(req.body),
+        estimatedGenerationTime: estimateGenerationTime(req.body),
         recommendations: validation.recommendations
       },
       timestamp: new Date().toISOString()
@@ -345,6 +378,86 @@ router.post('/validate', previewLimiter, async (req, res) => {
     });
   }
 });
+
+// ============================================================================
+// DEVELOPMENT TESTING ENDPOINTS (bypass auth for testing)
+// ============================================================================
+
+/**
+ * POST /api/user/generate/test-resume
+ * Test resume generation with mock user ID (development only)
+ */
+if (process.env.NODE_ENV === 'development') {
+  router.post('/test-resume', resumeLimiter, async (req, res) => {
+    try {
+      const {
+        jobDescription,
+        userId = 'test-user-id', // Default test user ID
+        style = 'professional',
+        maxBulletPoints = 5,
+        prioritizeKeywords = true,
+        outputFormat = 'html'
+      } = req.body;
+
+      // Validate required fields
+      if (!jobDescription || jobDescription.trim().length < 50) {
+        return res.status(400).json({
+          error: 'Invalid job description',
+          message: 'Job description must be at least 50 characters long'
+        });
+      }
+
+      const options = {
+        style,
+        maxBulletPoints,
+        prioritizeKeywords
+      };
+
+      logger.info('TEST Resume generation requested', { 
+        userId,
+        style, 
+        maxBulletPoints,
+        jobDescriptionLength: jobDescription.length,
+        ip: req.ip 
+      });
+
+      // Generate resume using actual user data and RAG
+      const result = await resumeService.generateResume(jobDescription, userId, options);
+
+      if (!result.success) {
+        return res.status(500).json({
+          error: 'Resume generation failed',
+          message: result.error || 'Unknown error occurred'
+        });
+      }
+
+      // Return detailed response for testing
+      res.json({
+        success: true,
+        testMode: true,
+        data: {
+          resumeHTML: result.resume,
+          matchScore: result.matchScore,
+          extractedKeywords: result.extractedKeywords,
+          sourceData: result.sourceData
+        },
+        timestamp: new Date().toISOString()
+      });
+
+    } catch (error) {
+      logger.error('Error in TEST resume generation endpoint', { 
+        error: error.message,
+        stack: error.stack,
+        testUserId: req.body.userId 
+      });
+      res.status(500).json({
+        error: 'Failed to generate test resume',
+        message: error.message,
+        testMode: true
+      });
+    }
+  });
+}
 
 // ============================================================================
 // HELPER METHODS

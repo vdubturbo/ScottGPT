@@ -8,6 +8,7 @@ import { useUserDataAPI } from '../hooks/useUserDataAPI';
 import CompactUploadProcessor from './CompactUploadProcessor';
 import WorkHistoryManager from './WorkHistoryManager';
 import DocumentsModal from './DocumentsModal';
+import ResumeGenerator from './ResumeGenerator';
 
 const Dashboard = () => {
   const { user, logout, isAdmin } = useAuth();
@@ -113,12 +114,10 @@ const Dashboard = () => {
           📁 Manage Data
         </button>
         <button 
-          className={`nav-item nav-item-coming-soon ${activeTab === 'resumes' ? 'active' : ''}`}
+          className={`nav-item ${activeTab === 'resumes' ? 'active' : ''}`}
           onClick={() => setActiveTab('resumes')}
-          disabled
         >
           📄 Generate Resumes
-          <span className="coming-soon-badge">Soon</span>
         </button>
       </nav>
 
@@ -199,14 +198,13 @@ const Dashboard = () => {
               
               <div className="action-section">
                 <button 
-                  className="primary-action-button resume-action disabled"
-                  disabled
+                  className="primary-action-button resume-action"
+                  onClick={() => setActiveTab('resumes')}
                 >
                   <div className="action-icon">📄</div>
                   <div className="action-content">
                     <h3>Generate Resumes</h3>
-                    <p>Create tailored resumes from your data portfolio</p>
-                    <span className="coming-soon">Coming Soon</span>
+                    <p>Create ATS-optimized resumes tailored to job descriptions</p>
                   </div>
                   <div className="action-arrow">→</div>
                 </button>
@@ -281,26 +279,7 @@ const Dashboard = () => {
 
         {activeTab === 'resumes' && (
           <div className="resumes-tab">
-            <div className="coming-soon-page">
-              <div className="coming-soon-icon">📄</div>
-              <h2>Resume Generation</h2>
-              <p>This feature is being developed and will be available soon.</p>
-              <div className="coming-soon-features">
-                <h4>What's Coming:</h4>
-                <ul>
-                  <li>✨ AI-powered resume generation from your data</li>
-                  <li>🎯 Multiple resume templates and formats</li>
-                  <li>📊 Tailored resumes for specific job applications</li>
-                  <li>📋 Export to PDF, Word, and other formats</li>
-                </ul>
-              </div>
-              <button 
-                className="btn btn-secondary"
-                onClick={() => setActiveTab('overview')}
-              >
-                ← Back to Overview
-              </button>
-            </div>
+            <ResumeGenerator />
           </div>
         )}
       </main>

@@ -81,6 +81,7 @@ async function startServer() {
   const advancedUserDataRoutes = await import('./routes/advanced-user-data.js');
   const dataExportRoutes = await import('./routes/data-export.js');
   const resumeGenerationRoutes = await import('./routes/resume-generation.js');
+  const resumeExportRoutes = await import('./routes/resume-export.js');
   
   // Multi-tenant SaaS routes
   const authRoutes = await import('./routes/auth.js');
@@ -94,6 +95,7 @@ async function startServer() {
   app.use('/api/user', dataLimit, userDataRoutes.default);
   app.use('/api/user', dataLimit, advancedUserDataRoutes.default);
   app.use('/api/user/export', dataLimit, dataExportRoutes.default);
+  app.use('/api/user/export', dataLimit, resumeExportRoutes.default);
   app.use('/api/user/generate', dataLimit, resumeGenerationRoutes.default);
   
   // Multi-tenant SaaS routes
