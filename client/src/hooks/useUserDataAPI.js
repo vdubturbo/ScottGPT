@@ -18,11 +18,20 @@ export const useUserDataAPI = () => {
     setError(null);
     try {
       const result = await apiFunc();
-      console.log('API call raw result:', result);
+      console.log('🔍 [API HOOK DEBUG] API call raw result:', result);
+      console.log('🔍 [API HOOK DEBUG] Result status:', result.status);
+      console.log('🔍 [API HOOK DEBUG] Result data type:', typeof result.data);
+      console.log('🔍 [API HOOK DEBUG] Result data keys:', result.data ? Object.keys(result.data) : 'null/undefined');
+      
       // The API returns { success: true, data: {...} }, so we need result.data.data
-      return result.data?.data || result.data;
+      const returnValue = result.data?.data || result.data;
+      console.log('🔍 [API HOOK DEBUG] Returning value:', returnValue);
+      console.log('🔍 [API HOOK DEBUG] Return value type:', typeof returnValue);
+      
+      return returnValue;
     } catch (err) {
-      console.error('API call error:', err);
+      console.error('❌ [API HOOK DEBUG] API call error:', err);
+      console.error('❌ [API HOOK DEBUG] Error response:', err.response?.data);
       const errorMessage = err.response?.data?.message || err.response?.data?.error || err.message;
       setError(errorMessage);
       throw err;
@@ -173,7 +182,11 @@ export const useUserDataAPI = () => {
   }, [apiCall]);
 
   const generateResume = useCallback((options = {}) => {
-    return apiCall(() => axios.post(`${API_BASE}/generate/resume`, options));
+    console.log(`🚀 [API HOOK DEBUG] Calling generateResume with options:`, options);
+    return apiCall(() => {
+      console.log(`🌐 [API HOOK DEBUG] Making POST request to: ${API_BASE}/generate/resume`);
+      return axios.post(`${API_BASE}/generate/resume`, options);
+    });
   }, [apiCall]);
 
   // Advanced Analysis API calls

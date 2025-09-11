@@ -41,10 +41,60 @@ function extractKeywords(text) {
   };
 }
 
+// Character-based token approximation (roughly 4 chars per token)
+const MAX_COMPLETION_TOKENS = 900; // Reduced from 2500
+const MAX_CONTEXT_CHARACTERS = 20000; // Approximately 5000 tokens
+const CHARS_PER_TOKEN = 4;
+
 export class ResumeGenerationService {
   constructor() {
     this.ragService = new RAGService();
     this.openai = new OpenAI({ apiKey: CONFIG.ai.openai.apiKey });
+  }
+
+  /**
+   * Fit chunks to character budget (token approximation)
+   */
+  fitToBudget(chunks, systemPrompt, userPrompt) {
+    const systemChars = systemPrompt.length;
+    const userChars = userPrompt.length;
+    const budget = Math.max(2000, MAX_CONTEXT_CHARACTERS - systemChars - userChars);
+
+    console.log(`📊 Character budget: ${budget} chars for context (system: ${systemChars}, user: ${userChars})`);
+    console.log(`📊 Approximate token budget: ~${Math.floor(budget / CHARS_PER_TOKEN)} tokens`);
+
+    // Sort chunks by similarity score descending
+    const sortedChunks = chunks
+      .filter(chunk => chunk && (chunk.content || chunk.title))
+      .sort((a, b) => (b.similarity || 0) - (a.similarity || 0));
+
+    const selectedChunks = [];
+    let usedChars = 0;
+
+    for (const chunk of sortedChunks) {
+      // Handle different chunk formats from RAG service
+      const content = chunk.content || chunk.title || 'No content';
+      const source = chunk.org || chunk.source || 'Unknown';
+      const chunkText = `[${source}] ${content}`;
+      const chunkChars = chunkText.length;
+      
+      if (usedChars + chunkChars > budget) {
+        console.log(`⚠️  Skipping chunk due to character budget (${chunkChars} chars would exceed budget)`);
+        continue;
+      }
+      
+      selectedChunks.push(chunkText);
+      usedChars += chunkChars;
+      
+      // Soft cap on number of chunks
+      if (selectedChunks.length >= 6) {
+        console.log(`📝 Reached max chunks limit (6)`);
+        break;
+      }
+    }
+
+    console.log(`✅ Selected ${selectedChunks.length} chunks using ${usedChars} chars (~${Math.floor(usedChars / CHARS_PER_TOKEN)} tokens)`);
+    return selectedChunks.join('\n\n');
   }
 
   /**
@@ -177,7 +227,7 @@ export class ResumeGenerationService {
     const { data: profile, error: profileError } = await supabase
       .from('user_profiles')
       .select('*')
-      .eq('user_id', userId)
+      .eq('id', userId)
       .single();
 
     if (profileError && profileError.code !== 'PGRST116') {
@@ -257,7 +307,7 @@ export class ResumeGenerationService {
   }
 
   /**
-   * Get relevant context from RAG system
+   * Get relevant context from RAG system with optimized settings
    */
   async getRagContext(jobDescription, userId) {
     // Create a query that asks for relevant experience
@@ -266,8 +316,10 @@ export class ResumeGenerationService {
     try {
       console.log(`🔍 Querying RAG system for relevant experience...`);
       const ragOptions = {
-        maxContextChunks: 15,
-        temperature: 0.3
+        maxContextChunks: 8, // Reduced from 15
+        temperature: 0.3,
+        similarityThreshold: 0.35, // Aligned threshold
+        diversityFilter: true // Enable diversity filtering
       };
 
       // Only filter by user if it's not a test ID
@@ -277,12 +329,21 @@ export class ResumeGenerationService {
 
       const ragResult = await this.ragService.answerQuestion(ragQuery, ragOptions);
 
-      console.log(`📄 RAG returned ${ragResult.context?.length || 0} chunks`);
+      const chunks = ragResult.sources || [];
+      const avgSimilarity = ragResult.performance?.avgSimilarity || 0;
+      console.log(`📄 RAG returned ${chunks.length} chunks, avg similarity: ${avgSimilarity.toFixed(3)}`);
+
+      // Apply additional filtering for quality  
+      const filteredChunks = chunks
+        .filter(chunk => chunk && chunk.similarity >= 0.35)
+        .slice(0, 8); // Hard cap
+
+      console.log(`✅ After filtering: ${filteredChunks.length} high-quality chunks`);
 
       return {
-        chunks: ragResult.context || [],
-        response: ragResult.response || '',
-        similarity: ragResult.avgSimilarity || 0
+        chunks: filteredChunks,
+        response: ragResult.answer || '',
+        similarity: avgSimilarity
       };
     } catch (error) {
       console.warn('RAG context fetch error:', error);
@@ -291,58 +352,82 @@ export class ResumeGenerationService {
   }
 
   /**
-   * Generate resume using AI with actual user data
+   * Generate resume using AI with actual user data and token budget management
    */
   async generateResumeWithAI({ jobDescription, jobKeywords, userData, ragContext, style, maxBulletPoints }) {
-    const systemPrompt = `You are a professional resume writer specializing in ATS-optimized resumes. 
+    // Create concise system prompt
+    const systemPrompt = `Professional resume writer. Create ATS-optimized resume using user's actual data.
 
-Your task: Create a tailored resume using ONLY the user's actual work history and experience provided below.
+Target keywords: ${[...jobKeywords.technical, ...jobKeywords.soft].join(', ')}
 
-Job Description Keywords to prioritize:
-- Technical: ${jobKeywords.technical.join(', ')}
-- Soft Skills: ${jobKeywords.soft.join(', ')}
+Format: Clean HTML (header, section, h1-h3, p, ul, li, strong). Max ${maxBulletPoints} bullets/job.
+Style: ${style}. Focus on achievements matching job requirements.`;
 
-User's Actual Data:
-Profile: ${JSON.stringify(userData.profile, null, 2)}
-Work History: ${JSON.stringify(userData.workHistory, null, 2)}
-Education: ${JSON.stringify(userData.education, null, 2)}
-Skills: ${userData.skills.join(', ')}
+    // Get user data summary (more concise)
+    const profileSummary = userData.profile ? 
+      `Name: ${userData.profile.full_name || 'N/A'}, Contact: ${userData.profile.email || 'N/A'}` : 
+      'Profile: Limited info available';
 
-Relevant Context from User's Documents:
-${ragContext.response}
+    const workSummary = userData.workHistory.length > 0 ? 
+      userData.workHistory.map(job => 
+        `${job.title} at ${job.org} (${job.date_start || 'Unknown'}-${job.date_end || 'Present'}): ${(job.skills || []).slice(0, 5).join(', ')}`
+      ).join('\n') : 'No work history available';
 
-Instructions:
-1. Use ONLY the user's actual work history, education, and skills
-2. Prioritize experiences that match the job keywords
-3. Rewrite bullet points to highlight relevant achievements
-4. Use ATS-friendly format with semantic HTML tags only
-5. Maximum ${maxBulletPoints} bullet points per job
-6. Include quantified achievements where available
-7. Match the ${style} style
-8. Extract name and contact info from profile if available
+    // Apply token budget to RAG context
+    const budgetedContext = this.fitToBudget(
+      ragContext.chunks, 
+      systemPrompt, 
+      `Job: ${jobDescription.substring(0, 500)}...` // Truncate job description for budget calc
+    );
 
-Output format: Clean HTML using only these tags: h1, h2, h3, p, ul, li, strong, em, header, section
-Do not include any CSS styles or non-semantic elements.`;
-
-    const userPrompt = `Generate a professional resume tailored for this job description:
-
+    const userPrompt = `Job Description:
 ${jobDescription}
 
-Focus on the user's most relevant experience and achievements that match the job requirements.`;
+User Data:
+${profileSummary}
 
-    console.log(`🤖 Generating resume with AI...`);
+Work History:
+${workSummary}
+
+Skills: ${userData.skills.slice(0, 20).join(', ')}
+
+Relevant Experience Context:
+${budgetedContext}
+
+Generate tailored resume focusing on job match.`;
+
+    console.log(`🤖 Generating resume with AI (optimized prompts)...`);
     
-    const response = await this.openai.chat.completions.create({
-      model: CONFIG.ai.openai.model,
-      messages: [
-        { role: 'system', content: systemPrompt },
-        { role: 'user', content: userPrompt }
-      ],
-      temperature: 0.7,
-      max_tokens: 3000
-    });
+    try {
+      const response = await this.openai.chat.completions.create({
+        model: CONFIG.ai.openai.model,
+        messages: [
+          { role: 'system', content: systemPrompt },
+          { role: 'user', content: userPrompt }
+        ],
+        temperature: 0.7,
+        max_tokens: MAX_COMPLETION_TOKENS // Use our defined constant
+      });
 
-    return response.choices[0].message.content;
+      console.log(`✅ OpenAI API response received: ${response.choices?.length || 0} choices`);
+      
+      if (!response.choices || response.choices.length === 0) {
+        throw new Error('No choices returned from OpenAI API');
+      }
+      
+      const content = response.choices[0].message?.content;
+      if (!content) {
+        throw new Error('No content in OpenAI response');
+      }
+      
+      console.log(`✅ Generated resume content: ${content.length} characters`);
+      return content;
+      
+    } catch (error) {
+      console.error('❌ OpenAI API error:', error.message);
+      console.error('❌ Full error:', error);
+      throw new Error(`OpenAI API failed: ${error.message}`);
+    }
   }
 
   /**

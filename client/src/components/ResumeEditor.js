@@ -167,9 +167,9 @@ const ResumeEditor = ({
           <button
             className="btn btn-secondary"
             onClick={onBack}
-            aria-label="Go back to job description"
+            aria-label="Clear resume and start over"
           >
-            ← Back
+            ← Clear Resume
           </button>
           
           <h1 className="editor-title">Resume Editor</h1>

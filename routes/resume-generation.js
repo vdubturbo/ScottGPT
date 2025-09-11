@@ -6,7 +6,7 @@
 import express from 'express';
 import rateLimit from 'express-rate-limit';
 import winston from 'winston';
-import { z } from 'zod';
+// import { z } from 'zod'; // Not currently used
 import ResumeGenerationService from '../services/resume-generation.js';
 import { authenticateToken } from '../middleware/auth.js';
 
@@ -96,10 +96,21 @@ router.post('/resume', authenticateToken, resumeLimiter, async (req, res) => {
       ip: req.ip 
     });
 
+    console.log(`🎯 [BACKEND DEBUG] Starting resume generation for user: ${userId}`);
+    
     // Generate resume using actual user data and RAG
     const result = await resumeService.generateResume(jobDescription, userId, options);
 
+    console.log(`🔍 [BACKEND DEBUG] Resume service result:`, {
+      success: result.success,
+      hasResume: !!result.resume,
+      resumeLength: result.resume?.length || 0,
+      matchScore: result.matchScore,
+      hasKeywords: !!result.extractedKeywords
+    });
+
     if (!result.success) {
+      console.error(`❌ [BACKEND DEBUG] Resume generation failed:`, result.error);
       return res.status(500).json({
         error: 'Resume generation failed',
         message: result.error || 'Unknown error occurred'
@@ -108,7 +119,7 @@ router.post('/resume', authenticateToken, resumeLimiter, async (req, res) => {
 
     // Return based on format and preview status
     if (preview || outputFormat === 'json') {
-      res.json({
+      const responseData = {
         success: true,
         data: {
           resumeHTML: result.resume,
@@ -118,7 +129,16 @@ router.post('/resume', authenticateToken, resumeLimiter, async (req, res) => {
           isPreview: preview
         },
         timestamp: new Date().toISOString()
+      };
+      
+      console.log(`✅ [BACKEND DEBUG] Sending JSON response:`, {
+        success: responseData.success,
+        hasData: !!responseData.data,
+        hasResumeHTML: !!responseData.data.resumeHTML,
+        resumeHTMLLength: responseData.data.resumeHTML?.length || 0
       });
+      
+      res.json(responseData);
     } else if (outputFormat === 'html') {
       res.setHeader('Content-Type', 'text/html; charset=utf-8');
       res.send(result.resume);
