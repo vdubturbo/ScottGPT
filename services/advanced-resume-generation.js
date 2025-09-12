@@ -4,11 +4,10 @@
  * Provides the same interface as the existing ResumeGenerationService
  */
 
-// Note: JD Pipeline TypeScript modules cause crashes - disabled temporarily
-// This is a simplified implementation that will be enhanced later
-// import { createAdapters } from './jd-pipeline/adapters.js';
+// Enhanced with JD Summarization → RAG Chat Pipeline
 import OpenAI from 'openai';
 import CONFIG from '../config/app-config.js';
+import JDSummarizationService from './jd-summarization.js';
 
 // Smart keyword extraction from regular system (fixed syntax errors)
 function extractKeywords(text) {
@@ -50,15 +49,17 @@ function extractKeywords(text) {
 
 export class AdvancedResumeGenerationService {
   constructor() {
-    console.log('🚧 [ADVANCED] AdvancedResumeGenerationService constructor called!');
+    console.log('🚧 [ADVANCED] AdvancedResumeGenerationService constructor called with JD → RAG pipeline!');
     this.initialized = false;
     this.pipeline = null;
     this.openai = new OpenAI({ apiKey: CONFIG.ai.openai.apiKey });
+    this.jdSummarizer = new JDSummarizationService();
     
     // Performance-oriented caching for consistency
     this.cache = {
       jdAnalysis: new Map(), // Cache JD analysis results
       keywords: new Map(),   // Cache keyword extraction results
+      ragResponses: new Map(), // Cache RAG chat responses
       maxSize: 100,          // Limit cache size to prevent memory bloat
       ttl: 1000 * 60 * 30    // 30 minute TTL for cache entries
     };
@@ -144,50 +145,23 @@ export class AdvancedResumeGenerationService {
       console.log(`🔍 [ADVANCED] Technical keywords:`, jobKeywords.technical);
       console.log(`🔍 [ADVANCED] Soft keywords:`, jobKeywords.soft);
 
-      // Enhanced JD analysis (for requirement extraction)
-      const jdAnalysis = await this.analyzeJobDescription(jobDescription);
+      // NEW PIPELINE: JD Summarization → RAG Chat → Resume Generation
+      console.log('🔄 [NEW PIPELINE] Starting JD Summarization → RAG Chat flow...');
       
-      // Enhanced evidence retrieval  
-      const evidence = await this.getEnhancedEvidence(jdAnalysis, userId);
+      // Step 1: Summarize JD for efficient RAG queries
+      const jdSummary = await this.jdSummarizer.summarizeForRAG(jobDescription);
+      console.log('📝 [NEW PIPELINE] JD compressed:', jdSummary.compressionRatio.toFixed(2), 'ratio');
       
-      // Generate enhanced resume
-      const resume = await this.generateEnhancedResume(jdAnalysis, evidence);
+      // Step 2: Get rich professional narrative from RAG chat
+      const ragResponse = await this.getRichRAGResponse(jdSummary, userId);
+      console.log(`📖 [NEW PIPELINE] Retrieved ${ragResponse.narrative.length} chars from ${ragResponse.sources.length} sources`);
+      
+      // Step 3: Generate resume from RAG narrative (much richer content)
+      const result = await this.generateResumeFromNarrative(ragResponse, jobDescription, null, options);
 
-      // Validate resume content before proceeding
-      if (!resume || typeof resume !== 'string' || resume.trim().length < 100) {
-        console.error('❌ [ADVANCED] Generated resume content is invalid or too short');
-        throw new Error('Resume generation failed: Invalid or insufficient content generated');
-      }
-      
-      console.log(`✅ [ADVANCED] Resume content validated: ${resume.length} characters`);
+      console.log(`✅ [NEW PIPELINE] Complete! Resume: ${result.resumeHTML.length} chars, Match: ${result.matchScore}%`);
 
-      // Calculate match score using smart keywords (like regular system)
-      console.log(`🎯 [ADVANCED] About to calculate match score...`);
-      const matchScore = this.calculateMatchScore(jobKeywords, resume);
-      console.log(`🎯 [ADVANCED] Match score calculated: ${matchScore}%`);
-      
-      // Calculate coverage for display purposes (convert smart keywords to coverage format)
-      console.log(`📊 [ADVANCED] About to create smart coverage...`);
-      const coverageReport = this.createSmartCoverage(jobKeywords, resume);
-      console.log(`📊 [ADVANCED] Smart coverage created with ${coverageReport.length} items`);
-
-      return {
-        success: true,
-        resumeHTML: resume, // Fixed: Changed from 'resume' to 'resumeHTML' to match route expectations
-        matchScore,
-        extractedKeywords: jobKeywords,
-        sourceData: {
-          coverageReport,
-          processingTime: Date.now() - performance.now(),
-          coveragePercent: matchScore / 100,
-          advancedPipeline: true,
-          enhancedFeatures: {
-            requirementExtraction: true,
-            evidenceRanking: true,
-            coverageTracking: true
-          }
-        }
-      };
+      return result;
 
     } catch (error) {
       console.error('❌ Advanced resume generation failed:', error);
@@ -408,7 +382,52 @@ Return JSON with this exact structure:
   }
 
   /**
-   * Get enhanced evidence using sophisticated multi-query retrieval
+   * Get rich professional narrative using RAG chat system
+   * This leverages the existing, excellent RAG pipeline for detailed responses
+   */
+  async getRichRAGResponse(ragQuery, userId) {
+    try {
+      console.log('🤖 [RAG CHAT] Starting RAG query for professional narrative...');
+      console.log('🤖 [RAG CHAT] Query length:', ragQuery.length, 'characters');
+      
+      // Check cache first
+      const cacheKey = this._createCacheKey({ ragQuery, userId });
+      let cachedResponse = this._getCached(this.cache.ragResponses, cacheKey);
+      
+      if (cachedResponse) {
+        console.log('🤖 [RAG CHAT] Using cached RAG response');
+        return cachedResponse;
+      }
+
+      // Import and use the existing RAG service
+      const RAGService = (await import('./rag.js')).default;
+      const ragService = new RAGService();
+      
+      // Get rich narrative response from RAG system
+      const response = await ragService.processQuery(ragQuery, {
+        userId: userId,
+        maxTokens: 3000, // Allow for very detailed responses
+        includeMetadata: false // We don't need retrieval metadata
+      });
+
+      console.log('🤖 [RAG CHAT] RAG response length:', response.length, 'characters');
+      console.log('🤖 [RAG CHAT] First 200 chars:', response.substring(0, 200) + '...');
+      
+      // Cache the response
+      this._setCached(this.cache.ragResponses, cacheKey, response);
+      
+      return response;
+      
+    } catch (error) {
+      console.error('❌ [RAG CHAT] RAG query failed:', error);
+      // Fallback to basic evidence retrieval
+      console.log('🔄 [RAG CHAT] Falling back to evidence retrieval...');
+      return this.getEnhancedEvidence({ requirements: ['project management experience'] }, userId);
+    }
+  }
+
+  /**
+   * Generate resume from rich RAG narrative (legacy method - now using RAG)
    */
   async getEnhancedEvidence(jdAnalysis, userId) {
     try {
@@ -966,6 +985,141 @@ RELEVANCE SCORE: ${item.qualityScore.toFixed(2)}`;
     }
 
     return validation;
+  }
+
+  /**
+   * Get rich RAG response using JD summary for targeted queries
+   */
+  async getRichRAGResponse(jdSummary, userId) {
+    try {
+      console.log(`🎯 [ADVANCED RAG] Querying RAG with ${jdSummary.queries.length} targeted queries`);
+      
+      // Use the JD summarization service to create an optimized RAG query (now async with 2-stage compression)
+      const ragQuery = await this.jdSummarizer.createRAGQuery(jdSummary);
+      
+      console.log(`🎯 [ADVANCED RAG] RAG query length: ${ragQuery.length} characters`);
+      console.log(`🎯 [ADVANCED RAG] Full RAG query:`, ragQuery);
+      
+      // Import and use RAG service directly instead of HTTP call
+      const RAGService = (await import('../services/rag.js')).default;
+      const ragService = new RAGService();
+      
+      console.log('🎯 [ADVANCED RAG] Using direct RAG service integration');
+      
+      const ragResult = await ragService.answerQuestion(ragQuery, {
+        maxChunks: 5, // Further reduced chunks to save tokens
+        includeMetadata: true,
+        maxTokens: 1500 // Reduce completion tokens further to fit budget
+      });
+      
+      console.log(`✅ [ADVANCED RAG] Retrieved rich context:`, {
+        responseLength: ragResult.response?.length || 0,
+        sourcesFound: ragResult.sources?.length || 0
+      });
+      
+      return {
+        narrative: ragResult.response || '',
+        sources: ragResult.sources || [],
+        originalQuery: ragQuery,
+        compressionRatio: jdSummary.compressionRatio,
+        queriesUsed: jdSummary.queries
+      };
+      
+    } catch (error) {
+      console.error('❌ [ADVANCED RAG] RAG request failed:', error);
+      throw new Error(`RAG retrieval failed: ${error.message}`);
+    }
+  }
+
+  /**
+   * Generate structured resume HTML from RAG narrative response
+   */
+  async generateResumeFromNarrative(ragResponse, jobDescription, jdAnalysis, options = {}) {
+    try {
+      console.log(`📝 [NARRATIVE→RESUME] Converting ${ragResponse.narrative.length} chars to resume format`);
+      
+      const systemPrompt = `You are a professional resume writer. Convert the provided narrative about Scott's experience into a polished, ATS-optimized resume in HTML format.
+
+REQUIREMENTS:
+- Create clean, scannable HTML using standard tags (h1, h2, ul, li, p, strong)
+- Focus on achievements with quantified results (numbers, percentages, dollar amounts)
+- Use bullet points for easy scanning
+- Include relevant keywords from the job description naturally
+- Prioritize the most relevant experience for this specific role
+- Keep total length under 2 pages when printed
+
+STRUCTURE:
+1. Professional Summary (2-3 sentences)
+2. Core Competencies (key skills as bullet points)
+3. Professional Experience (reverse chronological, 3-5 bullets per role)
+4. Education & Certifications (if relevant)
+
+STYLE:
+- Professional, confident tone
+- Action verbs at start of bullets
+- Quantified achievements wherever possible
+- Industry-appropriate terminology from job description`;
+
+      const userPrompt = `Based on this narrative about Scott's professional experience, create a tailored resume for this specific job opportunity:
+
+JOB DESCRIPTION:
+${jobDescription.substring(0, 1000)}${jobDescription.length > 1000 ? '...' : ''}
+
+SCOTT'S RELEVANT EXPERIENCE NARRATIVE:
+${ragResponse.narrative}
+
+Convert this narrative into a structured, ATS-optimized resume in HTML format. Focus on the most relevant experience and achievements that match the job requirements. Ensure the resume showcases quantified results and leadership impact.`;
+
+      const response = await this.openai.chat.completions.create({
+        model: CONFIG.ai.openai.model,
+        messages: [
+          { role: 'system', content: systemPrompt },
+          { role: 'user', content: userPrompt }
+        ],
+        max_tokens: 2500, // Focus on concise, impactful content
+        temperature: 0.1 // Slightly creative but consistent
+      });
+
+      const resumeHTML = response.choices[0]?.message?.content || '';
+      
+      if (!resumeHTML || resumeHTML.length < 200) {
+        throw new Error('Generated resume content is too short or empty');
+      }
+
+      console.log(`✅ [NARRATIVE→RESUME] Generated resume: ${resumeHTML.length} characters`);
+
+      // Extract keywords from the generated resume for match scoring
+      const jobKeywords = await this.extractKeywords(jobDescription);
+      const matchScore = this.calculateMatchScore(jobKeywords, resumeHTML);
+      
+      // Create smart coverage report
+      const coverageReport = this.createSmartCoverage(jobKeywords, resumeHTML);
+      const coveragePercent = coverageReport.length > 0 ? 
+        coverageReport.filter(item => item.covered).length / coverageReport.length : 0;
+
+      return {
+        success: true,
+        resumeHTML: resumeHTML,
+        matchScore: matchScore,
+        extractedKeywords: jobKeywords,
+        sourceData: {
+          ragNarrative: ragResponse.narrative.length,
+          ragSources: ragResponse.sources.length,
+          originalQueries: ragResponse.queriesUsed.length,
+          compressionRatio: ragResponse.compressionRatio,
+          advancedPipeline: true,
+          pipelineType: 'JD Summary → RAG Chat → Resume Generation',
+          coverageReport: coverageReport,
+          coveragePercent: coveragePercent,
+          tokenOptimization: true,
+          enhancedRetrieval: true
+        }
+      };
+
+    } catch (error) {
+      console.error('❌ [NARRATIVE→RESUME] Conversion failed:', error);
+      throw new Error(`Resume generation from narrative failed: ${error.message}`);
+    }
   }
 
   /**
