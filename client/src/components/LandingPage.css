@@ -1,9 +1,4 @@
-/* Industrial Landing Page CSS */
-/* Minimalist, machine-like aesthetic with monochrome base + single accent color */
-
-/* ===============================
-   RESET & TYPOGRAPHY
-   =============================== */
+/* Simple Industrial Landing Page CSS - Debug Version */
 
 * {
   margin: 0;
@@ -12,11 +7,10 @@
 }
 
 .landing-page {
-  font-family: 'Inter', 'Helvetica', -apple-system, BlinkMacSystemFont, sans-serif;
-  font-weight: 400;
-  line-height: 1.5;
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
   color: #1a1a1a;
   background: #fafafa;
+  min-height: 100vh;
   opacity: 0;
   transition: opacity 0.8s ease-out;
 }
@@ -25,49 +19,7 @@
   opacity: 1;
 }
 
-/* ===============================
-   INDUSTRIAL VARIABLES
-   =============================== */
-
-:root {
-  --accent-color: #2563eb; /* Single brand accent color */
-  --text-primary: #1a1a1a;
-  --text-secondary: #666666;
-  --text-muted: #999999;
-  --border-color: #e5e5e5;
-  --background-white: #ffffff;
-  --background-light: #fafafa;
-  --background-dark: #f5f5f5;
-  
-  /* Typography scale */
-  --text-xs: 0.75rem;
-  --text-sm: 0.875rem;
-  --text-base: 1rem;
-  --text-lg: 1.125rem;
-  --text-xl: 1.25rem;
-  --text-2xl: 1.5rem;
-  --text-3xl: 1.875rem;
-  --text-4xl: 2.25rem;
-  --text-5xl: 3rem;
-  
-  /* Spacing scale */
-  --space-1: 0.25rem;
-  --space-2: 0.5rem;
-  --space-3: 0.75rem;
-  --space-4: 1rem;
-  --space-6: 1.5rem;
-  --space-8: 2rem;
-  --space-12: 3rem;
-  --space-16: 4rem;
-  --space-20: 5rem;
-  --space-24: 6rem;
-  --space-32: 8rem;
-}
-
-/* ===============================
-   NAVIGATION
-   =============================== */
-
+/* Navigation */
 .industrial-nav {
   position: fixed;
   top: 0;
@@ -76,13 +28,13 @@
   z-index: 100;
   background: rgba(255, 255, 255, 0.95);
   backdrop-filter: blur(12px);
-  border-bottom: 1px solid var(--border-color);
+  border-bottom: 1px solid #e5e5e5;
 }
 
 .nav-container {
   max-width: 1200px;
   margin: 0 auto;
-  padding: var(--space-4) var(--space-6);
+  padding: 1rem 1.5rem;
   display: flex;
   justify-content: space-between;
   align-items: center;
@@ -90,37 +42,34 @@
 
 .logo-mark {
   font-family: 'Courier New', monospace;
-  font-size: var(--text-xl);
+  font-size: 1.25rem;
   font-weight: 700;
-  color: var(--text-primary);
+  color: #1a1a1a;
   letter-spacing: 0.1em;
 }
 
 .nav-link {
   background: none;
   border: none;
-  color: var(--text-secondary);
-  font-size: var(--text-sm);
+  color: #666666;
+  font-size: 0.875rem;
   font-weight: 500;
   cursor: pointer;
-  padding: var(--space-2) var(--space-4);
+  padding: 0.5rem 1rem;
   transition: color 0.2s ease;
 }
 
 .nav-link:hover {
-  color: var(--text-primary);
+  color: #1a1a1a;
 }
 
-/* ===============================
-   BUTTONS
-   =============================== */
-
+/* Buttons */
 .btn-primary {
-  background: var(--accent-color);
+  background: #2563eb;
   color: white;
   border: none;
-  padding: var(--space-4) var(--space-8);
-  font-size: var(--text-base);
+  padding: 1rem 2rem;
+  font-size: 1rem;
   font-weight: 600;
   cursor: pointer;
   transition: all 0.2s ease;
@@ -136,10 +85,10 @@
 
 .btn-secondary {
   background: none;
-  color: var(--text-primary);
-  border: 1px solid var(--border-color);
-  padding: var(--space-4) var(--space-8);
-  font-size: var(--text-base);
+  color: #1a1a1a;
+  border: 1px solid #e5e5e5;
+  padding: 1rem 2rem;
+  font-size: 1rem;
   font-weight: 600;
   cursor: pointer;
   transition: all 0.2s ease;
@@ -149,22 +98,19 @@
 }
 
 .btn-secondary:hover {
-  border-color: var(--text-primary);
+  border-color: #1a1a1a;
   transform: translateY(-1px);
 }
 
-/* ===============================
-   HERO SECTION
-   =============================== */
-
+/* Hero Section */
 .hero {
-  padding: var(--space-32) var(--space-6) var(--space-24);
+  padding: 8rem 1.5rem 6rem;
   text-align: center;
   min-height: 100vh;
   display: flex;
   align-items: center;
   justify-content: center;
-  background: linear-gradient(180deg, var(--background-light) 0%, var(--background-white) 100%);
+  background: linear-gradient(180deg, #fafafa 0%, #ffffff 100%);
 }
 
 .hero-container {
@@ -173,19 +119,19 @@
 }
 
 .hero-headline {
-  font-size: var(--text-5xl);
+  font-size: 3rem;
   font-weight: 700;
   line-height: 1.1;
-  color: var(--text-primary);
-  margin-bottom: var(--space-6);
+  color: #1a1a1a;
+  margin-bottom: 1.5rem;
   letter-spacing: -0.02em;
 }
 
 .hero-subline {
-  font-size: var(--text-xl);
+  font-size: 1.25rem;
   font-weight: 400;
-  color: var(--text-secondary);
-  margin-bottom: var(--space-8);
+  color: #666666;
+  margin-bottom: 2rem;
   max-width: 600px;
   margin-left: auto;
   margin-right: auto;
@@ -194,20 +140,17 @@
 
 .hero-actions {
   display: flex;
-  gap: var(--space-4);
+  gap: 1rem;
   justify-content: center;
   align-items: center;
 }
 
-/* ===============================
-   SECTIONS
-   =============================== */
-
+/* Sections */
 .what-we-do,
 .how-it-works,
 .why-different,
 .final-cta {
-  padding: var(--space-24) var(--space-6);
+  padding: 6rem 1.5rem;
 }
 
 .section-container,
@@ -219,31 +162,28 @@
 
 .section-title,
 .cta-headline {
-  font-size: var(--text-3xl);
+  font-size: 1.875rem;
   font-weight: 700;
-  color: var(--text-primary);
-  margin-bottom: var(--space-8);
+  color: #1a1a1a;
+  margin-bottom: 2rem;
   line-height: 1.2;
   letter-spacing: -0.01em;
 }
 
 .section-body {
-  font-size: var(--text-lg);
-  color: var(--text-secondary);
+  font-size: 1.125rem;
+  color: #666666;
   line-height: 1.6;
   max-width: 700px;
   margin: 0 auto;
 }
 
-/* ===============================
-   HOW IT WORKS - PROCESS GRID
-   =============================== */
-
+/* Process Grid */
 .process-grid {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
-  gap: var(--space-12);
-  margin-top: var(--space-16);
+  gap: 3rem;
+  margin-top: 4rem;
 }
 
 .process-step {
@@ -253,39 +193,36 @@
 .step-icon {
   width: 80px;
   height: 80px;
-  margin: 0 auto var(--space-6);
+  margin: 0 auto 1.5rem;
   display: flex;
   align-items: center;
   justify-content: center;
-  border: 2px solid var(--border-color);
-  background: var(--background-white);
+  border: 2px solid #e5e5e5;
+  background: #ffffff;
 }
 
 .step-svg {
   width: 32px;
   height: 32px;
-  color: var(--text-primary);
+  color: #1a1a1a;
 }
 
 .step-label {
-  font-size: var(--text-xl);
+  font-size: 1.25rem;
   font-weight: 600;
-  color: var(--text-primary);
-  margin-bottom: var(--space-2);
+  color: #1a1a1a;
+  margin-bottom: 0.5rem;
   letter-spacing: 0.025em;
   text-transform: uppercase;
 }
 
 .step-desc {
-  font-size: var(--text-base);
-  color: var(--text-secondary);
+  font-size: 1rem;
+  color: #666666;
   line-height: 1.5;
 }
 
-/* ===============================
-   WHY DIFFERENT - LIST
-   =============================== */
-
+/* Differences List */
 .differences-list {
   max-width: 600px;
   margin: 0 auto;
@@ -295,46 +232,36 @@
 .difference-item {
   display: flex;
   align-items: flex-start;
-  gap: var(--space-4);
-  margin-bottom: var(--space-6);
+  gap: 1rem;
+  margin-bottom: 1.5rem;
 }
 
 .diff-marker {
-  font-size: var(--text-2xl);
+  font-size: 1.5rem;
   font-weight: 300;
-  color: var(--text-primary);
+  color: #1a1a1a;
   line-height: 1;
   flex-shrink: 0;
-  margin-top: var(--space-1);
+  margin-top: 0.25rem;
 }
 
 .diff-text {
-  font-size: var(--text-lg);
-  color: var(--text-secondary);
+  font-size: 1.125rem;
+  color: #666666;
   line-height: 1.5;
 }
 
-/* ===============================
-   FINAL CTA
-   =============================== */
-
+/* Final CTA */
 .final-cta {
-  background: var(--background-dark);
-  border-top: 1px solid var(--border-color);
+  background: #f5f5f5;
+  border-top: 1px solid #e5e5e5;
 }
 
-.cta-headline {
-  margin-bottom: var(--space-8);
-}
-
-/* ===============================
-   FOOTER
-   =============================== */
-
+/* Footer */
 .industrial-footer {
-  background: var(--background-white);
-  border-top: 1px solid var(--border-color);
-  padding: var(--space-8) var(--space-6);
+  background: #ffffff;
+  border-top: 1px solid #e5e5e5;
+  padding: 2rem 1.5rem;
 }
 
 .footer-container {
@@ -345,14 +272,14 @@
 
 .footer-links {
   display: flex;
-  gap: var(--space-8);
+  gap: 2rem;
   justify-content: center;
 }
 
 .footer-link {
-  color: var(--text-muted);
+  color: #999999;
   text-decoration: none;
-  font-size: var(--text-sm);
+  font-size: 0.875rem;
   font-weight: 500;
   transition: color 0.2s ease;
   text-transform: uppercase;
@@ -360,36 +287,29 @@
 }
 
 .footer-link:hover {
-  color: var(--text-secondary);
+  color: #666666;
 }
 
-/* ===============================
-   RESPONSIVE DESIGN
-   =============================== */
-
+/* Mobile Responsive */
 @media (max-width: 768px) {
-  .nav-container {
-    padding: var(--space-3) var(--space-4);
-  }
-  
   .hero {
-    padding: var(--space-24) var(--space-4) var(--space-16);
+    padding: 6rem 1rem 4rem;
     min-height: auto;
   }
   
   .hero-headline {
-    font-size: var(--text-3xl);
-    margin-bottom: var(--space-4);
+    font-size: 1.875rem;
+    margin-bottom: 1rem;
   }
   
   .hero-subline {
-    font-size: var(--text-base);
-    margin-bottom: var(--space-6);
+    font-size: 1rem;
+    margin-bottom: 1.5rem;
   }
   
   .hero-actions {
     flex-direction: column;
-    gap: var(--space-3);
+    gap: 0.75rem;
   }
   
   .btn-primary,
@@ -402,23 +322,23 @@
   .how-it-works,
   .why-different,
   .final-cta {
-    padding: var(--space-16) var(--space-4);
+    padding: 4rem 1rem;
   }
   
   .section-title,
   .cta-headline {
-    font-size: var(--text-2xl);
-    margin-bottom: var(--space-6);
+    font-size: 1.5rem;
+    margin-bottom: 1.5rem;
   }
   
   .section-body {
-    font-size: var(--text-base);
+    font-size: 1rem;
   }
   
   .process-grid {
     grid-template-columns: 1fr;
-    gap: var(--space-8);
-    margin-top: var(--space-8);
+    gap: 2rem;
+    margin-top: 2rem;
   }
   
   .step-icon {
@@ -429,10 +349,6 @@
   .step-svg {
     width: 24px;
     height: 24px;
-  }
-  
-  .step-label {
-    font-size: var(--text-lg);
   }
   
   .differences-list {
@@ -449,107 +365,15 @@
   
   .footer-links {
     flex-direction: column;
-    gap: var(--space-4);
+    gap: 1rem;
   }
 }
 
-@media (max-width: 480px) {
-  .hero-headline {
-    font-size: var(--text-2xl);
-  }
-  
-  .hero-subline {
-    font-size: var(--text-sm);
-  }
-  
-  .section-title,
-  .cta-headline {
-    font-size: var(--text-xl);
-  }
-  
-  .btn-primary,
-  .btn-secondary {
-    padding: var(--space-3) var(--space-6);
-    font-size: var(--text-sm);
-  }
-}
-
-/* ===============================
-   ANIMATIONS & TRANSITIONS
-   =============================== */
-
-@media (prefers-reduced-motion: no-preference) {
-  .process-step {
-    animation: fadeInUp 0.8s ease-out;
-    animation-fill-mode: both;
-  }
-  
-  .process-step:nth-child(1) { animation-delay: 0.1s; }
-  .process-step:nth-child(2) { animation-delay: 0.2s; }
-  .process-step:nth-child(3) { animation-delay: 0.3s; }
-  
-  .difference-item {
-    animation: fadeInLeft 0.6s ease-out;
-    animation-fill-mode: both;
-  }
-  
-  .difference-item:nth-child(1) { animation-delay: 0.1s; }
-  .difference-item:nth-child(2) { animation-delay: 0.2s; }
-  .difference-item:nth-child(3) { animation-delay: 0.3s; }
-  .difference-item:nth-child(4) { animation-delay: 0.4s; }
-}
-
-@keyframes fadeInUp {
-  from {
-    opacity: 0;
-    transform: translateY(30px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
-}
-
-@keyframes fadeInLeft {
-  from {
-    opacity: 0;
-    transform: translateX(-20px);
-  }
-  to {
-    opacity: 1;
-    transform: translateX(0);
-  }
-}
-
-/* ===============================
-   ACCESSIBILITY
-   =============================== */
-
-@media (prefers-reduced-motion: reduce) {
-  *,
-  *::before,
-  *::after {
-    animation-duration: 0.01ms !important;
-    animation-iteration-count: 1 !important;
-    transition-duration: 0.01ms !important;
-    scroll-behavior: auto !important;
-  }
-}
-
-/* Focus states */
+/* Focus states for accessibility */
 .btn-primary:focus,
 .btn-secondary:focus,
 .nav-link:focus,
 .footer-link:focus {
-  outline: 2px solid var(--accent-color);
+  outline: 2px solid #2563eb;
   outline-offset: 2px;
-}
-
-/* High contrast mode */
-@media (prefers-contrast: high) {
-  :root {
-    --text-primary: #000000;
-    --text-secondary: #333333;
-    --border-color: #666666;
-  }
 }
