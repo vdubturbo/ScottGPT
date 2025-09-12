@@ -235,6 +235,94 @@ const ResumeEditor = ({
         </div>
       </div>
 
+      {/* Editor */}
+      <div className="editor-container">
+        <div className="editor-section-header">
+          <h2>📝 Resume Content</h2>
+          <span className="editor-info">
+            {editor?.getHTML()?.length > 0 ? 
+              `${Math.ceil(editor.getHTML().length / 1000)}k characters` : 
+              'No content yet'
+            }
+          </span>
+        </div>
+        <EditorContent 
+          editor={editor} 
+          className="tiptap-editor"
+        />
+      </div>
+
+      {/* Coverage Tracking (Advanced Feature) */}
+      {isAdvanced && metadata?.coverageReport && metadata.coverageReport.length > 0 && (
+        <div className="coverage-tracking">
+          <div className="coverage-header">
+            <h3>📊 Requirement Coverage Analysis</h3>
+            <div className="coverage-score">
+              <span className="score-label">Match Score:</span>
+              <span className={`score-value ${metadata.matchScore >= 80 ? 'excellent' : metadata.matchScore >= 60 ? 'good' : 'needs-improvement'}`}>
+                {metadata.matchScore}%
+              </span>
+            </div>
+          </div>
+          
+          <div className="coverage-grid">
+            {metadata.coverageReport.map((item, index) => (
+              <div key={index} className={`coverage-item ${item.covered ? 'covered' : 'missing'}`}>
+                <div className="coverage-icon">
+                  {item.covered ? '✅' : '❌'}
+                </div>
+                <div className="coverage-content">
+                  <div className="requirement-text">{item.requirement}</div>
+                  {item.covered && item.evidenceCount > 0 && (
+                    <div className="evidence-count">
+                      {item.evidenceCount} supporting evidence{item.evidenceCount > 1 ? 's' : ''}
+                    </div>
+                  )}
+                </div>
+              </div>
+            ))}
+          </div>
+          
+          {metadata.coveragePercent && (
+            <div className="coverage-summary">
+              <div className="coverage-bar">
+                <div 
+                  className="coverage-fill" 
+                  style={{ width: `${metadata.coveragePercent * 100}%` }}
+                ></div>
+              </div>
+              <div className="coverage-stats">
+                {metadata.coverageReport.filter(item => item.covered).length} of {metadata.coverageReport.length} requirements addressed
+                {metadata.coverageReport.filter(item => !item.covered).length > 0 && (
+                  <span className="missing-requirements">
+                    • {metadata.coverageReport.filter(item => !item.covered).length} gaps identified
+                  </span>
+                )}
+              </div>
+            </div>
+          )}
+          
+          <div className="coverage-tips">
+            <h4>💡 Improvement Tips:</h4>
+            <ul>
+              {metadata.coverageReport.filter(item => !item.covered).length > 0 ? (
+                <>
+                  <li>Consider adding experience or skills related to the missing requirements</li>
+                  <li>Look for transferable skills that might address uncovered requirements</li>
+                  <li>Use similar terminology from the job description in your resume</li>
+                </>
+              ) : (
+                <>
+                  <li>Excellent coverage! Your resume addresses all identified requirements</li>
+                  <li>Consider quantifying your achievements with metrics where possible</li>
+                  <li>Ensure your language closely matches the job description terms</li>
+                </>
+              )}
+            </ul>
+          </div>
+        </div>
+      )}
+
       {/* ATS Issues Warning */}
       {atsIssues.length > 0 && (
         <div className="ats-warning" role="alert">
@@ -253,14 +341,6 @@ const ResumeEditor = ({
           {exportError}
         </div>
       )}
-
-      {/* Editor */}
-      <div className="editor-container">
-        <EditorContent 
-          editor={editor} 
-          className="tiptap-editor"
-        />
-      </div>
 
       {/* Footer with tips */}
       <footer className="editor-footer">

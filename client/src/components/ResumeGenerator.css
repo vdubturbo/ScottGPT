@@ -477,3 +477,213 @@
   color: #4f46e5;
   font-weight: 600;
 }
+
+/* Coverage Tracking Styles */
+.coverage-tracking {
+  background: linear-gradient(135deg, #f8fafc 0%, #e2e8f0 100%);
+  border: 2px solid #e2e8f0;
+  border-radius: 12px;
+  padding: 1.5rem;
+  margin: 1rem 0;
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.05);
+}
+
+.coverage-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 1.5rem;
+  padding-bottom: 1rem;
+  border-bottom: 2px solid #e2e8f0;
+}
+
+.coverage-header h3 {
+  margin: 0;
+  color: #1e293b;
+  font-size: 1.25rem;
+  font-weight: 600;
+}
+
+.coverage-score {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  background: white;
+  padding: 0.5rem 1rem;
+  border-radius: 8px;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.score-label {
+  font-size: 0.875rem;
+  color: #64748b;
+  font-weight: 500;
+}
+
+.score-value {
+  font-size: 1.25rem;
+  font-weight: 700;
+  padding: 0.25rem 0.5rem;
+  border-radius: 6px;
+}
+
+.score-value.excellent {
+  background: #dcfce7;
+  color: #15803d;
+}
+
+.score-value.good {
+  background: #fef3c7;
+  color: #d97706;
+}
+
+.score-value.needs-improvement {
+  background: #fee2e2;
+  color: #dc2626;
+}
+
+.coverage-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+  gap: 1rem;
+  margin-bottom: 1.5rem;
+}
+
+.coverage-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.75rem;
+  background: white;
+  padding: 1rem;
+  border-radius: 8px;
+  border: 2px solid transparent;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+  transition: all 0.2s ease;
+}
+
+.coverage-item.covered {
+  border-color: #22c55e;
+  background: #f0fdf4;
+}
+
+.coverage-item.missing {
+  border-color: #ef4444;
+  background: #fef2f2;
+}
+
+.coverage-item:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+}
+
+.coverage-icon {
+  font-size: 1.25rem;
+  flex-shrink: 0;
+  margin-top: 0.125rem;
+}
+
+.coverage-content {
+  flex: 1;
+}
+
+.requirement-text {
+  font-weight: 600;
+  color: #1e293b;
+  line-height: 1.4;
+  margin-bottom: 0.25rem;
+}
+
+.evidence-count {
+  font-size: 0.75rem;
+  color: #059669;
+  font-weight: 500;
+  background: #d1fae5;
+  padding: 0.125rem 0.5rem;
+  border-radius: 12px;
+  display: inline-block;
+}
+
+.coverage-summary {
+  background: white;
+  padding: 1rem;
+  border-radius: 8px;
+  margin-bottom: 1rem;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+}
+
+.coverage-bar {
+  background: #e2e8f0;
+  height: 8px;
+  border-radius: 4px;
+  overflow: hidden;
+  margin-bottom: 0.75rem;
+}
+
+.coverage-fill {
+  height: 100%;
+  background: linear-gradient(90deg, #22c55e 0%, #16a34a 100%);
+  transition: width 0.5s ease;
+  border-radius: 4px;
+}
+
+.coverage-stats {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 0.875rem;
+  color: #475569;
+  font-weight: 500;
+}
+
+.missing-requirements {
+  color: #dc2626;
+  font-weight: 600;
+}
+
+.coverage-tips {
+  background: #f1f5f9;
+  border: 1px solid #cbd5e1;
+  border-radius: 8px;
+  padding: 1rem;
+}
+
+.coverage-tips h4 {
+  margin: 0 0 0.75rem 0;
+  color: #334155;
+  font-size: 1rem;
+  font-weight: 600;
+}
+
+.coverage-tips ul {
+  margin: 0;
+  padding-left: 1.25rem;
+  color: #475569;
+}
+
+.coverage-tips li {
+  margin-bottom: 0.5rem;
+  line-height: 1.5;
+}
+
+.coverage-tips li:last-child {
+  margin-bottom: 0;
+}
+
+/* Responsive Design for Coverage Tracking */
+@media (max-width: 768px) {
+  .coverage-header {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 1rem;
+  }
+  
+  .coverage-grid {
+    grid-template-columns: 1fr;
+  }
+  
+  .coverage-stats {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.5rem;
+  }
+}

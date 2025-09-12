@@ -86,21 +86,40 @@ const AdvancedResumeGenerator = () => {
       console.log('🚀 [ADVANCED FRONTEND DEBUG] Has response.data:', !!response?.data);
       console.log('🚀 [ADVANCED FRONTEND DEBUG] Has response.data.resumeHTML:', !!response?.data?.resumeHTML);
 
-      // Handle both wrapped and direct response formats
+      // Simplified response parsing - API hook returns response.data.data directly
+      // Expected structure: { resumeHTML, matchScore, extractedKeywords, sourceData }
       const responseData = response?.data || response;
       
-      if (responseData && (responseData.resumeHTML || responseData.resume)) {
-        const resumeContent = responseData.resumeHTML || responseData.resume;
-        const matchScore = responseData.matchScore || 0;
-        const extractedKeywords = responseData.extractedKeywords || {};
-        const sourceData = responseData.sourceData || {};
+      console.log('🔍 [ADVANCED FRONTEND DEBUG] responseData structure:', responseData);
+      console.log('🔍 [ADVANCED FRONTEND DEBUG] Keys available:', Object.keys(responseData || {}));
+      
+      // Direct extraction - no complex fallback needed since field names are now consistent
+      const resumeContent = responseData.resumeHTML;
+      const matchScore = responseData.matchScore || 0;
+      const extractedKeywords = responseData.extractedKeywords || {};
+      const sourceData = responseData.sourceData || {};
+      
+      if (resumeContent && typeof resumeContent === 'string' && resumeContent.trim().length > 0) {
         
         console.log('✅ [ADVANCED FRONTEND DEBUG] Advanced resume content length:', resumeContent?.length || 0);
         console.log('✅ [ADVANCED FRONTEND DEBUG] Match score:', matchScore);
         console.log('✅ [ADVANCED FRONTEND DEBUG] Coverage percent:', sourceData.coveragePercent);
         console.log('✅ [ADVANCED FRONTEND DEBUG] Coverage report:', sourceData.coverageReport);
         
-        setGeneratedResume(resumeContent);
+        // Clean up resume content - remove markdown code blocks if present
+        let cleanedResumeContent = resumeContent;
+        if (typeof resumeContent === 'string') {
+          // Remove ```html and ``` wrappers if present
+          cleanedResumeContent = resumeContent
+            .replace(/^```html\s*/i, '')
+            .replace(/\s*```$/, '')
+            .trim();
+        }
+        
+        console.log('🧹 [ADVANCED FRONTEND DEBUG] Cleaned resume content length:', cleanedResumeContent?.length || 0);
+        console.log('🧹 [ADVANCED FRONTEND DEBUG] First 100 chars:', cleanedResumeContent?.substring(0, 100));
+        
+        setGeneratedResume(cleanedResumeContent);
         setResumeMetadata({
           matchScore: matchScore,
           keywordMatches: extractedKeywords,
@@ -111,9 +130,15 @@ const AdvancedResumeGenerator = () => {
           enhancedFeatures: responseData.enhancedFeatures || {}
         });
       } else {
-        console.error('❌ [ADVANCED FRONTEND DEBUG] Invalid advanced response format detected');
-        console.error('❌ [ADVANCED FRONTEND DEBUG] Full response:', JSON.stringify(response, null, 2));
-        throw new Error(responseData?.error || response?.error || 'Failed to generate advanced resume - invalid response format');
+        // Simplified error handling - no more complex response format checking
+        console.error('❌ [ADVANCED FRONTEND DEBUG] No valid resume content received');
+        console.error('❌ [ADVANCED FRONTEND DEBUG] Response data:', {
+          hasResumeHTML: !!responseData.resumeHTML,
+          resumeType: typeof responseData.resumeHTML,
+          resumeLength: responseData.resumeHTML?.length || 0,
+          availableKeys: Object.keys(responseData || {})
+        });
+        throw new Error(responseData?.error || 'No resume content was generated. Please try again.');
       }
     } catch (err) {
       console.error('Advanced resume generation error:', err);

@@ -4,14 +4,98 @@
  * Provides the same interface as the existing ResumeGenerationService
  */
 
-// Note: JD Pipeline TypeScript modules are not yet compiled
+// Note: JD Pipeline TypeScript modules cause crashes - disabled temporarily
 // This is a simplified implementation that will be enhanced later
-import { createAdapters } from './jd-pipeline/adapters.js';
+// import { createAdapters } from './jd-pipeline/adapters.js';
+import OpenAI from 'openai';
+import CONFIG from '../config/app-config.js';
+
+// Smart keyword extraction from regular system (fixed syntax errors)
+function extractKeywords(text) {
+  const techPatterns = [
+    /\b(javascript|js|typescript|ts|python|java|cpp|csharp|php|ruby|go|rust|swift|kotlin|scala)\b/gi,
+    /\b(react|angular|vue|svelte|nodejs|express|django|flask|spring|laravel|rails|dotnet)\b/gi,
+    /\b(mysql|postgresql|mongodb|redis|elasticsearch|oracle|sqlite|dynamodb)\b/gi,
+    /\b(aws|azure|gcp|docker|kubernetes|jenkins|terraform|ansible|nginx)\b/gi,
+    /\b(git|jira|confluence|agile|scrum|kanban|tdd|microservices|api|rest|graphql)\b/gi,
+    /\b(financial|budget|forecast|planning|analysis|management|accounting|revenue|profit|cost)\b/gi,
+    /\b(project management|program management|pmo|portfolio|stakeholder|resource planning)\b/gi
+  ];
+
+  const softPatterns = [
+    /\b(leadership|management|communication|collaboration|problem solving|analytical|creative)\b/gi,
+    /\b(teamwork|project management|stakeholder management|presentation|documentation)\b/gi,
+    /\b(strategic planning|business analysis|process improvement|change management)\b/gi
+  ];
+
+  const technical = new Set();
+  const soft = new Set();
+
+  techPatterns.forEach(pattern => {
+    const matches = text.match(pattern) || [];
+    matches.forEach(match => technical.add(match.toLowerCase().trim()));
+  });
+
+  softPatterns.forEach(pattern => {
+    const matches = text.match(pattern) || [];
+    matches.forEach(match => soft.add(match.toLowerCase().trim()));
+  });
+
+  return {
+    technical: Array.from(technical),
+    soft: Array.from(soft),
+    other: []
+  };
+}
 
 export class AdvancedResumeGenerationService {
   constructor() {
+    console.log('🚧 [ADVANCED] AdvancedResumeGenerationService constructor called!');
     this.initialized = false;
     this.pipeline = null;
+    this.openai = new OpenAI({ apiKey: CONFIG.ai.openai.apiKey });
+    
+    // Performance-oriented caching for consistency
+    this.cache = {
+      jdAnalysis: new Map(), // Cache JD analysis results
+      keywords: new Map(),   // Cache keyword extraction results
+      maxSize: 100,          // Limit cache size to prevent memory bloat
+      ttl: 1000 * 60 * 30    // 30 minute TTL for cache entries
+    };
+  }
+
+  /**
+   * Cache helper methods for performance optimization
+   */
+  _createCacheKey(data) {
+    // Create a simple hash-like key from the input data
+    return Buffer.from(JSON.stringify(data)).toString('base64').substring(0, 32);
+  }
+
+  _getCached(cacheMap, key) {
+    const entry = cacheMap.get(key);
+    if (!entry) return null;
+    
+    // Check TTL
+    if (Date.now() - entry.timestamp > this.cache.ttl) {
+      cacheMap.delete(key);
+      return null;
+    }
+    
+    console.log(`📋 [CACHE HIT] Retrieved cached result for key: ${key.substring(0, 8)}...`);
+    return entry.data;
+  }
+
+  _setCached(cacheMap, key, data) {
+    // Prevent memory bloat by limiting cache size
+    if (cacheMap.size >= this.cache.maxSize) {
+      const oldestKey = cacheMap.keys().next().value;
+      cacheMap.delete(oldestKey);
+      console.log(`📋 [CACHE] Evicted oldest entry: ${oldestKey?.substring(0, 8)}...`);
+    }
+    
+    cacheMap.set(key, { data, timestamp: Date.now() });
+    console.log(`📋 [CACHE SET] Cached result for key: ${key.substring(0, 8)}...`);
   }
 
   /**
@@ -21,11 +105,12 @@ export class AdvancedResumeGenerationService {
     if (this.initialized) return;
 
     try {
-      // Create adapters for existing services
-      this.adapters = createAdapters();
+      console.log('🚀 [ADVANCED] Initializing without TypeScript pipeline (crash fix)...');
+      // Skip adapter initialization to avoid TypeScript crashes
+      // this.adapters = createAdapters(); // DISABLED - causes TS crashes
       this.initialized = true;
 
-      console.log('✅ Advanced Resume Generation Service initialized (simplified mode)');
+      console.log('✅ Advanced Resume Generation Service initialized (TypeScript-free mode)');
     } catch (error) {
       console.error('❌ Failed to initialize Advanced Resume Generation:', error);
       throw error;
@@ -42,7 +127,24 @@ export class AdvancedResumeGenerationService {
 
       console.log(`🚀 Advanced Resume Generation for user: ${userId} (demo mode)`);
 
-      // Enhanced JD analysis
+      // Extract job keywords using smart pattern matching (from regular system) - with caching
+      console.log(`🔍 [ADVANCED] About to extract keywords from job description...`);
+      
+      const keywordCacheKey = this._createCacheKey({ jobDescription, type: 'keywords' });
+      let jobKeywords = this._getCached(this.cache.keywords, keywordCacheKey);
+      
+      if (!jobKeywords) {
+        jobKeywords = extractKeywords(jobDescription);
+        this._setCached(this.cache.keywords, keywordCacheKey, jobKeywords);
+        console.log(`🔍 [ADVANCED] Extracted ${jobKeywords.technical.length + jobKeywords.soft.length} smart keywords (fresh)`);
+      } else {
+        console.log(`🔍 [ADVANCED] Using cached keywords: ${jobKeywords.technical.length + jobKeywords.soft.length} total`);
+      }
+      
+      console.log(`🔍 [ADVANCED] Technical keywords:`, jobKeywords.technical);
+      console.log(`🔍 [ADVANCED] Soft keywords:`, jobKeywords.soft);
+
+      // Enhanced JD analysis (for requirement extraction)
       const jdAnalysis = await this.analyzeJobDescription(jobDescription);
       
       // Enhanced evidence retrieval  
@@ -51,16 +153,29 @@ export class AdvancedResumeGenerationService {
       // Generate enhanced resume
       const resume = await this.generateEnhancedResume(jdAnalysis, evidence);
 
-      // Calculate coverage and match score
-      const coverageReport = this.calculateCoverage(jdAnalysis.requirements, resume);
-      const matchScore = this.calculateMatchScore(coverageReport);
-      const extractedKeywords = this.extractKeywords(jdAnalysis.requirements);
+      // Validate resume content before proceeding
+      if (!resume || typeof resume !== 'string' || resume.trim().length < 100) {
+        console.error('❌ [ADVANCED] Generated resume content is invalid or too short');
+        throw new Error('Resume generation failed: Invalid or insufficient content generated');
+      }
+      
+      console.log(`✅ [ADVANCED] Resume content validated: ${resume.length} characters`);
+
+      // Calculate match score using smart keywords (like regular system)
+      console.log(`🎯 [ADVANCED] About to calculate match score...`);
+      const matchScore = this.calculateMatchScore(jobKeywords, resume);
+      console.log(`🎯 [ADVANCED] Match score calculated: ${matchScore}%`);
+      
+      // Calculate coverage for display purposes (convert smart keywords to coverage format)
+      console.log(`📊 [ADVANCED] About to create smart coverage...`);
+      const coverageReport = this.createSmartCoverage(jobKeywords, resume);
+      console.log(`📊 [ADVANCED] Smart coverage created with ${coverageReport.length} items`);
 
       return {
         success: true,
-        resume,
+        resumeHTML: resume, // Fixed: Changed from 'resume' to 'resumeHTML' to match route expectations
         matchScore,
-        extractedKeywords,
+        extractedKeywords: jobKeywords,
         sourceData: {
           coverageReport,
           processingTime: Date.now() - performance.now(),
@@ -76,17 +191,10 @@ export class AdvancedResumeGenerationService {
 
     } catch (error) {
       console.error('❌ Advanced resume generation failed:', error);
-      return {
-        success: false,
-        error: error.message,
-        resume: null,
-        matchScore: 0,
-        extractedKeywords: { technical: [], soft: [], other: [] },
-        sourceData: {
-          advancedPipeline: true,
-          error: true
-        }
-      };
+      console.error('❌ Error stack:', error.stack);
+      
+      // NO FALLBACK - fail clearly to test new logic
+      throw new Error(`ADVANCED GENERATION FAILED: ${error.message}`);
     }
   }
 
@@ -209,41 +317,89 @@ export class AdvancedResumeGenerationService {
   }
 
   /**
-   * Analyze job description to extract requirements (enhanced)
+   * Analyze job description to extract requirements (enhanced) - with caching
    */
   async analyzeJobDescription(jobDescription) {
     try {
-      const llm = this.adapters.llm;
-      
       console.log('📋 [ADVANCED] Analyzing job description of length:', jobDescription.length);
       
-      const systemPrompt = `Extract structured requirements from job descriptions.
-Return JSON with: { "requirements": ["req1", "req2"], "responsibilities": ["resp1"], "title": "Job Title" }`;
+      // Check cache first for consistent results
+      const analysisCacheKey = this._createCacheKey({ jobDescription, type: 'jdAnalysis' });
+      let cachedAnalysis = this._getCached(this.cache.jdAnalysis, analysisCacheKey);
+      
+      if (cachedAnalysis) {
+        console.log('📋 [ADVANCED] Using cached JD analysis');
+        return cachedAnalysis;
+      }
+      
+      const systemPrompt = `You are an expert recruiter analyzing job descriptions for resume optimization. 
+Extract comprehensive requirements with deep analysis.
 
-      const result = await llm.complete(
-        systemPrompt,
-        `Extract requirements from: ${jobDescription}`,
-        500,
-        0.1
-      );
+Return JSON with this exact structure:
+{
+  "title": "exact job title from posting",
+  "seniority": "entry/mid/senior/executive level",
+  "industry": "primary industry/domain",
+  "coreRequirements": ["must-have requirement 1", "must-have requirement 2"],
+  "preferredRequirements": ["nice-to-have requirement 1", "nice-to-have requirement 2"],
+  "technicalSkills": ["specific technology/tool 1", "technology 2"],
+  "softSkills": ["leadership", "communication", "etc"],
+  "experienceYears": "X+ years in specific area",
+  "keyResponsibilities": ["primary responsibility 1", "responsibility 2"],
+  "achievements": ["type of achievement expected", "metric/outcome type"],
+  "keywords": ["ATS keyword 1", "keyword 2", "industry term"]
+}`;
+
+      const response = await this.openai.chat.completions.create({
+        model: CONFIG.ai.openai.model,
+        messages: [
+          { role: 'system', content: systemPrompt },
+          { role: 'user', content: `Extract requirements from: ${jobDescription}` }
+        ],
+        max_tokens: 1200, // Increased for comprehensive analysis
+        temperature: 0.0 // Fixed: Use 0.0 for maximum determinism in requirement extraction
+      });
+
+      const result = { text: response.choices[0]?.message?.content || '' };
 
       console.log('📋 [ADVANCED] LLM analysis result:', result.text.substring(0, 200) + '...');
 
       try {
         const parsed = JSON.parse(result.text);
         const analysis = {
-          requirements: parsed.requirements || [],
-          responsibilities: parsed.responsibilities || [],
+          // New comprehensive structure
           title: parsed.title || 'Position',
-          analysis: 'advanced'
+          seniority: parsed.seniority || 'mid',
+          industry: parsed.industry || 'Technology',
+          coreRequirements: parsed.coreRequirements || [],
+          preferredRequirements: parsed.preferredRequirements || [],
+          technicalSkills: parsed.technicalSkills || [],
+          softSkills: parsed.softSkills || [],
+          experienceYears: parsed.experienceYears || '',
+          keyResponsibilities: parsed.keyResponsibilities || [],
+          achievements: parsed.achievements || [],
+          keywords: parsed.keywords || [],
+          
+          // Legacy fields for compatibility
+          requirements: [...(parsed.coreRequirements || []), ...(parsed.preferredRequirements || [])],
+          responsibilities: parsed.keyResponsibilities || [],
+          analysis: 'comprehensive'
         };
         
-        console.log('📋 [ADVANCED] Extracted requirements:', analysis.requirements);
+        // Cache the successful analysis for consistency
+        this._setCached(this.cache.jdAnalysis, analysisCacheKey, analysis);
+        
+        console.log('📋 [ADVANCED] Comprehensive analysis extracted:');
+        console.log('📋 [ADVANCED] - Core requirements:', analysis.coreRequirements.length);
+        console.log('📋 [ADVANCED] - Technical skills:', analysis.technicalSkills.length);
+        console.log('📋 [ADVANCED] - Keywords:', analysis.keywords.length);
         return analysis;
       } catch {
         // Fallback to rule-based extraction
         console.log('📋 [ADVANCED] JSON parsing failed, using rule-based fallback');
-        return this.extractRequirementsRuleBased(jobDescription);
+        const fallbackAnalysis = this.extractRequirementsRuleBased(jobDescription);
+        this._setCached(this.cache.jdAnalysis, analysisCacheKey, fallbackAnalysis);
+        return fallbackAnalysis;
       }
     } catch (error) {
       console.warn('JD analysis failed, using fallback:', error);
@@ -252,102 +408,405 @@ Return JSON with: { "requirements": ["req1", "req2"], "responsibilities": ["resp
   }
 
   /**
-   * Get enhanced evidence using improved retrieval
+   * Get enhanced evidence using sophisticated multi-query retrieval
    */
   async getEnhancedEvidence(jdAnalysis, userId) {
     try {
-      // Combine requirements into search query
-      const searchQuery = jdAnalysis.requirements.slice(0, 5).join(' ');
+      console.log('🔍 [ADVANCED] Starting enhanced evidence retrieval...');
+      console.log('🔍 [ADVANCED] User ID for filtering:', userId);
+      console.log('🔍 [ADVANCED] Requirements to search for:', jdAnalysis.requirements.length);
+      console.log('🔍 [ADVANCED] JD Analysis keys:', Object.keys(jdAnalysis));
       
-      console.log('🔍 [ADVANCED] Evidence search query:', searchQuery);
-      console.log('🔍 [ADVANCED] User ID:', userId);
-      
-      // Use the existing retrieval service for now instead of the simplified adapters
       const RetrievalService = (await import('./retrieval.js')).default;
       const retrieval = new RetrievalService();
       
-      const retrievalResults = await retrieval.retrieveContext(searchQuery, {
-        maxResults: 8,
-        userFilter: userId
-      });
+      // Achievement-focused search strategy to find rich content
+      const searchQueries = [
+        // Achievement and results queries (prioritize quantified content)
+        'achieved results metrics percentage improvement savings',
+        'budget million revenue cost reduction efficiency',
+        'led team managed scaled delivered implemented',
+        'increased decreased improved reduced grew',
+        // Core requirements with achievement context
+        jdAnalysis.coreRequirements.slice(0, 2).join(' ') + ' achieved delivered',
+        // Technical skills with outcome context  
+        jdAnalysis.technicalSkills.slice(0, 3).join(' ') + ' implementation success',
+        // Leadership with scale indicators
+        jdAnalysis.softSkills.concat(['leadership', 'management']).join(' ') + ' team budget scope',
+        // Industry expertise with business impact
+        `${jdAnalysis.industry} transformation initiative project success`,
+        // Experience level with quantified outcomes
+        jdAnalysis.experienceYears + ' experience results achievements',
+        // Job title focused on accomplishments  
+        `${jdAnalysis.title} accomplishments delivered outcomes`,
+      ].filter(query => query.trim().length > 0);
 
-      console.log('🔍 [ADVANCED] Retrieved chunks:', retrievalResults.chunks.length);
+      console.log('🔍 [ADVANCED] Multi-query search strategy:', searchQueries.length, 'queries');
 
-      // Convert to expected format for advanced processing
-      return retrievalResults.chunks.map(chunk => ({
-        chunk: {
-          id: chunk.id,
-          text: chunk.content || chunk.title || '',
-          meta: {
-            role: chunk.title,
-            skills: chunk.skills || [],
-            company: chunk.source_org,
-            startDate: chunk.date_start,
-            endDate: chunk.date_end
-          }
-        },
-        score: chunk.similarity || 0.8,
-        retrievalMethod: 'enhanced'
-      }));
+      // Execute multiple searches and combine results
+      const allEvidence = [];
+      
+      for (const query of searchQueries) {
+        try {
+          const results = await retrieval.retrieveContext(query, {
+            maxResults: 8, // Even more results per query to find achievements
+            userFilter: userId,
+            threshold: 0.15 // Much lower threshold to capture achievement-rich content
+          });
+          
+          console.log(`🔍 [ADVANCED] Query "${query.substring(0, 50)}..." returned ${results.chunks.length} chunks`);
+          
+          // Add query context to each chunk
+          results.chunks.forEach(chunk => {
+            allEvidence.push({
+              chunk: {
+                id: chunk.id,
+                text: chunk.content || chunk.title || '',
+                meta: {
+                  role: chunk.title,
+                  skills: chunk.skills || [],
+                  company: chunk.source_org,
+                  startDate: chunk.date_start,
+                  endDate: chunk.date_end,
+                  queryContext: query.substring(0, 100) // Track what query found this
+                }
+              },
+              score: chunk.similarity || 0.7,
+              retrievalMethod: 'multi-query-enhanced',
+              sourceQuery: query
+            });
+          });
+        } catch (queryError) {
+          console.warn(`🔍 [ADVANCED] Query "${query}" failed:`, queryError.message);
+        }
+      }
+
+      // Deduplicate by ID and sort by relevance score
+      const uniqueEvidence = Array.from(
+        new Map(allEvidence.map(item => [item.chunk.id, item])).values()
+      ).sort((a, b) => b.score - a.score).slice(0, 15); // Top 15 most relevant pieces
+
+      console.log('🔍 [ADVANCED] Final evidence count after dedup:', uniqueEvidence.length);
+      console.log('🔍 [ADVANCED] Evidence score range:', 
+        uniqueEvidence.length > 0 ? 
+        `${uniqueEvidence[uniqueEvidence.length-1].score.toFixed(3)} - ${uniqueEvidence[0].score.toFixed(3)}` : 'none');
+
+      if (uniqueEvidence.length === 0) {
+        console.error('❌ [ADVANCED] No evidence retrieved! Check:');
+        console.error('- User ID is correct:', userId);
+        console.error('- Database has user data');
+        console.error('- Search queries are meaningful:', searchQueries);
+        throw new Error('No professional evidence found for user - cannot generate personalized resume');
+      }
+
+      return uniqueEvidence;
     } catch (error) {
-      console.warn('Enhanced evidence retrieval failed:', error);
+      console.error('Enhanced evidence retrieval failed:', error);
       return [];
     }
   }
 
   /**
-   * Generate enhanced resume with better prompting
+   * Generate sophisticated resume with intelligent token budgeting
    */
   async generateEnhancedResume(jdAnalysis, evidence) {
     try {
-      const llm = this.adapters.llm;
-      
-      console.log('🤖 [ADVANCED] Generating resume with', evidence.length, 'pieces of evidence');
+      console.log('🤖 [ADVANCED] Generating sophisticated resume with', evidence.length, 'pieces of evidence');
+      console.log('🤖 [ADVANCED] Target role:', jdAnalysis.title, '(' + jdAnalysis.seniority + ' level)');
       
       if (evidence.length === 0) {
-        console.warn('⚠️ [ADVANCED] No evidence found - generating basic resume structure');
-        const systemPrompt = `You are an expert resume writer. Create a professional resume template that demonstrates relevant skills and experience.`;
-        const userPrompt = `Create a professional resume that addresses these job requirements:
-${jdAnalysis.requirements.join('\n')}
-
-Since no specific evidence is available, create a realistic professional template with:
-- Professional summary highlighting relevant skills
-- Work experience section with 2-3 relevant positions
-- Skills section covering the mentioned requirements
-- Education section
-- Use proper HTML formatting`;
-
-        const result = await llm.complete(systemPrompt, userPrompt, 1500, 0.7);
-        return result.text;
+        throw new Error('No evidence found - cannot generate personalized resume without professional data');
       }
+
+      // Smart token budgeting for 8192 context window
+      const maxContextTokens = 8192;
+      const responseTokens = 2500; // Reduced from 3500 but still generous
+      const systemPromptTokens = 800; // Estimated
+      const availableTokens = maxContextTokens - responseTokens - systemPromptTokens - 200; // 200 buffer
       
-      const systemPrompt = `You are an expert resume writer creating ATS-optimized resumes.
-CRITICAL: Address ALL requirements listed in the job posting using the provided evidence.
-Format: Clean HTML with proper structure.
-Focus on achievements with metrics when possible.`;
+      console.log('🧮 [TOKEN BUDGET] Available for evidence + user prompt:', availableTokens, 'tokens');
+      
+      // Prioritize and truncate evidence to fit budget
+      const optimizedEvidence = this._optimizeEvidenceForTokenBudget(evidence, jdAnalysis, availableTokens * 0.7); // 70% for evidence
+      const compactJDSummary = this._createCompactJDSummary(jdAnalysis, availableTokens * 0.3); // 30% for JD summary
+      
+      console.log('🧮 [TOKEN BUDGET] Using', optimizedEvidence.pieces, 'evidence pieces,', compactJDSummary.length, 'char JD summary');
+      
+      // Debug evidence quality
+      console.log('🔍 [EVIDENCE DEBUG] First 3 evidence pieces:');
+      const debugEvidence = optimizedEvidence.content.substring(0, 1000);
+      console.log(debugEvidence);
+      console.log('🔍 [EVIDENCE DEBUG] JD Summary:', compactJDSummary);
+      
+      // Strong, directive system prompt
+      const systemPrompt = `You are creating a resume using ONLY the provided professional evidence. 
 
-      const evidenceText = evidence.map((item, i) => 
-        `Evidence ${i+1}: ${item.chunk.text}`
-      ).join('\n\n');
+CRITICAL RULES:
+- Use ONLY facts from the EVIDENCE section - no generic content or placeholders
+- Output clean HTML with proper tags: <h1>, <h2>, <ul>, <li>, <p>, <strong>
+- NO contact information - start directly with name as <h1>
+- Transform evidence into quantified achievement bullets with metrics
+- Use executive language appropriate for ${jdAnalysis.seniority}-level ${jdAnalysis.title}
+- Every bullet point must contain specific numbers, results, or scope from evidence`;
 
-      const userPrompt = `Job Requirements to Address:
-${jdAnalysis.requirements.join('\n')}
+      const userPrompt = `Create a ${jdAnalysis.title} resume using ONLY these evidence facts:
 
-Available Professional Evidence:
-${evidenceText}
+${optimizedEvidence.content}
 
-Generate a comprehensive resume targeting the job requirements using the provided evidence.`;
+Job requirements to address: ${compactJDSummary}
 
-      const result = await llm.complete(systemPrompt, userPrompt, 1500, 0.7);
-      return result.text;
+OUTPUT REQUIREMENTS:
+1. <h1>Name only</h1>
+2. <h2>Professional Summary</h2> - Executive paragraph highlighting leadership scope and industry impact
+3. <h2>Professional Experience</h2> - Each role with quantified achievements from evidence
+4. <h2>Core Competencies</h2> - Skills extracted from evidence
+
+Use ONLY evidence provided. No placeholders, no generic content, no contact info.`;
+
+      const response = await this.openai.chat.completions.create({
+        model: CONFIG.ai.openai.model,
+        messages: [
+          { role: 'system', content: systemPrompt },
+          { role: 'user', content: userPrompt }
+        ],
+        max_tokens: 2500, // Optimized for context window management
+        temperature: 0.1
+      });
+      
+      const generatedResume = response.choices[0]?.message?.content || '<h1>Resume Generation Failed</h1>';
+      console.log('🤖 [ADVANCED] Generated resume length:', generatedResume.length, 'characters');
+      
+      return generatedResume;
     } catch (error) {
       console.error('Enhanced resume generation failed:', error);
-      return '<h1>Resume Generation Failed</h1><p>Please try again.</p>';
+      return '<h1>Resume Generation Failed</h1><p>Error: ' + error.message + '</p>';
     }
   }
 
   /**
-   * Calculate requirement coverage
+   * Organize evidence strategically for resume generation
+   */
+  _organizeEvidenceForResume(evidence, jdAnalysis) {
+    // Group evidence by company and role for better narrative flow
+    const evidenceByRole = {};
+    const achievements = [];
+    const skills = new Set();
+
+    evidence.forEach((item, index) => {
+      const company = item.chunk.meta.company || 'Unknown Company';
+      const role = item.chunk.meta.role || 'Professional Role';
+      const key = `${company} - ${role}`;
+      
+      if (!evidenceByRole[key]) {
+        evidenceByRole[key] = {
+          company,
+          role,
+          startDate: item.chunk.meta.startDate,
+          endDate: item.chunk.meta.endDate,
+          evidence: [],
+          relevanceScore: 0
+        };
+      }
+      
+      evidenceByRole[key].evidence.push({
+        text: item.chunk.text,
+        score: item.score,
+        queryContext: item.chunk.meta.queryContext
+      });
+      evidenceByRole[key].relevanceScore += item.score;
+      
+      // Extract skills
+      if (item.chunk.meta.skills) {
+        item.chunk.meta.skills.forEach(skill => skills.add(skill));
+      }
+    });
+
+    // Sort roles by relevance and format for prompt
+    const sortedRoles = Object.values(evidenceByRole)
+      .sort((a, b) => b.relevanceScore - a.relevanceScore);
+
+    let organizedText = '';
+    
+    sortedRoles.forEach((roleGroup, index) => {
+      organizedText += `\n=== ROLE ${index + 1}: ${roleGroup.role} at ${roleGroup.company} ===\n`;
+      organizedText += `Timeline: ${roleGroup.startDate || 'Unknown'} - ${roleGroup.endDate || 'Unknown'}\n`;
+      organizedText += `Evidence:\n`;
+      
+      roleGroup.evidence.forEach((evidence, evidenceIndex) => {
+        organizedText += `${evidenceIndex + 1}. ${evidence.text}\n`;
+        if (evidence.queryContext) {
+          organizedText += `   (Relevant to: ${evidence.queryContext})\n`;
+        }
+      });
+    });
+
+    return organizedText;
+  }
+
+  /**
+   * Optimize evidence for token budget - prioritize and truncate intelligently
+   */
+  _optimizeEvidenceForTokenBudget(evidence, jdAnalysis, maxTokens) {
+    // Rough estimate: 4 characters = 1 token
+    const maxChars = maxTokens * 4;
+    
+    // Score evidence by relevance and content quality
+    const scoredEvidence = evidence.map(item => ({
+      ...item,
+      qualityScore: this._calculateEvidenceQuality(item, jdAnalysis),
+      length: item.chunk.text.length
+    })).sort((a, b) => b.qualityScore - a.qualityScore);
+
+    let totalChars = 0;
+    const selectedEvidence = [];
+    
+    for (const item of scoredEvidence) {
+      if (totalChars + item.length < maxChars) {
+        selectedEvidence.push(item);
+        totalChars += item.length;
+      } else {
+        // Try to fit a truncated version of high-value evidence
+        const remainingChars = maxChars - totalChars;
+        if (remainingChars > 200 && item.qualityScore > 0.7) {
+          const truncatedText = item.chunk.text.substring(0, remainingChars - 50) + '...';
+          selectedEvidence.push({
+            ...item,
+            chunk: { ...item.chunk, text: truncatedText }
+          });
+        }
+        break;
+      }
+    }
+
+    // Format optimized evidence for maximum AI utility
+    const content = selectedEvidence.map((item, i) => {
+      const company = item.chunk.meta.company || 'Company';
+      const role = item.chunk.meta.role || 'Role';
+      const dates = item.chunk.meta.startDate && item.chunk.meta.endDate ? 
+        `(${item.chunk.meta.startDate} - ${item.chunk.meta.endDate})` : '';
+      
+      return `ROLE ${i + 1}: ${role} at ${company} ${dates}
+ACHIEVEMENT: ${item.chunk.text}
+RELEVANCE SCORE: ${item.qualityScore.toFixed(2)}`;
+    }).join('\n\n');
+
+    console.log('🧮 [TOKEN BUDGET] Evidence optimization:', {
+      original: evidence.length,
+      selected: selectedEvidence.length,
+      avgQuality: (selectedEvidence.reduce((sum, item) => sum + item.qualityScore, 0) / selectedEvidence.length).toFixed(2),
+      totalChars: content.length
+    });
+
+    return {
+      content,
+      pieces: selectedEvidence.length,
+      totalLength: content.length
+    };
+  }
+
+  /**
+   * Create compact JD summary for token efficiency
+   */
+  _createCompactJDSummary(jdAnalysis, maxTokens) {
+    const maxChars = maxTokens * 4;
+    
+    const parts = [
+      `Core: ${jdAnalysis.coreRequirements.slice(0, 3).join('; ')}`,
+      `Tech: ${jdAnalysis.technicalSkills.slice(0, 5).join(', ')}`,
+      `Skills: ${jdAnalysis.softSkills.slice(0, 3).join(', ')}`,
+      `Experience: ${jdAnalysis.experienceYears}`,
+      `Industry: ${jdAnalysis.industry}`
+    ];
+
+    let summary = parts.join(' | ');
+    
+    // Truncate if necessary
+    if (summary.length > maxChars) {
+      summary = summary.substring(0, maxChars - 3) + '...';
+    }
+
+    return summary;
+  }
+
+  /**
+   * Calculate evidence quality score with heavy bias toward achievements
+   */
+  _calculateEvidenceQuality(item, jdAnalysis) {
+    let score = item.score || 0.5; // Base similarity score
+    const text = item.chunk.text.toLowerCase();
+    
+    // MAJOR boost for quantified achievements (multiple number patterns)
+    if (/\$\d+[kmb]?|\d+[%$]|\d+x\s|\d+\+\s|[+-]\d+%|\d+\s*million|\d+\s*billion|\d+\s*percent/i.test(item.chunk.text)) {
+      score += 0.4; // Major boost for money, percentages, multipliers
+    }
+    
+    // Big boost for achievement verbs with numbers
+    if (/(achieved|delivered|improved|increased|reduced|saved|grew|scaled|managed).*\d+/i.test(item.chunk.text)) {
+      score += 0.3;
+    }
+    
+    // Boost for leadership with scope indicators
+    if (/lead.*team|\d+\s*(team|people|members)|budget.*\$|managed.*\d+/i.test(item.chunk.text)) {
+      score += 0.25;
+    }
+    
+    // Boost for business impact words
+    if (/(revenue|profit|savings|efficiency|productivity|ROI|growth|transformation)/i.test(text)) {
+      score += 0.2;
+    }
+    
+    // Boost for project scale indicators
+    if (/(global|enterprise|international|\$\d+M|\$\d+B|multi-year|large-scale)/i.test(item.chunk.text)) {
+      score += 0.15;
+    }
+    
+    // Boost for technical skills match
+    const techSkillMatches = jdAnalysis.technicalSkills.filter(skill => 
+      text.includes(skill.toLowerCase())
+    ).length;
+    score += techSkillMatches * 0.1;
+    
+    // PENALIZE generic job description language
+    if (/(responsible for|duties include|job summary|position overview)/i.test(text)) {
+      score -= 0.3;
+    }
+    
+    // Penalize very short or very generic evidence
+    if (item.chunk.text.length < 100 || 
+        /(manage|lead|work|responsible)/i.test(text) && !/\d/.test(text)) {
+      score -= 0.2;
+    }
+    
+    return Math.min(score, 1.2); // Allow scores above 1.0 for exceptional content
+  }
+
+  /**
+   * Create smart coverage report from keyword analysis (replaces literal string matching)
+   */
+  createSmartCoverage(jobKeywords, resumeText) {
+    const resumeLower = resumeText.toLowerCase();
+    const allKeywords = [
+      ...jobKeywords.technical.map(k => ({ keyword: k, category: 'Technical' })),
+      ...jobKeywords.soft.map(k => ({ keyword: k, category: 'Soft Skill' }))
+    ];
+
+    console.log(`📊 [ADVANCED] Creating smart coverage for ${allKeywords.length} keywords`);
+
+    return allKeywords.map(({ keyword, category }) => {
+      const present = resumeLower.includes(keyword.toLowerCase());
+      const evidenceCount = present ? 1 : 0; // Could be enhanced to count multiple mentions
+      
+      return {
+        requirement: `${category}: ${keyword}`,
+        covered: present,
+        evidenceCount,
+        category
+      };
+    });
+  }
+
+  /**
+   * Calculate requirement coverage (legacy - kept for compatibility)
    */
   calculateCoverage(requirements, resumeText) {
     const resumeLower = resumeText.toLowerCase();
@@ -387,9 +846,9 @@ Generate a comprehensive resume targeting the job requirements using the provide
   }
 
   /**
-   * Extract keywords from requirements for compatibility
+   * Extract keywords from requirements for compatibility (deprecated - now using extractKeywords from job description)
    */
-  extractKeywords(requirements) {
+  extractKeywordsFromRequirements(requirements) {
     const technical = new Set();
     const soft = new Set();
 
@@ -437,9 +896,32 @@ Generate a comprehensive resume targeting the job requirements using the provide
   }
 
   /**
-   * Calculate match score from coverage report
+   * Calculate match score using smart keyword matching (copied from regular system)
    */
-  calculateMatchScore(coverageReport) {
+  calculateMatchScore(jobKeywords, resumeHTML) {
+    const allJobKeywords = [
+      ...jobKeywords.technical,
+      ...jobKeywords.soft,
+      ...jobKeywords.other
+    ];
+
+    if (allJobKeywords.length === 0) return 0;
+
+    const resumeText = resumeHTML.toLowerCase();
+    const matchedKeywords = allJobKeywords.filter(keyword => 
+      resumeText.includes(keyword.toLowerCase())
+    );
+
+    console.log(`🎯 [ADVANCED] Keyword match: ${matchedKeywords.length}/${allJobKeywords.length}`);
+    console.log(`🎯 [ADVANCED] Matched keywords:`, matchedKeywords);
+
+    return Math.round((matchedKeywords.length / allJobKeywords.length) * 100);
+  }
+
+  /**
+   * Calculate match score from coverage report (legacy method for compatibility)
+   */
+  calculateMatchScoreFromCoverage(coverageReport) {
     if (coverageReport.length === 0) return 0;
     
     const coveredCount = coverageReport.filter(item => item.present).length;

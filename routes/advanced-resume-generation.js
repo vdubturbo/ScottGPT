@@ -118,21 +118,42 @@ router.post('/resume', authenticateToken, advancedResumeLimiter, async (req, res
       });
     }
 
+    // Additional validation: Ensure resume content exists and is valid
+    if (!result.resumeHTML || typeof result.resumeHTML !== 'string' || result.resumeHTML.trim().length < 100) {
+      console.error(`❌ [ADVANCED] Invalid resume content received from service:`, {
+        hasResumeHTML: !!result.resumeHTML,
+        resumeType: typeof result.resumeHTML,
+        resumeLength: result.resumeHTML?.length || 0
+      });
+      return res.status(500).json({
+        error: 'Advanced resume generation failed',
+        message: 'Invalid or insufficient resume content generated',
+        advancedPipeline: true
+      });
+    }
+
     // Return enhanced response with coverage data
     if (preview || outputFormat === 'json') {
       const responseData = {
         success: true,
         data: {
-          resumeHTML: result.resume,
+          resumeHTML: result.resumeHTML, // Fixed: Now correctly expects resumeHTML from service
           matchScore: result.matchScore,
           extractedKeywords: result.extractedKeywords,
           sourceData: {
             ...result.sourceData,
-            coverageReport: result.sourceData?.coverageReport?.map(item => ({
-              requirement: item.mustHave,
-              covered: item.present,
-              evidenceCount: item.evidenceIds?.length || 0
-            })) || []
+            coverageReport: result.sourceData?.coverageReport?.map(item => {
+              // Handle new smart coverage format (already correct)
+              if (item.requirement && typeof item.covered === 'boolean') {
+                return item; // Already in correct format
+              }
+              // Handle old format (legacy)
+              return {
+                requirement: item.mustHave,
+                covered: item.present,
+                evidenceCount: item.evidenceIds?.length || 0
+              };
+            }) || []
           },
           isPreview: preview,
           advancedPipeline: true,
@@ -153,16 +174,24 @@ router.post('/resume', authenticateToken, advancedResumeLimiter, async (req, res
         requirementCount: responseData.data.sourceData.coverageReport?.length || 0
       });
       
+      // Debug: Log first few coverage items to verify format
+      console.log(`🔍 [ADVANCED] First 3 coverage items:`, JSON.stringify(responseData.data.sourceData.coverageReport?.slice(0, 3), null, 2));
+      
+      // Add cache-busting headers
+      res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
+      res.setHeader('Pragma', 'no-cache');
+      res.setHeader('Expires', '0');
+      
       res.json(responseData);
     } else if (outputFormat === 'html') {
       res.setHeader('Content-Type', 'text/html; charset=utf-8');
-      res.send(result.resume);
+      res.send(result.resumeHTML); // Fixed: Use resumeHTML field
     } else {
       res.json({
         success: true,
         message: `${outputFormat.toUpperCase()} generation not yet implemented`,
         data: {
-          resumeHTML: result.resume,
+          resumeHTML: result.resumeHTML, // Fixed: Use resumeHTML field consistently
           matchScore: result.matchScore,
           sourceData: result.sourceData,
           advancedPipeline: true
