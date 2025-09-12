@@ -9,7 +9,6 @@ import CompactUploadProcessor from './CompactUploadProcessor';
 import WorkHistoryManager from './WorkHistoryManager';
 import DocumentsModal from './DocumentsModal';
 import ResumeGenerator from './ResumeGenerator';
-import AdvancedResumeGenerator from './AdvancedResumeGenerator';
 
 const Dashboard = () => {
   const { user, logout, isAdmin } = useAuth();
@@ -120,12 +119,6 @@ const Dashboard = () => {
         >
           📄 Generate Resumes
         </button>
-        <button 
-          className={`nav-item ${activeTab === 'advanced-resumes' ? 'active' : ''}`}
-          onClick={() => setActiveTab('advanced-resumes')}
-        >
-          🚀 Advanced Resumes
-        </button>
       </nav>
 
       {/* Content */}
@@ -217,19 +210,6 @@ const Dashboard = () => {
                 </button>
               </div>
               
-              <div className="action-section">
-                <button 
-                  className="primary-action-button advanced-resume-action"
-                  onClick={() => setActiveTab('advanced-resumes')}
-                >
-                  <div className="action-icon">🚀</div>
-                  <div className="action-content">
-                    <h3>Advanced Resume Generation</h3>
-                    <p>Next-gen JD pipeline with coverage tracking and hybrid search</p>
-                  </div>
-                  <div className="action-arrow">→</div>
-                </button>
-              </div>
             </div>
 
             {/* Quick Links */}
@@ -304,11 +284,6 @@ const Dashboard = () => {
           </div>
         )}
 
-        {activeTab === 'advanced-resumes' && (
-          <div className="advanced-resumes-tab">
-            <AdvancedResumeGenerator />
-          </div>
-        )}
       </main>
 
       {/* Documents Modal */}

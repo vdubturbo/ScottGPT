@@ -20,6 +20,7 @@ const ResumeGenerator = () => {
   const [resumeMetadata, setResumeMetadata] = useState(null);
   const [localError, setLocalError] = useState('');
   const [isValidating, setIsValidating] = useState(false);
+  const [currentPhase, setCurrentPhase] = useState('input'); // 'input' or 'editor'
 
   const handleJobDescriptionChange = useCallback((e) => {
     const value = e.target.value;
@@ -100,6 +101,7 @@ const ResumeGenerator = () => {
           keywordMatches: extractedKeywords,
           suggestions: response.suggestions || response.data?.suggestions || response.resume?.suggestions || []
         });
+        setCurrentPhase('editor'); // Transition to editor phase
       } else {
         console.error('❌ [FRONTEND DEBUG] Invalid response format detected');
         console.error('❌ [FRONTEND DEBUG] Full response:', JSON.stringify(response, null, 2));
@@ -118,6 +120,7 @@ const ResumeGenerator = () => {
     setJobKeywords(null);
     setResumeMetadata(null);
     setError('');
+    setCurrentPhase('input'); // Return to input phase
   }, []);
 
   const handleRegenerate = useCallback(async () => {
@@ -140,148 +143,151 @@ const ResumeGenerator = () => {
 
   return (
     <div className="resume-generator">
-      <div className="generator-header">
-        <h1>Generate ATS-Optimized Resume</h1>
-        <p>Paste a job description and we'll generate a tailored resume optimized for Applicant Tracking Systems.</p>
-      </div>
-      
-      <div className="generator-layout">
-        {/* Left Pane - Job Description Input */}
-        <div className="input-pane">
-          <div className="pane-header">
-            <h2>Job Description</h2>
-            <span className="character-count">
-              {jobDescription.length}/10,000 characters
-              {jobDescription.length < 50 && (
-                <span className="min-requirement">
-                  (minimum 50 required)
-                </span>
-              )}
-            </span>
+      {currentPhase === 'input' ? (
+        <motion.div
+          key="input-phase"
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          exit={{ opacity: 0, x: -50 }}
+          transition={{ duration: 0.4 }}
+          className="input-phase"
+        >
+          {/* Header */}
+          <div className="phase-header">
+            <h1>🎯 Generate ATS-Optimized Resume</h1>
+            <p>Paste a job description below and we'll create a tailored resume optimized for Applicant Tracking Systems.</p>
           </div>
-          
-          <form onSubmit={handleJobDescriptionSubmit} className="job-form">
-            <div className="textarea-container">
-              <textarea
-                id="job-description"
-                value={jobDescription}
-                onChange={handleJobDescriptionChange}
-                placeholder="Paste the job description here...
 
-Include job title, responsibilities, requirements, and qualifications for best results."
-                className={`job-textarea ${displayError ? 'error' : ''}`}
-                disabled={isGenerating}
-                aria-describedby={displayError ? 'jd-error' : 'jd-help'}
-              />
-              
-              <button
-                type="button"
-                onClick={handlePasteFromClipboard}
-                className="paste-button"
-                disabled={isGenerating}
-                title="Paste from clipboard"
-              >
-                📋 Paste
-              </button>
-            </div>
-
-            {displayError && (
-              <div className="form-error" id="jd-error" role="alert">
-                {displayError}
+          {/* Main Input Form */}
+          <form onSubmit={handleJobDescriptionSubmit} className="input-form">
+            <div className="input-container">
+              <div className="input-header">
+                <label htmlFor="job-description" className="input-label">
+                  Job Description
+                </label>
+                <div className="input-meta">
+                  <span className="character-count">
+                    {jobDescription.length}/10,000
+                  </span>
+                  {jobDescription.length < 50 && (
+                    <span className="min-requirement">
+                      minimum 50 characters
+                    </span>
+                  )}
+                </div>
               </div>
-            )}
 
-            <div className="form-actions">
-              {hasGeneratedResume && (
+              <div className="textarea-wrapper">
+                <textarea
+                  id="job-description"
+                  value={jobDescription}
+                  onChange={handleJobDescriptionChange}
+                  placeholder="Paste the complete job description here...
+
+Include:
+• Job title and company
+• Key responsibilities 
+• Required skills and qualifications
+• Experience requirements
+
+The more detailed the job posting, the better your resume match!"
+                  className={`job-textarea ${displayError ? 'error' : ''}`}
+                  disabled={isGenerating}
+                  rows="18"
+                />
+                
                 <button
                   type="button"
-                  className="btn btn-secondary"
-                  onClick={handleClearResume}
+                  onClick={handlePasteFromClipboard}
+                  className="paste-btn"
                   disabled={isGenerating}
+                  title="Paste from clipboard"
                 >
-                  Clear Resume
+                  📋 Paste
                 </button>
+              </div>
+
+              {displayError && (
+                <div className="input-error" role="alert">
+                  {displayError}
+                </div>
               )}
-              
+            </div>
+
+            <div className="action-area">
               <button
                 type="submit"
-                className="btn btn-primary"
+                className="generate-btn"
                 disabled={!isContentValid || isGenerating || isValidating}
               >
                 {isGenerating ? (
                   <>
-                    <span className="spinner-small" aria-hidden="true"></span>
-                    Generating...
+                    <span className="spinner" />
+                    Generating Resume...
                   </>
                 ) : isValidating ? (
-                  'Validating...'
-                ) : hasGeneratedResume ? (
-                  'Regenerate Resume'
+                  <>
+                    <span className="spinner" />
+                    Validating...
+                  </>
                 ) : (
-                  'Generate Resume'
+                  <>
+                    <span className="btn-icon">🚀</span>
+                    Generate Resume
+                  </>
                 )}
               </button>
-            </div>
-          </form>
-
-          <div className="input-tips">
-            <h4>💡 Tips for best results:</h4>
-            <ul>
-              <li>Include the complete job posting with requirements</li>
-              <li>Ensure technical skills and tools are clearly mentioned</li>
-              <li>Include both hard and soft skills from the description</li>
-              <li>More detailed descriptions produce better matches</li>
-            </ul>
-          </div>
-        </div>
-
-        {/* Right Pane - Resume Output */}
-        <div className="output-pane">
-          {!hasGeneratedResume ? (
-            <div className="empty-state">
-              <div className="empty-content">
-                <h3>Your generated resume will appear here</h3>
-                <p>Paste a job description on the left and click "Generate Resume" to get started.</p>
-                <div className="empty-features">
-                  <div className="feature">
-                    <span className="feature-icon">🎯</span>
-                    <span>ATS-optimized formatting</span>
-                  </div>
-                  <div className="feature">
-                    <span className="feature-icon">📊</span>
-                    <span>Keyword matching score</span>
-                  </div>
-                  <div className="feature">
-                    <span className="feature-icon">✏️</span>
-                    <span>Full editing capabilities</span>
-                  </div>
-                  <div className="feature">
-                    <span className="feature-icon">📄</span>
-                    <span>Multiple export formats</span>
-                  </div>
-                </div>
+              
+              <div className="tips-compact">
+                <span className="tip-icon">💡</span>
+                <span>Include complete job posting with skills and requirements for best results</span>
               </div>
             </div>
-          ) : (
-            <motion.div
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              transition={{ duration: 0.3 }}
-              className="editor-container"
+          </form>
+        </motion.div>
+      ) : (
+        <motion.div
+          key="editor-phase"
+          initial={{ opacity: 0, x: 50 }}
+          animate={{ opacity: 1, x: 0 }}
+          transition={{ duration: 0.4 }}
+          className="editor-phase"
+        >
+          {/* Back Button */}
+          <div className="editor-header">
+            <button
+              onClick={handleClearResume}
+              className="back-btn"
+              disabled={isGenerating}
             >
-              <ResumeEditor
-                content={generatedResume}
-                jobKeywords={jobKeywords}
-                jobDescription={jobDescription}
-                metadata={resumeMetadata}
-                onBack={handleClearResume}
-                onRegenerate={handleRegenerate}
-                isRegenerating={isGenerating}
-              />
-            </motion.div>
-          )}
-        </div>
-      </div>
+              ← Back to Job Description
+            </button>
+            <div className="editor-meta">
+              {resumeMetadata?.matchScore && (
+                <div className="match-score">
+                  <span className="score-icon">📊</span>
+                  <span className="score-text">
+                    Match: {Math.round(resumeMetadata.matchScore * 100)}%
+                  </span>
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* Resume Editor */}
+          <div className="editor-container">
+            <ResumeEditor
+              content={generatedResume}
+              jobKeywords={jobKeywords}
+              jobDescription={jobDescription}
+              metadata={resumeMetadata}
+              onBack={handleClearResume}
+              onRegenerate={handleRegenerate}
+              isRegenerating={isGenerating}
+            />
+          </div>
+        </motion.div>
+      )}
     </div>
   );
 };
