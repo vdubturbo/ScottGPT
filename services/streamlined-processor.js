@@ -238,6 +238,7 @@ INSTRUCTIONS:
 4. Each entry MUST include YAML metadata followed by detailed descriptive content
 5. Do NOT add information not present in the source content
 6. Do NOT fabricate or assume details not explicitly stated
+7. ORGANIZATION EXTRACTION IS CRITICAL: Always extract the company/organization name. Look for patterns like "at [Company]", "[Title] at [Company]", or company indicators like Corp, Inc, LLC, etc.
 
 REQUIRED FORMAT FOR EACH POSITION:
 
@@ -306,6 +307,13 @@ summary: "Software Engineer working with React and Node.js to build features as 
 pii_allow: false
 ---
 
+IMPORTANT: The 'org' field is REQUIRED. If you see phrases like:
+- "Intern at Microsoft" → org: "Microsoft"
+- "Developer at Google Inc" → org: "Google Inc"
+- "Analyst at JP Morgan Chase" → org: "JP Morgan Chase"
+- "Engineer at Amazon Web Services" → org: "Amazon Web Services"
+Always extract the full organization name exactly as written.
+
 # Position Details for Software Engineer at TechCorp
 
 ## Role Overview
@@ -364,7 +372,7 @@ CRITICAL RULES:
       }
       
       console.log(`📥 [DEBUG] Received ${extractedContent.length} characters from OpenAI`);
-      console.log(`📥 [DEBUG] Response preview (first 500 chars): ${extractedContent.substring(0, 500)}...`);
+      console.log(`📥 [DEBUG] Full OpenAI response:\n${extractedContent}`);
       
       if (extractedContent.length < 100) {
         console.warn(`⚠️ [DEBUG] Unusually short response from OpenAI: "${extractedContent}"`);
@@ -468,9 +476,11 @@ CRITICAL RULES:
         }
         
         console.log(`🧩 [DEBUG] Entry ${i} - YAML: ${yamlContent.length} chars, Descriptive: ${descriptiveContent.length} chars`);
+        console.log(`🧩 [DEBUG] Raw YAML content: "${yamlContent}"`);
         
         if (!yamlContent) {
           console.log(`🧩 [DEBUG] Skipping entry ${i}: no YAML content found`);
+          console.log(`🧩 [DEBUG] Full entry content: "${entry}"`);
           continue;
         }
         
@@ -641,31 +651,71 @@ CRITICAL RULES:
    * Create individual job records for each extracted job in sources table
    */
   async createJobRecords(chunksWithEmbeddings, filename, documentId = null, userId) {
-    console.log(`📋 Creating individual job records from ${chunksWithEmbeddings.length} extracted jobs...`);
+    console.log(`📋 Creating individual job records from ${chunksWithEmbeddings.length} atomic chunks...`);
+    
+    // Group chunks by unique job (using title + org + dates as key)
+    const jobGroups = new Map();
+    
+    for (const chunk of chunksWithEmbeddings) {
+      // Use chunk properties directly (atomic chunks store original job data)
+      const jobData = {
+        title: chunk.title,
+        org: chunk.organization,
+        location: chunk.location,
+        date_start: chunk.start_date,
+        date_end: chunk.end_date,
+        skills: chunk.skills || []
+      };
+      
+      // Add fallback organization extraction if still missing
+      if (!jobData.org || jobData.org === 'Unknown Organization') {
+        const extractedOrg = this.extractOrganizationFromContent(chunk.content);
+        if (extractedOrg) {
+          jobData.org = extractedOrg;
+          console.log(`🏢 [FALLBACK] Extracted org from content: "${extractedOrg}"`);
+        }
+      }
+      
+      // Create unique key for job grouping (prevent duplicates)
+      const jobKey = `${jobData.title}|${jobData.org}|${jobData.date_start}|${jobData.date_end}`;
+      
+      if (!jobGroups.has(jobKey)) {
+        jobGroups.set(jobKey, {
+          jobData,
+          chunks: [chunk]
+        });
+      } else {
+        // Merge skills from multiple chunks of same job
+        const existing = jobGroups.get(jobKey);
+        existing.jobData.skills = [...new Set([...existing.jobData.skills, ...jobData.skills])];
+        existing.chunks.push(chunk);
+      }
+      
+      // Log extraction results for debugging
+      console.log(`🔍 [DEBUG] Job data for chunk: title="${jobData.title}", org="${jobData.org}"`);
+      if (!jobData.org) {
+        console.warn(`⚠️ [WARNING] No organization found for position: "${jobData.title || 'Unknown'}"`);
+        console.warn(`📄 [DEBUG] Chunk content preview: ${chunk.content.substring(0, 150)}...`);
+      }
+    }
+    
+    console.log(`📊 [DEBUG] Grouped ${chunksWithEmbeddings.length} chunks into ${jobGroups.size} unique jobs`);
     
     const jobRecords = [];
     
-    for (const chunk of chunksWithEmbeddings) {
-      // Extract job details from YAML content
-      let jobData = {};
-      try {
-        const yamlMatch = chunk.content.match(/---\n([\s\S]*?)\n---/);
-        if (yamlMatch) {
-          jobData = yaml.load(yamlMatch[1]) || {};
-        }
-      } catch (error) {
-        console.warn('⚠️ Failed to parse job YAML, using chunk metadata');
-      }
+    // Create one job record per unique job
+    for (const [jobKey, group] of jobGroups) {
+      const { jobData, chunks } = group;
       
       const jobRecord = {
         id: crypto.randomUUID(),
-        title: jobData.title || chunk.title || 'Untitled Position',
+        title: jobData.title || 'Untitled Position',
         org: jobData.org || 'Unknown Organization',
         location: jobData.location || null,
         type: 'job', // Always job for extracted positions
-        date_start: this.parseDate(jobData.date_start || chunk.date_start),
-        date_end: this.parseDate(jobData.date_end || chunk.date_end),
-        skills: chunk.skills || [],
+        date_start: this.parseDate(jobData.date_start),
+        date_end: this.parseDate(jobData.date_end),
+        skills: jobData.skills,
         user_id: userId
         // Note: Removed fields that don't exist in sources table: description, industry_tags, outcomes, source_file
       };
@@ -681,10 +731,14 @@ CRITICAL RULES:
         throw error;
       }
 
-      console.log(`✅ Created job record: ${data.title} at ${jobRecord.org}`);
-      jobRecords.push({
-        ...data,
-        chunkIndex: chunksWithEmbeddings.indexOf(chunk)
+      console.log(`✅ Created job record: ${data.title} at ${jobRecord.org} (${chunks.length} chunks)`);
+      
+      // Map this job record to all its chunks
+      chunks.forEach(chunk => {
+        jobRecords.push({
+          ...data,
+          chunkIndex: chunksWithEmbeddings.indexOf(chunk)
+        });
       });
     }
     
@@ -767,6 +821,63 @@ CRITICAL RULES:
     } catch (error) {
       return null;
     }
+  }
+
+  /**
+   * Extract organization from content using pattern matching as fallback
+   */
+  extractOrganizationFromContent(content) {
+    if (!content) return null;
+    
+    // Pattern 1: "at [Organization]" - common in job descriptions
+    const atPattern = /\bat\s+([A-Z][A-Za-z\s&,.-]+?)(?:\s+\(|\s*$|\.|\s*,|\s+in\s|\s+from\s|\s+working|\s+I\s)/;
+    const atMatch = content.match(atPattern);
+    if (atMatch && atMatch[1].length > 2 && atMatch[1].length < 50) {
+      return atMatch[1].trim();
+    }
+    
+    // Pattern 2: Look for company indicators
+    const companyIndicators = ['Corp', 'Corporation', 'Inc', 'LLC', 'Ltd', 'Company', 'Technologies', 'Systems', 'Solutions', 'Group'];
+    for (const indicator of companyIndicators) {
+      const pattern = new RegExp(`([A-Z][A-Za-z\\s&,-]+?\\s${indicator})`, 'g');
+      const matches = content.match(pattern);
+      if (matches) {
+        for (const match of matches) {
+          if (match.length > 5 && match.length < 40) {
+            return match.trim();
+          }
+        }
+      }
+    }
+    
+    // Pattern 3: Title case words after common job patterns
+    const jobPatterns = [
+      /(?:Software Engineer|Developer|Manager|Director|Analyst|Consultant|Intern)\s+at\s+([A-Z][A-Za-z\s&,-]{2,30})/,
+      /(?:worked|employed|position)\s+at\s+([A-Z][A-Za-z\s&,-]{2,30})/i
+    ];
+    
+    for (const pattern of jobPatterns) {
+      const match = content.match(pattern);
+      if (match && match[1]) {
+        const org = match[1].trim().replace(/[.,]$/, '');
+        if (org.length > 2 && org.length < 40) {
+          return org;
+        }
+      }
+    }
+    
+    // Pattern 4: Look in descriptive sections for organization mentions
+    const lines = content.split('\n');
+    for (const line of lines) {
+      if (line.includes('Position Details for') || line.includes('Role Overview')) {
+        const orgMatch = line.match(/at\s+([A-Z][A-Za-z\s&,-]+)/);
+        if (orgMatch && orgMatch[1].length > 2 && orgMatch[1].length < 40) {
+          return orgMatch[1].trim();
+        }
+      }
+    }
+    
+    return null;
   }
 
   /**
