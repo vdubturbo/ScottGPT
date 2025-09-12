@@ -31,235 +31,161 @@ const LandingPage = () => {
   return (
     <div className={`landing-page ${isVisible ? 'fade-in' : ''}`}>
       {/* Navigation Header */}
-      <nav className="landing-nav">
+      <nav className="industrial-nav">
         <div className="nav-container">
           <div className="nav-logo">
-            <img src="/Logo3.png" alt="SplitOut.ai" className="nav-logo-img" />
+            <div className="logo-mark">[ ]</div>
           </div>
-          <div className="nav-links">
-            <button onClick={() => scrollToSection('features')} className="nav-link">Features</button>
-            <button onClick={() => scrollToSection('how-it-works')} className="nav-link">How It Works</button>
-            <button onClick={() => openAuthModal('register')} className="btn btn-primary nav-cta">Get Started</button>
+          <div className="nav-actions">
+            <button onClick={() => openAuthModal('login')} className="nav-link">
+              Sign In
+            </button>
           </div>
         </div>
       </nav>
 
       {/* Hero Section */}
-      <section className="hero-section">
+      <section className="hero">
         <div className="hero-container">
-          <div className="hero-content">
-            <div className="hero-logo">
-              <img src="/Logo3.png" alt="SplitOut.ai" className="hero-logo-img" />
-            </div>
-            <h1 className="hero-title">
-              Transform Your Career Documents Into An 
-              <span className="gradient-text"> AI-Powered Professional Profile</span>
-            </h1>
-            <p className="hero-subtitle">
-              Upload all your scattered professional documents. Our AI creates a unified knowledge base 
-              that recruiters can explore through natural conversations, generating tailored resumes that beat ATS systems.
-            </p>
-            <div className="hero-actions">
-              <button onClick={() => openAuthModal('register')} className="btn btn-primary btn-large">
-                Start Building Your AI Profile
-              </button>
-              <button onClick={() => scrollToSection('how-it-works')} className="btn btn-outline btn-large">
-                See How It Works
-              </button>
-            </div>
+          <h1 className="hero-headline">
+            Resumes that write themselves — from what you've actually done.
+          </h1>
+          <p className="hero-subline">
+            Upload your real work — performance reviews, project notes, even stories — and let the system build resumes or answers tailored to any job description.
+          </p>
+          <div className="hero-actions">
+            <button 
+              onClick={() => openAuthModal('register')} 
+              className="btn-primary"
+            >
+              Upload Your Work
+            </button>
+            <button 
+              onClick={() => scrollToSection('how-it-works')} 
+              className="btn-secondary"
+            >
+              See How It Works
+            </button>
           </div>
         </div>
       </section>
 
-      {/* Value Propositions */}
-      <section className="value-props-section">
-        <div className="container">
-          <h2 className="section-title">Why SplitOut.ai Changes Everything</h2>
-          <div className="value-props-grid">
-            <div className="value-prop">
-              <div className="value-prop-icon">📁</div>
-              <h3>No More Scattered Documents</h3>
-              <p>Upload resumes, performance reviews, project summaries, portfolios - everything in one intelligent system</p>
-            </div>
-            <div className="value-prop">
-              <div className="value-prop-icon">🤖</div>
-              <h3>Profile-less Conversations</h3>
-              <p>Skip static profiles. Share a URL where recruiters ask questions and get intelligent, contextual answers</p>
-            </div>
-            <div className="value-prop">
-              <div className="value-prop-icon">🎯</div>
-              <h3>ATS-Optimized Resumes</h3>
-              <p>Generate perfectly tailored resumes for specific jobs that pass AI screening and impress human reviewers</p>
-            </div>
-            <div className="value-prop">
-              <div className="value-prop-icon">⚡</div>
-              <h3>Always Current</h3>
-              <p>Add new experiences anytime. Your AI profile instantly incorporates and leverages all your latest achievements</p>
-            </div>
-          </div>
+      {/* Section 1: What We Do */}
+      <section className="what-we-do">
+        <div className="section-container">
+          <h2 className="section-title">
+            Not who you know. What you know.
+          </h2>
+          <p className="section-body">
+            Other platforms revolve around profiles, headshots, and connections. This one doesn't. Instead, it ingests the substance of your work — reports, reviews, accomplishments — and turns them into targeted resumes or answers. You don't have to fit into a template. You just bring the work you've done.
+          </p>
         </div>
       </section>
 
-      {/* How It Works */}
-      <section id="how-it-works" className="how-it-works-section">
-        <div className="container">
-          <h2 className="section-title">Simple 3-Step Process</h2>
-          <div className="steps-container">
-            <div className="step">
-              <div className="step-number">1</div>
+      {/* Section 2: How It Works */}
+      <section id="how-it-works" className="how-it-works">
+        <div className="section-container">
+          <div className="process-grid">
+            <div className="process-step">
+              <div className="step-icon">
+                <svg viewBox="0 0 24 24" className="step-svg">
+                  <rect x="3" y="3" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="2"/>
+                  <path d="M9 9h6v6H9z" fill="currentColor"/>
+                </svg>
+              </div>
               <div className="step-content">
-                <h3>Upload Everything</h3>
-                <p>Drop in all your professional documents - resumes, reviews, project files, portfolios. Any format works.</p>
+                <h3 className="step-label">Upload Anything</h3>
+                <p className="step-desc">Resumes, portfolios, reviews, or even dictated notes.</p>
               </div>
             </div>
-            <div className="step-connector"></div>
-            <div className="step">
-              <div className="step-number">2</div>
+
+            <div className="process-step">
+              <div className="step-icon">
+                <svg viewBox="0 0 24 24" className="step-svg">
+                  <rect x="3" y="3" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="2"/>
+                  <path d="M12 3v18m-9-9h18" stroke="currentColor" strokeWidth="1"/>
+                </svg>
+              </div>
               <div className="step-content">
-                <h3>AI Creates Your Knowledge Base</h3>
-                <p>Our AI processes and understands your entire career story, creating an intelligent, searchable profile.</p>
+                <h3 className="step-label">Target a Job</h3>
+                <p className="step-desc">Drop in a job description.</p>
               </div>
             </div>
-            <div className="step-connector"></div>
-            <div className="step">
-              <div className="step-number">3</div>
+
+            <div className="process-step">
+              <div className="step-icon">
+                <svg viewBox="0 0 24 24" className="step-svg">
+                  <rect x="3" y="3" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="2"/>
+                  <path d="M7 12l3 3 7-7" stroke="currentColor" strokeWidth="2" fill="none"/>
+                </svg>
+              </div>
               <div className="step-content">
-                <h3>Share & Generate</h3>
-                <p>Share your unique URL with recruiters or instantly generate tailored resumes for specific opportunities.</p>
+                <h3 className="step-label">Get Results</h3>
+                <p className="step-desc">Receive a curated resume or answer pack, built from your own evidence.</p>
               </div>
             </div>
           </div>
         </div>
       </section>
 
-      {/* Features Showcase */}
-      <section id="features" className="features-section">
-        <div className="container">
-          <h2 className="section-title">Powerful Features That Get You Noticed</h2>
-          <div className="features-grid">
-            <div className="feature-card">
-              <div className="feature-icon">💬</div>
-              <h3>Conversational Interface</h3>
-              <p>Recruiters ask natural questions, AI answers with your real experience and achievements</p>
+      {/* Section 3: Why It's Different */}
+      <section className="why-different">
+        <div className="section-container">
+          <div className="differences-list">
+            <div className="difference-item">
+              <div className="diff-marker">—</div>
+              <div className="diff-text">No profiles. No likes. No headshots.</div>
             </div>
-            <div className="feature-card">
-              <div className="feature-icon">📊</div>
-              <h3>Smart Resume Generation</h3>
-              <p>AI creates targeted resumes that match job requirements and optimize for ATS scanning</p>
+            <div className="difference-item">
+              <div className="diff-marker">—</div>
+              <div className="diff-text">Built for accuracy and substance, not connections.</div>
             </div>
-            <div className="feature-card">
-              <div className="feature-icon">🔗</div>
-              <h3>Shareable Profile URLs</h3>
-              <p>One link showcases your entire career intelligently - perfect for networking and applications</p>
+            <div className="difference-item">
+              <div className="diff-marker">—</div>
+              <div className="diff-text">Every line is backed by what you've uploaded.</div>
             </div>
-            <div className="feature-card">
-              <div className="feature-icon">🔄</div>
-              <h3>Dynamic Updates</h3>
-              <p>Add new experiences, skills, or projects - your AI profile immediately incorporates them</p>
-            </div>
-            <div className="feature-card">
-              <div className="feature-icon">🎯</div>
-              <h3>Context-Aware Responses</h3>
-              <p>AI understands the full context of your career progression and presents relevant information</p>
-            </div>
-            <div className="feature-card">
-              <div className="feature-icon">🏆</div>
-              <h3>Competitive Advantage</h3>
-              <p>Stand out with AI-powered storytelling that highlights your unique value proposition</p>
-            </div>
-          </div>
-        </div>
-      </section>
-
-      {/* Social Proof */}
-      <section className="social-proof-section">
-        <div className="container">
-          <h2 className="section-title">Join The Future of Professional Networking</h2>
-          <div className="social-stats">
-            <div className="stat">
-              <div className="stat-number">10x</div>
-              <div className="stat-label">More Recruiter Engagement</div>
-            </div>
-            <div className="stat">
-              <div className="stat-number">95%</div>
-              <div className="stat-label">ATS Pass Rate</div>
-            </div>
-            <div className="stat">
-              <div className="stat-number">3min</div>
-              <div className="stat-label">Average Setup Time</div>
-            </div>
-          </div>
-          <div className="testimonials">
-            <div className="testimonial">
-              <div className="testimonial-content">
-                "Finally, a way to showcase my full career story without losing recruiters in a boring PDF. The AI conversations are incredible."
-              </div>
-              <div className="testimonial-author">— Sarah Chen, Software Engineer</div>
-            </div>
-            <div className="testimonial">
-              <div className="testimonial-content">
-                "I've never seen anything like this. Candidates share their SplitOut.ai link and I can explore their experience naturally."
-              </div>
-              <div className="testimonial-author">— Marcus Williams, Tech Recruiter</div>
+            <div className="difference-item">
+              <div className="diff-marker">—</div>
+              <div className="diff-text">Designed to keep you in control — your data, your story.</div>
             </div>
           </div>
         </div>
       </section>
 
       {/* Final CTA */}
-      <section className="final-cta-section">
-        <div className="container">
-          <div className="cta-content">
-            <h2>Ready to Transform Your Career Presence?</h2>
-            <p>Join thousands of professionals who've ditched static resumes for AI-powered career storytelling.</p>
-            <div className="cta-actions">
-              <button onClick={() => openAuthModal('register')} className="btn btn-primary btn-large">
-                Create Your AI Profile Now
-              </button>
-              <button onClick={() => openAuthModal('login')} className="btn btn-secondary btn-large">
-                Already have an account? Sign in
-              </button>
-            </div>
-            <p className="cta-note">Free to start • No credit card required • Setup in under 3 minutes</p>
-          </div>
+      <section className="final-cta">
+        <div className="cta-container">
+          <h2 className="cta-headline">
+            You've already done the work. Let it work for you.
+          </h2>
+          <button 
+            onClick={() => openAuthModal('register')} 
+            className="btn-primary"
+          >
+            Start Now
+          </button>
         </div>
       </section>
 
       {/* Footer */}
-      <footer className="landing-footer">
-        <div className="container">
-          <div className="footer-content">
-            <div className="footer-brand">
-              <img src="/Logo3.png" alt="SplitOut.ai" className="footer-logo" />
-              <p>AI-powered career intelligence that gets you noticed.</p>
-            </div>
-            <div className="footer-links">
-              <div className="footer-section">
-                <h4>Product</h4>
-                <button onClick={() => openAuthModal('register')} className="footer-link">Get Started</button>
-                <button onClick={() => scrollToSection('features')} className="footer-link">Features</button>
-                <button onClick={() => scrollToSection('how-it-works')} className="footer-link">How It Works</button>
-              </div>
-              <div className="footer-section">
-                <h4>Company</h4>
-                <button className="footer-link">About</button>
-                <button className="footer-link">Contact</button>
-                <button className="footer-link">Privacy</button>
-              </div>
-            </div>
-          </div>
-          <div className="footer-bottom">
-            <p>&copy; 2025 SplitOut.ai. All rights reserved.</p>
+      <footer className="industrial-footer">
+        <div className="footer-container">
+          <div className="footer-links">
+            <a href="/privacy" className="footer-link">Privacy Policy</a>
+            <a href="/terms" className="footer-link">Terms of Service</a>
+            <a href="/contact" className="footer-link">Contact</a>
           </div>
         </div>
       </footer>
 
       {/* Auth Modal */}
-      <AuthModal 
-        isOpen={authModalOpen} 
-        onClose={closeAuthModal}
-        initialTab={authModalTab}
-      />
+      {authModalOpen && (
+        <AuthModal 
+          isOpen={authModalOpen}
+          onClose={closeAuthModal}
+          initialTab={authModalTab}
+        />
+      )}
     </div>
   );
 };
