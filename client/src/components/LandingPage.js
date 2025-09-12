@@ -1,17 +1,63 @@
 import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import AuthModal from './AuthModal';
-import './LandingPage.css';
 
-// Critical inline styles to ensure basic styling loads
-const criticalStyles = {
+// Complete inline styles - no external CSS
+const styles = {
   landingPage: {
     fontFamily: "'Inter', -apple-system, BlinkMacSystemFont, sans-serif",
     color: '#1a1a1a',
     background: '#fafafa',
     minHeight: '100vh',
     margin: 0,
-    padding: 0
+    padding: 0,
+    opacity: 0,
+    transition: 'opacity 0.8s ease-out'
+  },
+  landingPageVisible: {
+    fontFamily: "'Inter', -apple-system, BlinkMacSystemFont, sans-serif",
+    color: '#1a1a1a',
+    background: '#fafafa',
+    minHeight: '100vh',
+    margin: 0,
+    padding: 0,
+    opacity: 1,
+    transition: 'opacity 0.8s ease-out'
+  },
+  nav: {
+    position: 'fixed',
+    top: 0,
+    left: 0,
+    right: 0,
+    zIndex: 100,
+    background: 'rgba(255, 255, 255, 0.95)',
+    backdropFilter: 'blur(12px)',
+    borderBottom: '1px solid #e5e5e5'
+  },
+  navContainer: {
+    maxWidth: '1200px',
+    margin: '0 auto',
+    padding: '1rem 1.5rem',
+    display: 'flex',
+    justifyContent: 'space-between',
+    alignItems: 'center'
+  },
+  logoMark: {
+    fontFamily: "'Courier New', monospace",
+    fontSize: '1.25rem',
+    fontWeight: '700',
+    color: '#1a1a1a',
+    letterSpacing: '0.1em'
+  },
+  navLink: {
+    background: 'none',
+    border: 'none',
+    color: '#666666',
+    fontSize: '0.875rem',
+    fontWeight: '500',
+    cursor: 'pointer',
+    padding: '0.5rem 1rem',
+    transition: 'color 0.2s ease'
   },
   hero: {
     padding: '8rem 1.5rem 6rem',
@@ -48,7 +94,8 @@ const criticalStyles = {
     display: 'flex',
     gap: '1rem',
     justifyContent: 'center',
-    alignItems: 'center'
+    alignItems: 'center',
+    flexWrap: 'wrap'
   },
   btnPrimary: {
     background: '#2563eb',
@@ -61,7 +108,8 @@ const criticalStyles = {
     letterSpacing: '0.025em',
     textTransform: 'uppercase',
     fontFamily: 'inherit',
-    borderRadius: '0'
+    borderRadius: '0',
+    transition: 'all 0.2s ease'
   },
   btnSecondary: {
     background: 'none',
@@ -74,7 +122,8 @@ const criticalStyles = {
     letterSpacing: '0.025em',
     textTransform: 'uppercase',
     fontFamily: 'inherit',
-    borderRadius: '0'
+    borderRadius: '0',
+    transition: 'all 0.2s ease'
   },
   section: {
     padding: '6rem 1.5rem',
@@ -90,7 +139,8 @@ const criticalStyles = {
     fontWeight: '700',
     color: '#1a1a1a',
     marginBottom: '2rem',
-    lineHeight: '1.2'
+    lineHeight: '1.2',
+    letterSpacing: '-0.01em'
   },
   sectionBody: {
     fontSize: '1.125rem',
@@ -98,6 +148,95 @@ const criticalStyles = {
     lineHeight: '1.6',
     maxWidth: '700px',
     margin: '0 auto'
+  },
+  processGrid: {
+    display: 'grid',
+    gridTemplateColumns: 'repeat(3, 1fr)',
+    gap: '3rem',
+    marginTop: '4rem'
+  },
+  processStep: {
+    textAlign: 'center'
+  },
+  stepIcon: {
+    width: '80px',
+    height: '80px',
+    margin: '0 auto 1.5rem',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    border: '2px solid #e5e5e5',
+    background: '#ffffff'
+  },
+  stepSvg: {
+    width: '32px',
+    height: '32px',
+    color: '#1a1a1a'
+  },
+  stepLabel: {
+    fontSize: '1.25rem',
+    fontWeight: '600',
+    color: '#1a1a1a',
+    marginBottom: '0.5rem',
+    letterSpacing: '0.025em',
+    textTransform: 'uppercase'
+  },
+  stepDesc: {
+    fontSize: '1rem',
+    color: '#666666',
+    lineHeight: '1.5'
+  },
+  differencesList: {
+    maxWidth: '600px',
+    margin: '0 auto',
+    textAlign: 'left'
+  },
+  differenceItem: {
+    display: 'flex',
+    alignItems: 'flex-start',
+    gap: '1rem',
+    marginBottom: '1.5rem'
+  },
+  diffMarker: {
+    fontSize: '1.5rem',
+    fontWeight: '300',
+    color: '#1a1a1a',
+    lineHeight: '1',
+    flexShrink: 0,
+    marginTop: '0.25rem'
+  },
+  diffText: {
+    fontSize: '1.125rem',
+    color: '#666666',
+    lineHeight: '1.5'
+  },
+  finalCta: {
+    padding: '6rem 1.5rem',
+    background: '#f5f5f5',
+    borderTop: '1px solid #e5e5e5'
+  },
+  footer: {
+    background: '#ffffff',
+    borderTop: '1px solid #e5e5e5',
+    padding: '2rem 1.5rem'
+  },
+  footerContainer: {
+    maxWidth: '1200px',
+    margin: '0 auto',
+    textAlign: 'center'
+  },
+  footerLinks: {
+    display: 'flex',
+    gap: '2rem',
+    justifyContent: 'center'
+  },
+  footerLink: {
+    color: '#999999',
+    textDecoration: 'none',
+    fontSize: '0.875rem',
+    fontWeight: '500',
+    textTransform: 'uppercase',
+    letterSpacing: '0.05em'
   }
 };
 
@@ -127,15 +266,15 @@ const LandingPage = () => {
   };
 
   return (
-    <div className={`landing-page ${isVisible ? 'fade-in' : ''}`} style={criticalStyles.landingPage}>
+    <div style={isVisible ? styles.landingPageVisible : styles.landingPage}>
       {/* Navigation Header */}
-      <nav className="industrial-nav">
-        <div className="nav-container">
-          <div className="nav-logo">
-            <div className="logo-mark">[ ]</div>
+      <nav style={styles.nav}>
+        <div style={styles.navContainer}>
+          <div>
+            <div style={styles.logoMark}>[ ]</div>
           </div>
-          <div className="nav-actions">
-            <button onClick={() => openAuthModal('login')} className="nav-link">
+          <div>
+            <button onClick={() => openAuthModal('login')} style={styles.navLink}>
               Sign In
             </button>
           </div>
@@ -143,26 +282,24 @@ const LandingPage = () => {
       </nav>
 
       {/* Hero Section */}
-      <section className="hero" style={criticalStyles.hero}>
-        <div className="hero-container" style={criticalStyles.heroContainer}>
-          <h1 className="hero-headline" style={criticalStyles.heroHeadline}>
+      <section style={styles.hero}>
+        <div style={styles.heroContainer}>
+          <h1 style={styles.heroHeadline}>
             Resumes that write themselves — from what you've actually done.
           </h1>
-          <p className="hero-subline" style={criticalStyles.heroSubline}>
+          <p style={styles.heroSubline}>
             Upload your real work — performance reviews, project notes, even stories — and let the system build resumes or answers tailored to any job description.
           </p>
-          <div className="hero-actions" style={criticalStyles.heroActions}>
+          <div style={styles.heroActions}>
             <button 
               onClick={() => openAuthModal('register')} 
-              className="btn-primary"
-              style={criticalStyles.btnPrimary}
+              style={styles.btnPrimary}
             >
               Upload Your Work
             </button>
             <button 
               onClick={() => scrollToSection('how-it-works')} 
-              className="btn-secondary"
-              style={criticalStyles.btnSecondary}
+              style={styles.btnSecondary}
             >
               See How It Works
             </button>
@@ -171,57 +308,57 @@ const LandingPage = () => {
       </section>
 
       {/* Section 1: What We Do */}
-      <section className="what-we-do" style={criticalStyles.section}>
-        <div className="section-container" style={criticalStyles.sectionContainer}>
-          <h2 className="section-title" style={criticalStyles.sectionTitle}>
+      <section style={styles.section}>
+        <div style={styles.sectionContainer}>
+          <h2 style={styles.sectionTitle}>
             Not who you know. What you know.
           </h2>
-          <p className="section-body" style={criticalStyles.sectionBody}>
+          <p style={styles.sectionBody}>
             Other platforms revolve around profiles, headshots, and connections. This one doesn't. Instead, it ingests the substance of your work — reports, reviews, accomplishments — and turns them into targeted resumes or answers. You don't have to fit into a template. You just bring the work you've done.
           </p>
         </div>
       </section>
 
       {/* Section 2: How It Works */}
-      <section id="how-it-works" className="how-it-works">
-        <div className="section-container">
-          <div className="process-grid">
-            <div className="process-step">
-              <div className="step-icon">
-                <svg viewBox="0 0 24 24" className="step-svg">
+      <section id="how-it-works" style={styles.section}>
+        <div style={styles.sectionContainer}>
+          <div style={styles.processGrid}>
+            <div style={styles.processStep}>
+              <div style={styles.stepIcon}>
+                <svg viewBox="0 0 24 24" style={styles.stepSvg}>
                   <rect x="3" y="3" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="2"/>
                   <path d="M9 9h6v6H9z" fill="currentColor"/>
                 </svg>
               </div>
-              <div className="step-content">
-                <h3 className="step-label">Upload Anything</h3>
-                <p className="step-desc">Resumes, portfolios, reviews, or even dictated notes.</p>
+              <div>
+                <h3 style={styles.stepLabel}>Upload Anything</h3>
+                <p style={styles.stepDesc}>Resumes, portfolios, reviews, or even dictated notes.</p>
               </div>
             </div>
 
-            <div className="process-step">
-              <div className="step-icon">
-                <svg viewBox="0 0 24 24" className="step-svg">
+            <div style={styles.processStep}>
+              <div style={styles.stepIcon}>
+                <svg viewBox="0 0 24 24" style={styles.stepSvg}>
                   <rect x="3" y="3" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="2"/>
                   <path d="M12 3v18m-9-9h18" stroke="currentColor" strokeWidth="1"/>
                 </svg>
               </div>
-              <div className="step-content">
-                <h3 className="step-label">Target a Job</h3>
-                <p className="step-desc">Drop in a job description.</p>
+              <div>
+                <h3 style={styles.stepLabel}>Target a Job</h3>
+                <p style={styles.stepDesc}>Drop in a job description.</p>
               </div>
             </div>
 
-            <div className="process-step">
-              <div className="step-icon">
-                <svg viewBox="0 0 24 24" className="step-svg">
+            <div style={styles.processStep}>
+              <div style={styles.stepIcon}>
+                <svg viewBox="0 0 24 24" style={styles.stepSvg}>
                   <rect x="3" y="3" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="2"/>
                   <path d="M7 12l3 3 7-7" stroke="currentColor" strokeWidth="2" fill="none"/>
                 </svg>
               </div>
-              <div className="step-content">
-                <h3 className="step-label">Get Results</h3>
-                <p className="step-desc">Receive a curated resume or answer pack, built from your own evidence.</p>
+              <div>
+                <h3 style={styles.stepLabel}>Get Results</h3>
+                <p style={styles.stepDesc}>Receive a curated resume or answer pack, built from your own evidence.</p>
               </div>
             </div>
           </div>
@@ -229,39 +366,38 @@ const LandingPage = () => {
       </section>
 
       {/* Section 3: Why It's Different */}
-      <section className="why-different">
-        <div className="section-container">
-          <div className="differences-list">
-            <div className="difference-item">
-              <div className="diff-marker">—</div>
-              <div className="diff-text">No profiles. No likes. No headshots.</div>
+      <section style={styles.section}>
+        <div style={styles.sectionContainer}>
+          <div style={styles.differencesList}>
+            <div style={styles.differenceItem}>
+              <div style={styles.diffMarker}>—</div>
+              <div style={styles.diffText}>No profiles. No likes. No headshots.</div>
             </div>
-            <div className="difference-item">
-              <div className="diff-marker">—</div>
-              <div className="diff-text">Built for accuracy and substance, not connections.</div>
+            <div style={styles.differenceItem}>
+              <div style={styles.diffMarker}>—</div>
+              <div style={styles.diffText}>Built for accuracy and substance, not connections.</div>
             </div>
-            <div className="difference-item">
-              <div className="diff-marker">—</div>
-              <div className="diff-text">Every line is backed by what you've uploaded.</div>
+            <div style={styles.differenceItem}>
+              <div style={styles.diffMarker}>—</div>
+              <div style={styles.diffText}>Every line is backed by what you've uploaded.</div>
             </div>
-            <div className="difference-item">
-              <div className="diff-marker">—</div>
-              <div className="diff-text">Designed to keep you in control — your data, your story.</div>
+            <div style={styles.differenceItem}>
+              <div style={styles.diffMarker}>—</div>
+              <div style={styles.diffText}>Designed to keep you in control — your data, your story.</div>
             </div>
           </div>
         </div>
       </section>
 
       {/* Final CTA */}
-      <section className="final-cta" style={{...criticalStyles.section, background: '#f5f5f5'}}>
-        <div className="cta-container" style={criticalStyles.sectionContainer}>
-          <h2 className="cta-headline" style={criticalStyles.sectionTitle}>
+      <section style={styles.finalCta}>
+        <div style={styles.sectionContainer}>
+          <h2 style={styles.sectionTitle}>
             You've already done the work. Let it work for you.
           </h2>
           <button 
             onClick={() => openAuthModal('register')} 
-            className="btn-primary"
-            style={criticalStyles.btnPrimary}
+            style={styles.btnPrimary}
           >
             Start Now
           </button>
@@ -269,12 +405,12 @@ const LandingPage = () => {
       </section>
 
       {/* Footer */}
-      <footer className="industrial-footer">
-        <div className="footer-container">
-          <div className="footer-links">
-            <a href="/privacy" className="footer-link">Privacy Policy</a>
-            <a href="/terms" className="footer-link">Terms of Service</a>
-            <a href="/contact" className="footer-link">Contact</a>
+      <footer style={styles.footer}>
+        <div style={styles.footerContainer}>
+          <div style={styles.footerLinks}>
+            <a href="/privacy" style={styles.footerLink}>Privacy Policy</a>
+            <a href="/terms" style={styles.footerLink}>Terms of Service</a>
+            <a href="/contact" style={styles.footerLink}>Contact</a>
           </div>
         </div>
       </footer>
