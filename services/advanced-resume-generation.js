@@ -1090,7 +1090,7 @@ Convert this narrative into a structured, ATS-optimized resume in HTML format. F
       console.log(`✅ [NARRATIVE→RESUME] Generated resume: ${resumeHTML.length} characters`);
 
       // Extract keywords from the generated resume for match scoring
-      const jobKeywords = await this.extractKeywords(jobDescription);
+      const jobKeywords = extractKeywords(jobDescription);
       const matchScore = this.calculateMatchScore(jobKeywords, resumeHTML);
       
       // Create smart coverage report
