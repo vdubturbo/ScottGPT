@@ -176,16 +176,16 @@ router.post('/profile/:slug', optionalAuth, checkProfileAccess, trackProfileView
       errorMessage = 'I\'m currently experiencing high demand. Please try again in a moment.';
       statusCode = 429;
     } else if (handledError.name === 'APIError' && handledError.statusCode === 401) {
-      errorMessage = 'There\'s a configuration issue on my end. Please contact support.';
+      errorMessage = 'There\'s a configuration issue. Please contact support.';
       statusCode = 503;
     } else if (handledError.name === 'NetworkError') {
-      errorMessage = 'I\'m having trouble accessing external services right now. Please try again shortly.';
+      errorMessage = 'The system is having trouble accessing external services right now. Please try again shortly.';
       statusCode = 503;
     } else if (handledError.name === 'DatabaseError') {
       errorMessage = 'I\'m having trouble accessing the knowledge base right now. Please try again shortly.';
       statusCode = 503;
     } else if (handledError.name === 'ProcessingError') {
-      errorMessage = 'I had trouble processing your question. Please try rephrasing it.';
+      errorMessage = 'The system had trouble processing your question. Please try rephrasing it.';
       statusCode = 422;
     }
 
@@ -299,16 +299,16 @@ router.post('/', requireAuth, async (req, res) => {
       errorMessage = 'I\'m currently experiencing high demand. Please try again in a moment.';
       statusCode = 429;
     } else if (handledError.name === 'APIError' && handledError.statusCode === 401) {
-      errorMessage = 'There\'s a configuration issue on my end. Please contact support.';
+      errorMessage = 'There\'s a configuration issue. Please contact support.';
       statusCode = 503;
     } else if (handledError.name === 'NetworkError') {
-      errorMessage = 'I\'m having trouble accessing external services right now. Please try again shortly.';
+      errorMessage = 'The system is having trouble accessing external services right now. Please try again shortly.';
       statusCode = 503;
     } else if (handledError.name === 'DatabaseError') {
-      errorMessage = 'I\'m having trouble accessing my knowledge base right now. Please try again shortly.';
+      errorMessage = 'The system is having trouble accessing the knowledge base right now. Please try again shortly.';
       statusCode = 503;
     } else if (handledError.name === 'ProcessingError') {
-      errorMessage = 'I had trouble processing your question. Please try rephrasing it.';
+      errorMessage = 'The system had trouble processing your question. Please try rephrasing it.';
       statusCode = 422;
     }
 

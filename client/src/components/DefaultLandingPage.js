@@ -80,7 +80,7 @@ const DefaultLandingPage = () => {
           </div>
           
           <div className="bio">
-            <p>Interactive AI-powered resume. Ask me anything about my professional experience, technical skills, and career background.</p>
+            <p>Interactive AI-powered resume. Ask anything about my professional experience, technical skills, and career background.</p>
           </div>
         </div>
 
@@ -197,7 +197,7 @@ const DefaultLandingPage = () => {
               type="text"
               value={message}
               onChange={(e) => setMessage(e.target.value)}
-              placeholder="Ask about Scott's experience, skills, projects, or career background..."
+              placeholder="Ask about experience, skills, projects, or career background..."
               className="chat-input"
               disabled={chatLoading}
             />

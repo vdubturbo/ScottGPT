@@ -189,6 +189,14 @@ export const useUserDataAPI = () => {
     });
   }, [apiCall]);
 
+  const generateAdvancedResume = useCallback((options = {}) => {
+    console.log(`🚀 [ADVANCED API HOOK DEBUG] Calling generateAdvancedResume with options:`, options);
+    return apiCall(() => {
+      console.log(`🌐 [ADVANCED API HOOK DEBUG] Making POST request to: ${API_BASE}/advanced-generate/resume`);
+      return axios.post(`${API_BASE}/advanced-generate/resume`, options);
+    });
+  }, [apiCall]);
+
   // Advanced Analysis API calls
   const getCompanyIntelligence = useCallback(() => {
     return apiCall(() => axios.get(`${API_BASE}/company-intelligence`));
@@ -315,6 +323,7 @@ export const useUserDataAPI = () => {
     validateResumeOptions,
     previewResume,
     generateResume,
+    generateAdvancedResume,
     
     // Advanced Analysis
     getCompanyIntelligence,

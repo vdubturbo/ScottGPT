@@ -81,6 +81,7 @@ async function startServer() {
   const advancedUserDataRoutes = await import('./routes/advanced-user-data.js');
   const dataExportRoutes = await import('./routes/data-export.js');
   const resumeGenerationRoutes = await import('./routes/resume-generation.js');
+  const advancedResumeGenerationRoutes = await import('./routes/advanced-resume-generation.js');
   const resumeExportRoutes = await import('./routes/resume-export.js');
   
   // Multi-tenant SaaS routes
@@ -100,6 +101,7 @@ async function startServer() {
   app.use('/api/user/export', dataLimit, authenticateToken, requireAuth, dataExportRoutes.default);
   app.use('/api/user/export', dataLimit, authenticateToken, requireAuth, resumeExportRoutes.default);
   app.use('/api/user/generate', dataLimit, authenticateToken, requireAuth, resumeGenerationRoutes.default);
+  app.use('/api/user/advanced-generate', dataLimit, authenticateToken, requireAuth, advancedResumeGenerationRoutes.default);
   
   // Multi-tenant SaaS routes
   app.use('/api/auth', authRoutes.default);

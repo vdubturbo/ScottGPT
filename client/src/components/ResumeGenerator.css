@@ -395,3 +395,85 @@
     flex-direction: column;
   }
 }
+
+/* Advanced Resume Generator Specific Styles */
+.advanced-resume-generator {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+}
+
+.advanced-resume-generator .generator-header {
+  background: rgba(255, 255, 255, 0.1);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.2);
+  backdrop-filter: blur(10px);
+}
+
+.advanced-resume-generator .generator-header h1 {
+  color: white;
+}
+
+.advanced-resume-generator .generator-header p {
+  color: rgba(255, 255, 255, 0.8);
+}
+
+.advanced-features-badge {
+  display: flex;
+  gap: 0.5rem;
+  justify-content: center;
+  flex-wrap: wrap;
+  margin-top: 1rem;
+}
+
+.feature-badge {
+  background: rgba(255, 255, 255, 0.2);
+  color: white;
+  padding: 0.25rem 0.75rem;
+  border-radius: 20px;
+  font-size: 0.75rem;
+  font-weight: 500;
+  backdrop-filter: blur(10px);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.advanced-resume-generator .input-pane {
+  background: rgba(255, 255, 255, 0.95);
+  color: #1e293b;
+}
+
+.advanced-resume-generator .output-pane {
+  background: rgba(255, 255, 255, 0.95);
+  color: #1e293b;
+}
+
+.btn-advanced {
+  background: linear-gradient(45deg, #667eea, #764ba2);
+  color: white;
+  border: none;
+  box-shadow: 0 4px 15px rgba(102, 126, 234, 0.3);
+}
+
+.btn-advanced:hover:not(:disabled) {
+  background: linear-gradient(45deg, #5a67d8, #68d391);
+  transform: translateY(-1px);
+  box-shadow: 0 6px 20px rgba(102, 126, 234, 0.4);
+}
+
+.advanced-resume-generator .min-requirement {
+  color: #dc2626;
+  font-weight: 500;
+}
+
+.advanced-resume-generator .job-textarea {
+  border: 2px solid #e2e8f0;
+  transition: border-color 0.2s ease;
+}
+
+.advanced-resume-generator .job-textarea:focus {
+  border-color: #667eea;
+  box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+}
+
+.advanced-resume-generator .input-tips h4 {
+  color: #4f46e5;
+  font-weight: 600;
+}

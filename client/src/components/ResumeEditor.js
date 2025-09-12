@@ -16,8 +16,10 @@ const ResumeEditor = ({
   content, 
   jobKeywords, 
   jobDescription,
+  metadata = null,
   onBack, 
-  onRegenerate 
+  onRegenerate,
+  isAdvanced = false
 }) => {
   const [matchScore, setMatchScore] = useState(0);
   const [atsIssues, setATSIssues] = useState([]);

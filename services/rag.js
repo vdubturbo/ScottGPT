@@ -106,12 +106,16 @@ ${contextText}`
   /**
    * Build detailed system prompt - restored from original
    */
-  buildSystemPrompt(query, contextResult) {
+  buildSystemPrompt(query, contextResult, userFilter = null) {
     const hasQuantitativeResults = contextResult.chunks.some(chunk =>
       chunk.content && /\d+[%$]/.test(chunk.content)
     );
 
-    let prompt = `You are ScottGPT, an AI assistant that answers questions about Scott Lovett's professional experience and background. You have access to Scott's verified work history, projects, skills, and achievements.
+    // Get user context for personalized prompts - simplified for now
+    const userName = 'the professional';
+    const siteName = 'ScottGPT';
+    
+    let prompt = `You are ${siteName}, an AI assistant that answers questions about ${userName}'s professional experience and background. You have access to ${userName}'s verified work history, projects, skills, and achievements.
 
 CRITICAL INSTRUCTIONS:
 • Answer questions primarily using the information provided in the context below
@@ -120,8 +124,8 @@ CRITICAL INSTRUCTIONS:
 • When context contains detailed role descriptions, achievements, and specific information, include those details
 • Provide comprehensive, detailed responses that match the richness of the context provided
 • Include specific examples, projects, metrics, outcomes, and achievements when they appear in the context
-• Be conversational and engaging, as if you're Scott speaking about his experience
-• Use first person ("I worked on..." not "Scott worked on...")
+• Be conversational and engaging, as if you're the professional speaking about their experience
+• Use first person ("I worked on..." not "${userName} worked on...")
 • Cite sources naturally like "During my time at [Company]" or "In the [Project] project"
 • Extract and present concrete details: locations, timeframes, specific projects, technologies, and measurable results
 • Focus on what IS in the context and make meaningful connections between related information
@@ -307,6 +311,28 @@ Overall, my PMO experience demonstrates [summary of key strengths]."`; // Fixed 
       programKeywords.some(keyword => allContent.includes(keyword));
     
     return analysis;
+  }
+
+  /**
+   * Get user's display name for personalized prompts
+   */
+  async getUserName(userId) {
+    try {
+      const { supabase } = await import('../config/database.js');
+      const { data: profile } = await supabase
+        .from('user_profiles')
+        .select('display_name, full_name')
+        .eq('id', userId)
+        .single();
+      
+      if (profile) {
+        return profile.display_name || profile.full_name || 'the professional';
+      }
+      return 'the professional';
+    } catch (error) {
+      console.warn('Failed to get user name:', error);
+      return 'the professional';
+    }
   }
 }
 

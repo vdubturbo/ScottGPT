@@ -5,6 +5,11 @@
     "logs/**",
     ".work/**",
     "incoming/**",
-    "processed/**"
-  ]
+    "processed/**",
+    "services/jd-pipeline/**",
+    "tests/**",
+    "*.ts",
+    "*.test.js"
+  ],
+  "ext": "js,json"
 }
