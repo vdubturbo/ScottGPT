@@ -3,6 +3,104 @@ import { Link } from 'react-router-dom';
 import AuthModal from './AuthModal';
 import './LandingPage.css';
 
+// Critical inline styles to ensure basic styling loads
+const criticalStyles = {
+  landingPage: {
+    fontFamily: "'Inter', -apple-system, BlinkMacSystemFont, sans-serif",
+    color: '#1a1a1a',
+    background: '#fafafa',
+    minHeight: '100vh',
+    margin: 0,
+    padding: 0
+  },
+  hero: {
+    padding: '8rem 1.5rem 6rem',
+    textAlign: 'center',
+    minHeight: '100vh',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    background: 'linear-gradient(180deg, #fafafa 0%, #ffffff 100%)'
+  },
+  heroContainer: {
+    maxWidth: '800px',
+    margin: '0 auto'
+  },
+  heroHeadline: {
+    fontSize: '3rem',
+    fontWeight: '700',
+    lineHeight: '1.1',
+    color: '#1a1a1a',
+    marginBottom: '1.5rem',
+    letterSpacing: '-0.02em'
+  },
+  heroSubline: {
+    fontSize: '1.25rem',
+    fontWeight: '400',
+    color: '#666666',
+    marginBottom: '2rem',
+    maxWidth: '600px',
+    marginLeft: 'auto',
+    marginRight: 'auto',
+    lineHeight: '1.4'
+  },
+  heroActions: {
+    display: 'flex',
+    gap: '1rem',
+    justifyContent: 'center',
+    alignItems: 'center'
+  },
+  btnPrimary: {
+    background: '#2563eb',
+    color: 'white',
+    border: 'none',
+    padding: '1rem 2rem',
+    fontSize: '1rem',
+    fontWeight: '600',
+    cursor: 'pointer',
+    letterSpacing: '0.025em',
+    textTransform: 'uppercase',
+    fontFamily: 'inherit',
+    borderRadius: '0'
+  },
+  btnSecondary: {
+    background: 'none',
+    color: '#1a1a1a',
+    border: '1px solid #e5e5e5',
+    padding: '1rem 2rem',
+    fontSize: '1rem',
+    fontWeight: '600',
+    cursor: 'pointer',
+    letterSpacing: '0.025em',
+    textTransform: 'uppercase',
+    fontFamily: 'inherit',
+    borderRadius: '0'
+  },
+  section: {
+    padding: '6rem 1.5rem',
+    background: '#ffffff'
+  },
+  sectionContainer: {
+    maxWidth: '800px',
+    margin: '0 auto',
+    textAlign: 'center'
+  },
+  sectionTitle: {
+    fontSize: '1.875rem',
+    fontWeight: '700',
+    color: '#1a1a1a',
+    marginBottom: '2rem',
+    lineHeight: '1.2'
+  },
+  sectionBody: {
+    fontSize: '1.125rem',
+    color: '#666666',
+    lineHeight: '1.6',
+    maxWidth: '700px',
+    margin: '0 auto'
+  }
+};
+
 const LandingPage = () => {
   const [isVisible, setIsVisible] = useState(false);
   const [authModalOpen, setAuthModalOpen] = useState(false);
@@ -29,7 +127,7 @@ const LandingPage = () => {
   };
 
   return (
-    <div className={`landing-page ${isVisible ? 'fade-in' : ''}`}>
+    <div className={`landing-page ${isVisible ? 'fade-in' : ''}`} style={criticalStyles.landingPage}>
       {/* Navigation Header */}
       <nav className="industrial-nav">
         <div className="nav-container">
@@ -45,24 +143,26 @@ const LandingPage = () => {
       </nav>
 
       {/* Hero Section */}
-      <section className="hero">
-        <div className="hero-container">
-          <h1 className="hero-headline">
+      <section className="hero" style={criticalStyles.hero}>
+        <div className="hero-container" style={criticalStyles.heroContainer}>
+          <h1 className="hero-headline" style={criticalStyles.heroHeadline}>
             Resumes that write themselves — from what you've actually done.
           </h1>
-          <p className="hero-subline">
+          <p className="hero-subline" style={criticalStyles.heroSubline}>
             Upload your real work — performance reviews, project notes, even stories — and let the system build resumes or answers tailored to any job description.
           </p>
-          <div className="hero-actions">
+          <div className="hero-actions" style={criticalStyles.heroActions}>
             <button 
               onClick={() => openAuthModal('register')} 
               className="btn-primary"
+              style={criticalStyles.btnPrimary}
             >
               Upload Your Work
             </button>
             <button 
               onClick={() => scrollToSection('how-it-works')} 
               className="btn-secondary"
+              style={criticalStyles.btnSecondary}
             >
               See How It Works
             </button>
@@ -71,12 +171,12 @@ const LandingPage = () => {
       </section>
 
       {/* Section 1: What We Do */}
-      <section className="what-we-do">
-        <div className="section-container">
-          <h2 className="section-title">
+      <section className="what-we-do" style={criticalStyles.section}>
+        <div className="section-container" style={criticalStyles.sectionContainer}>
+          <h2 className="section-title" style={criticalStyles.sectionTitle}>
             Not who you know. What you know.
           </h2>
-          <p className="section-body">
+          <p className="section-body" style={criticalStyles.sectionBody}>
             Other platforms revolve around profiles, headshots, and connections. This one doesn't. Instead, it ingests the substance of your work — reports, reviews, accomplishments — and turns them into targeted resumes or answers. You don't have to fit into a template. You just bring the work you've done.
           </p>
         </div>
@@ -153,14 +253,15 @@ const LandingPage = () => {
       </section>
 
       {/* Final CTA */}
-      <section className="final-cta">
-        <div className="cta-container">
-          <h2 className="cta-headline">
+      <section className="final-cta" style={{...criticalStyles.section, background: '#f5f5f5'}}>
+        <div className="cta-container" style={criticalStyles.sectionContainer}>
+          <h2 className="cta-headline" style={criticalStyles.sectionTitle}>
             You've already done the work. Let it work for you.
           </h2>
           <button 
             onClick={() => openAuthModal('register')} 
             className="btn-primary"
+            style={criticalStyles.btnPrimary}
           >
             Start Now
           </button>
