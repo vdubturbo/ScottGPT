@@ -73,6 +73,7 @@
     "node-html-parser": "^7.0.1",
     "openai": "^4.24.1",
     "puppeteer": "^24.20.0",
+    "tiktoken": "^1.0.22",
     "uuid": "^11.1.0",
     "winston": "^3.17.0",
     "zod": "^3.25.76"

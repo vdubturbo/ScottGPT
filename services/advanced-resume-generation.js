@@ -1009,7 +1009,8 @@ RELEVANCE SCORE: ${item.qualityScore.toFixed(2)}`;
       const ragResult = await ragService.answerQuestion(ragQuery, {
         maxChunks: 5, // Further reduced chunks to save tokens
         includeMetadata: true,
-        maxTokens: 1500 // Reduce completion tokens further to fit budget
+        maxTokens: 1500, // Reduce completion tokens further to fit budget
+        userFilter: userId // Pass the user ID for proper content filtering
       });
       
       console.log(`✅ [ADVANCED RAG] Retrieved rich context:`, {

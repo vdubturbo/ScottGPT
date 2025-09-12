@@ -14,12 +14,14 @@ import yaml from 'js-yaml';
 import { DocumentConverter } from './document-converter.js';
 import DatabaseSkillsService from './skills.js';
 import { markFileAsProcessedByName, saveUploadCache, uploadCache } from '../utils/upload-optimizer.js';
+import { AtomicChunker } from './atomic-chunker.js';
 
 export class StreamlinedProcessor {
   constructor() {
     this.openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
     this.embeddingService = new EmbeddingService();
     this.skillsService = new DatabaseSkillsService();
+    this.atomicChunker = new AtomicChunker();
     
     // Initialize document converter with same config as database system
     this.converter = new DocumentConverter({
@@ -103,7 +105,12 @@ export class StreamlinedProcessor {
       this.performanceStats.totalProcessingTime += processingTime;
       
       console.log(`✅ [STREAMLINED] Completed ${filename} in ${processingTime}ms`);
-      console.log(`   📊 ${extractedChunks.length} chunks → ${storageResults.stored} searchable`);
+      console.log(`   📊 ${extractedChunks.length} atomic chunks → ${storageResults.stored} searchable`);
+      
+      // Log chunking metrics
+      const chunkingMetrics = this.atomicChunker.getMetrics();
+      console.log(`   🎯 Chunk metrics: ${chunkingMetrics.withinBudget}/${chunkingMetrics.totalChunks} within budget (${chunkingMetrics.averageTokens} avg tokens)`);
+      console.log(`   📊 Token distribution: ${JSON.stringify(chunkingMetrics.histogram)}`);
       
       // Mark file as processed in cache to prevent reprocessing
       try {
@@ -479,26 +486,26 @@ CRITICAL RULES:
             source: 'extraction'
           });
           
-          // Create enhanced content combining YAML metadata with descriptive content
-          const enhancedContent = this.createEnhancedContent(yamlData, descriptiveContent, yamlContent);
+          // Create atomic chunks using new chunking strategy
+          const atomicChunks = await this.atomicChunker.createAtomicChunks(yamlData, descriptiveContent);
           
-          // Convert YAML data to chunk format with enhanced content
-          const chunk = {
-            content: enhancedContent,
-            title: yamlData.title,
-            summary: yamlData.summary,
-            skills: normalizedSkills,
-            tags: Array.isArray(yamlData.industry_tags) ? yamlData.industry_tags : [],
-            date_start: yamlData.date_start,
-            date_end: yamlData.date_end,
-            extraction_method: 'streamlined-openai-enhanced'
-          };
+          // Add normalized skills to each chunk
+          atomicChunks.forEach(chunk => {
+            chunk.skills = [...new Set([...chunk.skills, ...normalizedSkills])];
+            chunk.tags = Array.isArray(yamlData.industry_tags) ? yamlData.industry_tags : [];
+            chunk.extraction_method = 'streamlined-atomic-v2';
+          });
           
-          console.log(`✅ [DEBUG] Created enhanced chunk: "${chunk.title}" at "${yamlData.org}" (${enhancedContent.length} chars)`);
+          console.log(`✅ [DEBUG] Created ${atomicChunks.length} atomic chunks from "${yamlData.title}" at "${yamlData.org}"`);
           if (extractedSkills.length !== normalizedSkills.length) {
-            console.log(`🔧 [DEBUG] Skills normalized for "${chunk.title}": ${extractedSkills.length} → ${normalizedSkills.length}`);
+            console.log(`🔧 [DEBUG] Skills normalized for "${yamlData.title}": ${extractedSkills.length} → ${normalizedSkills.length}`);
           }
-          chunks.push(chunk);
+          
+          atomicChunks.forEach(chunk => {
+            console.log(`   📊 Chunk: ${chunk.metadata.chunk_type} (${chunk.token_count} tokens): "${chunk.content.slice(0, 60)}..."`);
+          });
+          
+          chunks.push(...atomicChunks);
         } else {
           console.log(`🧩 [DEBUG] Skipping entry ${i}: missing required fields (id: ${yamlData?.id}, title: ${yamlData?.title}, org: ${yamlData?.org})`);
         }
@@ -513,16 +520,13 @@ CRITICAL RULES:
   }
 
   /**
-   * Create enhanced content combining YAML metadata with descriptive content for better embeddings
+   * DEPRECATED: Legacy enhanced content creation - replaced by atomic chunking
+   * Kept for rollback compatibility
    */
-  createEnhancedContent(yamlData, descriptiveContent, yamlContent) {
-    // Start with structured metadata for reference
+  createEnhancedContentLegacy(yamlData, descriptiveContent, yamlContent) {
     let enhancedContent = `---\n${yamlContent}\n---\n\n`;
-    
-    // Add rich title and organization context
     enhancedContent += `# ${yamlData.title} at ${yamlData.org}\n\n`;
     
-    // Add location and dates if available
     if (yamlData.location && yamlData.location !== 'null') {
       enhancedContent += `**Location:** ${yamlData.location}\n`;
     }
@@ -534,22 +538,18 @@ CRITICAL RULES:
     
     enhancedContent += '\n';
     
-    // Add summary for context
     if (yamlData.summary) {
       enhancedContent += `**Summary:** ${yamlData.summary}\n\n`;
     }
     
-    // Add the descriptive content if it exists
     if (descriptiveContent && descriptiveContent.length > 10) {
       enhancedContent += descriptiveContent + '\n\n';
     }
     
-    // Add skills context
     if (Array.isArray(yamlData.skills) && yamlData.skills.length > 0) {
       enhancedContent += `**Key Skills Used:** ${yamlData.skills.join(', ')}\n\n`;
     }
     
-    // Add achievements/outcomes context
     if (Array.isArray(yamlData.outcomes) && yamlData.outcomes.length > 0) {
       enhancedContent += `**Key Achievements:**\n`;
       yamlData.outcomes.forEach(outcome => {
@@ -558,7 +558,6 @@ CRITICAL RULES:
       enhancedContent += '\n';
     }
     
-    // Add industry context
     if (Array.isArray(yamlData.industry_tags) && yamlData.industry_tags.length > 0) {
       enhancedContent += `**Industry Context:** ${yamlData.industry_tags.join(', ')}\n`;
     }
