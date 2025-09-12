@@ -1,253 +1,10 @@
 import React, { useState, useEffect } from 'react';
-import { Link } from 'react-router-dom';
 import AuthModal from './AuthModal';
 
-// Complete inline styles - no external CSS
-const styles = {
-  landingPage: {
-    fontFamily: "'Inter', -apple-system, BlinkMacSystemFont, sans-serif",
-    color: '#1a1a1a',
-    background: '#fafafa',
-    minHeight: '100vh',
-    margin: 0,
-    padding: 0,
-    opacity: 0,
-    transition: 'opacity 0.8s ease-out'
-  },
-  landingPageVisible: {
-    fontFamily: "'Inter', -apple-system, BlinkMacSystemFont, sans-serif",
-    color: '#1a1a1a',
-    background: '#fafafa',
-    minHeight: '100vh',
-    margin: 0,
-    padding: 0,
-    opacity: 1,
-    transition: 'opacity 0.8s ease-out'
-  },
-  nav: {
-    position: 'fixed',
-    top: 0,
-    left: 0,
-    right: 0,
-    zIndex: 100,
-    background: 'rgba(255, 255, 255, 0.95)',
-    backdropFilter: 'blur(12px)',
-    borderBottom: '1px solid #e5e5e5'
-  },
-  navContainer: {
-    maxWidth: '1200px',
-    margin: '0 auto',
-    padding: '1rem 1.5rem',
-    display: 'flex',
-    justifyContent: 'space-between',
-    alignItems: 'center'
-  },
-  logoMark: {
-    fontFamily: "'Courier New', monospace",
-    fontSize: '1.25rem',
-    fontWeight: '700',
-    color: '#1a1a1a',
-    letterSpacing: '0.1em'
-  },
-  navLink: {
-    background: 'none',
-    border: 'none',
-    color: '#666666',
-    fontSize: '0.875rem',
-    fontWeight: '500',
-    cursor: 'pointer',
-    padding: '0.5rem 1rem',
-    transition: 'color 0.2s ease'
-  },
-  hero: {
-    padding: '8rem 1.5rem 6rem',
-    textAlign: 'center',
-    minHeight: '100vh',
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'center',
-    background: 'linear-gradient(180deg, #fafafa 0%, #ffffff 100%)'
-  },
-  heroContainer: {
-    maxWidth: '800px',
-    margin: '0 auto'
-  },
-  heroHeadline: {
-    fontSize: '3rem',
-    fontWeight: '700',
-    lineHeight: '1.1',
-    color: '#1a1a1a',
-    marginBottom: '1.5rem',
-    letterSpacing: '-0.02em'
-  },
-  heroSubline: {
-    fontSize: '1.25rem',
-    fontWeight: '400',
-    color: '#666666',
-    marginBottom: '2rem',
-    maxWidth: '600px',
-    marginLeft: 'auto',
-    marginRight: 'auto',
-    lineHeight: '1.4'
-  },
-  heroActions: {
-    display: 'flex',
-    gap: '1rem',
-    justifyContent: 'center',
-    alignItems: 'center',
-    flexWrap: 'wrap'
-  },
-  btnPrimary: {
-    background: '#2563eb',
-    color: 'white',
-    border: 'none',
-    padding: '1rem 2rem',
-    fontSize: '1rem',
-    fontWeight: '600',
-    cursor: 'pointer',
-    letterSpacing: '0.025em',
-    textTransform: 'uppercase',
-    fontFamily: 'inherit',
-    borderRadius: '0',
-    transition: 'all 0.2s ease'
-  },
-  btnSecondary: {
-    background: 'none',
-    color: '#1a1a1a',
-    border: '1px solid #e5e5e5',
-    padding: '1rem 2rem',
-    fontSize: '1rem',
-    fontWeight: '600',
-    cursor: 'pointer',
-    letterSpacing: '0.025em',
-    textTransform: 'uppercase',
-    fontFamily: 'inherit',
-    borderRadius: '0',
-    transition: 'all 0.2s ease'
-  },
-  section: {
-    padding: '6rem 1.5rem',
-    background: '#ffffff'
-  },
-  sectionContainer: {
-    maxWidth: '800px',
-    margin: '0 auto',
-    textAlign: 'center'
-  },
-  sectionTitle: {
-    fontSize: '1.875rem',
-    fontWeight: '700',
-    color: '#1a1a1a',
-    marginBottom: '2rem',
-    lineHeight: '1.2',
-    letterSpacing: '-0.01em'
-  },
-  sectionBody: {
-    fontSize: '1.125rem',
-    color: '#666666',
-    lineHeight: '1.6',
-    maxWidth: '700px',
-    margin: '0 auto'
-  },
-  processGrid: {
-    display: 'grid',
-    gridTemplateColumns: 'repeat(3, 1fr)',
-    gap: '3rem',
-    marginTop: '4rem'
-  },
-  processStep: {
-    textAlign: 'center'
-  },
-  stepIcon: {
-    width: '80px',
-    height: '80px',
-    margin: '0 auto 1.5rem',
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'center',
-    border: '2px solid #e5e5e5',
-    background: '#ffffff'
-  },
-  stepSvg: {
-    width: '32px',
-    height: '32px',
-    color: '#1a1a1a'
-  },
-  stepLabel: {
-    fontSize: '1.25rem',
-    fontWeight: '600',
-    color: '#1a1a1a',
-    marginBottom: '0.5rem',
-    letterSpacing: '0.025em',
-    textTransform: 'uppercase'
-  },
-  stepDesc: {
-    fontSize: '1rem',
-    color: '#666666',
-    lineHeight: '1.5'
-  },
-  differencesList: {
-    maxWidth: '600px',
-    margin: '0 auto',
-    textAlign: 'left'
-  },
-  differenceItem: {
-    display: 'flex',
-    alignItems: 'flex-start',
-    gap: '1rem',
-    marginBottom: '1.5rem'
-  },
-  diffMarker: {
-    fontSize: '1.5rem',
-    fontWeight: '300',
-    color: '#1a1a1a',
-    lineHeight: '1',
-    flexShrink: 0,
-    marginTop: '0.25rem'
-  },
-  diffText: {
-    fontSize: '1.125rem',
-    color: '#666666',
-    lineHeight: '1.5'
-  },
-  finalCta: {
-    padding: '6rem 1.5rem',
-    background: '#f5f5f5',
-    borderTop: '1px solid #e5e5e5'
-  },
-  footer: {
-    background: '#ffffff',
-    borderTop: '1px solid #e5e5e5',
-    padding: '2rem 1.5rem'
-  },
-  footerContainer: {
-    maxWidth: '1200px',
-    margin: '0 auto',
-    textAlign: 'center'
-  },
-  footerLinks: {
-    display: 'flex',
-    gap: '2rem',
-    justifyContent: 'center'
-  },
-  footerLink: {
-    color: '#999999',
-    textDecoration: 'none',
-    fontSize: '0.875rem',
-    fontWeight: '500',
-    textTransform: 'uppercase',
-    letterSpacing: '0.05em'
-  }
-};
-
 const LandingPage = () => {
-  const [isVisible, setIsVisible] = useState(false);
+  console.log('LandingPage rendering...');
   const [authModalOpen, setAuthModalOpen] = useState(false);
   const [authModalTab, setAuthModalTab] = useState('register');
-
-  useEffect(() => {
-    setIsVisible(true);
-  }, []);
 
   const openAuthModal = (tab = 'register') => {
     setAuthModalTab(tab);
@@ -265,166 +22,557 @@ const LandingPage = () => {
     }
   };
 
-  return (
-    <div style={isVisible ? styles.landingPageVisible : styles.landingPage}>
-      {/* Navigation Header */}
-      <nav style={styles.nav}>
-        <div style={styles.navContainer}>
-          <div>
-            <div style={styles.logoMark}>[ ]</div>
-          </div>
-          <div>
-            <button onClick={() => openAuthModal('login')} style={styles.navLink}>
-              Sign In
-            </button>
-          </div>
-        </div>
-      </nav>
+  // Use the working React.createElement approach with VISIBLE colors
+  return React.createElement('div', {
+    style: {
+      backgroundColor: '#e5e5e5', // Much more visible gray
+      width: '100vw',
+      minHeight: '100vh',
+      position: 'fixed',
+      top: 0,
+      left: 0,
+      zIndex: 9999,
+      overflow: 'auto',
+      fontFamily: "'Inter', -apple-system, BlinkMacSystemFont, sans-serif"
+    }
+  }, [
+    // Navigation
+    React.createElement('nav', {
+      key: 'nav',
+      style: {
+        position: 'fixed',
+        top: 0,
+        left: 0,
+        right: 0,
+        zIndex: 100,
+        backgroundColor: 'rgba(255, 255, 255, 0.95)',
+        borderBottom: '1px solid #e5e5e5',
+        padding: '1rem 2rem'
+      }
+    }, 
+      React.createElement('div', {
+        style: {
+          display: 'flex',
+          justifyContent: 'space-between',
+          alignItems: 'center',
+          maxWidth: '1200px',
+          margin: '0 auto'
+        }
+      }, [
+        React.createElement('div', {
+          key: 'logo',
+          style: {
+            fontFamily: "'Courier New', monospace",
+            fontSize: '1.25rem',
+            fontWeight: '700',
+            color: '#1a1a1a',
+            letterSpacing: '0.1em'
+          }
+        }, '[ ]'),
+        React.createElement('button', {
+          key: 'signin',
+          onClick: () => openAuthModal('login'),
+          style: {
+            backgroundColor: 'transparent',
+            border: 'none',
+            color: '#666666',
+            fontSize: '0.875rem',
+            fontWeight: '500',
+            cursor: 'pointer',
+            padding: '0.5rem 1rem'
+          }
+        }, 'Sign In')
+      ])
+    ),
+    
+    // Hero Section
+    React.createElement('section', {
+      key: 'hero',
+      style: {
+        padding: '8rem 2rem 6rem',
+        textAlign: 'center',
+        minHeight: '100vh',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        background: 'linear-gradient(180deg, #e5e5e5 0%, #f5f5f5 100%)'
+      }
+    },
+      React.createElement('div', {
+        style: {
+          maxWidth: '800px',
+          margin: '0 auto'
+        }
+      }, [
+        React.createElement('h1', {
+          key: 'headline',
+          style: {
+            fontSize: '3rem',
+            fontWeight: '700',
+            lineHeight: '1.1',
+            color: '#1a1a1a',
+            marginBottom: '1.5rem',
+            letterSpacing: '-0.02em'
+          }
+        }, 'Resumes that write themselves - from what you have actually done.'),
+        
+        React.createElement('p', {
+          key: 'subtitle',
+          style: {
+            fontSize: '1.25rem',
+            fontWeight: '400',
+            color: '#666666',
+            marginBottom: '2rem',
+            maxWidth: '600px',
+            marginLeft: 'auto',
+            marginRight: 'auto',
+            lineHeight: '1.4'
+          }
+        }, 'Upload your real work - performance reviews, project notes, even stories - and let the system build resumes or answers tailored to any job description.'),
+        
+        React.createElement('div', {
+          key: 'buttons',
+          style: {
+            display: 'flex',
+            gap: '1rem',
+            justifyContent: 'center',
+            alignItems: 'center',
+            flexWrap: 'wrap'
+          }
+        }, [
+          React.createElement('button', {
+            key: 'upload',
+            onClick: () => openAuthModal('register'),
+            style: {
+              backgroundColor: '#2563eb',
+              color: 'white',
+              border: 'none',
+              padding: '1rem 2rem',
+              fontSize: '1rem',
+              fontWeight: '600',
+              cursor: 'pointer',
+              letterSpacing: '0.025em',
+              textTransform: 'uppercase',
+              fontFamily: 'inherit'
+            }
+          }, 'Upload Your Work'),
+          
+          React.createElement('button', {
+            key: 'learn',
+            onClick: () => scrollToSection('how-it-works'),
+            style: {
+              backgroundColor: 'transparent',
+              color: '#1a1a1a',
+              border: '1px solid #e5e5e5',
+              padding: '1rem 2rem',
+              fontSize: '1rem',
+              fontWeight: '600',
+              cursor: 'pointer',
+              letterSpacing: '0.025em',
+              textTransform: 'uppercase',
+              fontFamily: 'inherit'
+            }
+          }, 'See How It Works')
+        ])
+      ])
+    ),
 
-      {/* Hero Section */}
-      <section style={styles.hero}>
-        <div style={styles.heroContainer}>
-          <h1 style={styles.heroHeadline}>
-            Resumes that write themselves — from what you've actually done.
-          </h1>
-          <p style={styles.heroSubline}>
-            Upload your real work — performance reviews, project notes, even stories — and let the system build resumes or answers tailored to any job description.
-          </p>
-          <div style={styles.heroActions}>
-            <button 
-              onClick={() => openAuthModal('register')} 
-              style={styles.btnPrimary}
-            >
-              Upload Your Work
-            </button>
-            <button 
-              onClick={() => scrollToSection('how-it-works')} 
-              style={styles.btnSecondary}
-            >
-              See How It Works
-            </button>
-          </div>
-        </div>
-      </section>
+    // What We Do Section
+    React.createElement('section', {
+      key: 'what-we-do',
+      style: {
+        padding: '6rem 2rem',
+        backgroundColor: '#ffffff'
+      }
+    },
+      React.createElement('div', {
+        style: {
+          maxWidth: '800px',
+          margin: '0 auto',
+          textAlign: 'center'
+        }
+      }, [
+        React.createElement('h2', {
+          key: 'title',
+          style: {
+            fontSize: '1.875rem',
+            fontWeight: '700',
+            color: '#1a1a1a',
+            marginBottom: '2rem',
+            lineHeight: '1.2'
+          }
+        }, 'Not who you know. What you know.'),
+        
+        React.createElement('p', {
+          key: 'description',
+          style: {
+            fontSize: '1.125rem',
+            color: '#666666',
+            lineHeight: '1.6',
+            maxWidth: '700px',
+            margin: '0 auto'
+          }
+        }, 'Other platforms revolve around profiles, headshots, and connections. This one does not. Instead, it ingests the substance of your work - reports, reviews, accomplishments - and turns them into targeted resumes or answers. You do not have to fit into a template. You just bring the work you have done.')
+      ])
+    ),
 
-      {/* Section 1: What We Do */}
-      <section style={styles.section}>
-        <div style={styles.sectionContainer}>
-          <h2 style={styles.sectionTitle}>
-            Not who you know. What you know.
-          </h2>
-          <p style={styles.sectionBody}>
-            Other platforms revolve around profiles, headshots, and connections. This one doesn't. Instead, it ingests the substance of your work — reports, reviews, accomplishments — and turns them into targeted resumes or answers. You don't have to fit into a template. You just bring the work you've done.
-          </p>
-        </div>
-      </section>
+    // How It Works Section
+    React.createElement('section', {
+      key: 'how-it-works',
+      id: 'how-it-works',
+      style: {
+        padding: '6rem 2rem',
+        backgroundColor: '#ffffff'
+      }
+    },
+      React.createElement('div', {
+        style: {
+          maxWidth: '800px',
+          margin: '0 auto',
+          textAlign: 'center'
+        }
+      }, [
+        React.createElement('div', {
+          key: 'process-grid',
+          style: {
+            display: 'grid',
+            gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))',
+            gap: '3rem',
+            marginTop: '2rem'
+          }
+        }, [
+          // Step 1
+          React.createElement('div', {
+            key: 'step1',
+            style: { textAlign: 'center' }
+          }, [
+            React.createElement('div', {
+              key: 'icon1',
+              style: {
+                width: '80px',
+                height: '80px',
+                margin: '0 auto 1.5rem',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                border: '2px solid #e5e5e5',
+                backgroundColor: '#ffffff'
+              }
+            }, 
+              React.createElement('div', {
+                style: {
+                  width: '32px',
+                  height: '32px',
+                  border: '2px solid #1a1a1a',
+                  backgroundColor: '#1a1a1a'
+                }
+              })
+            ),
+            React.createElement('h3', {
+              key: 'label1',
+              style: {
+                fontSize: '1.25rem',
+                fontWeight: '600',
+                color: '#1a1a1a',
+                marginBottom: '0.5rem',
+                letterSpacing: '0.025em',
+                textTransform: 'uppercase'
+              }
+            }, 'Upload Anything'),
+            React.createElement('p', {
+              key: 'desc1',
+              style: {
+                fontSize: '1rem',
+                color: '#666666',
+                lineHeight: '1.5'
+              }
+            }, 'Resumes, portfolios, reviews, or even dictated notes.')
+          ]),
+          
+          // Step 2
+          React.createElement('div', {
+            key: 'step2',
+            style: { textAlign: 'center' }
+          }, [
+            React.createElement('div', {
+              key: 'icon2',
+              style: {
+                width: '80px',
+                height: '80px',
+                margin: '0 auto 1.5rem',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                border: '2px solid #e5e5e5',
+                backgroundColor: '#ffffff'
+              }
+            }, 
+              React.createElement('div', {
+                style: {
+                  width: '32px',
+                  height: '32px',
+                  border: '2px solid #1a1a1a'
+                }
+              })
+            ),
+            React.createElement('h3', {
+              key: 'label2',
+              style: {
+                fontSize: '1.25rem',
+                fontWeight: '600',
+                color: '#1a1a1a',
+                marginBottom: '0.5rem',
+                letterSpacing: '0.025em',
+                textTransform: 'uppercase'
+              }
+            }, 'Target a Job'),
+            React.createElement('p', {
+              key: 'desc2',
+              style: {
+                fontSize: '1rem',
+                color: '#666666',
+                lineHeight: '1.5'
+              }
+            }, 'Drop in a job description.')
+          ]),
+          
+          // Step 3
+          React.createElement('div', {
+            key: 'step3',
+            style: { textAlign: 'center' }
+          }, [
+            React.createElement('div', {
+              key: 'icon3',
+              style: {
+                width: '80px',
+                height: '80px',
+                margin: '0 auto 1.5rem',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                border: '2px solid #e5e5e5',
+                backgroundColor: '#ffffff'
+              }
+            }, 
+              React.createElement('div', {
+                style: {
+                  width: '20px',
+                  height: '20px',
+                  border: '2px solid #1a1a1a'
+                }
+              })
+            ),
+            React.createElement('h3', {
+              key: 'label3',
+              style: {
+                fontSize: '1.25rem',
+                fontWeight: '600',
+                color: '#1a1a1a',
+                marginBottom: '0.5rem',
+                letterSpacing: '0.025em',
+                textTransform: 'uppercase'
+              }
+            }, 'Get Results'),
+            React.createElement('p', {
+              key: 'desc3',
+              style: {
+                fontSize: '1rem',
+                color: '#666666',
+                lineHeight: '1.5'
+              }
+            }, 'Receive a curated resume or answer pack, built from your own evidence.')
+          ])
+        ])
+      ])
+    ),
 
-      {/* Section 2: How It Works */}
-      <section id="how-it-works" style={styles.section}>
-        <div style={styles.sectionContainer}>
-          <div style={styles.processGrid}>
-            <div style={styles.processStep}>
-              <div style={styles.stepIcon}>
-                <svg viewBox="0 0 24 24" style={styles.stepSvg}>
-                  <rect x="3" y="3" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="2"/>
-                  <path d="M9 9h6v6H9z" fill="currentColor"/>
-                </svg>
-              </div>
-              <div>
-                <h3 style={styles.stepLabel}>Upload Anything</h3>
-                <p style={styles.stepDesc}>Resumes, portfolios, reviews, or even dictated notes.</p>
-              </div>
-            </div>
+    // Why Different Section  
+    React.createElement('section', {
+      key: 'why-different',
+      style: {
+        padding: '6rem 2rem',
+        backgroundColor: '#ffffff'
+      }
+    },
+      React.createElement('div', {
+        style: {
+          maxWidth: '600px',
+          margin: '0 auto',
+          textAlign: 'left'
+        }
+      }, [
+        React.createElement('div', {
+          key: 'diff1',
+          style: { marginBottom: '1.5rem', display: 'flex', gap: '1rem' }
+        }, [
+          React.createElement('span', {
+            key: 'marker1',
+            style: { fontSize: '1.5rem', color: '#1a1a1a', marginTop: '0.25rem' }
+          }, '—'),
+          React.createElement('span', {
+            key: 'text1',
+            style: { fontSize: '1.125rem', color: '#666666', lineHeight: '1.5' }
+          }, 'No profiles. No likes. No headshots.')
+        ]),
+        React.createElement('div', {
+          key: 'diff2',
+          style: { marginBottom: '1.5rem', display: 'flex', gap: '1rem' }
+        }, [
+          React.createElement('span', {
+            key: 'marker2',
+            style: { fontSize: '1.5rem', color: '#1a1a1a', marginTop: '0.25rem' }
+          }, '—'),
+          React.createElement('span', {
+            key: 'text2',
+            style: { fontSize: '1.125rem', color: '#666666', lineHeight: '1.5' }
+          }, 'Built for accuracy and substance, not connections.')
+        ]),
+        React.createElement('div', {
+          key: 'diff3',
+          style: { marginBottom: '1.5rem', display: 'flex', gap: '1rem' }
+        }, [
+          React.createElement('span', {
+            key: 'marker3',
+            style: { fontSize: '1.5rem', color: '#1a1a1a', marginTop: '0.25rem' }
+          }, '—'),
+          React.createElement('span', {
+            key: 'text3',
+            style: { fontSize: '1.125rem', color: '#666666', lineHeight: '1.5' }
+          }, 'Every line is backed by what you have uploaded.')
+        ]),
+        React.createElement('div', {
+          key: 'diff4',
+          style: { marginBottom: '1.5rem', display: 'flex', gap: '1rem' }
+        }, [
+          React.createElement('span', {
+            key: 'marker4',
+            style: { fontSize: '1.5rem', color: '#1a1a1a', marginTop: '0.25rem' }
+          }, '—'),
+          React.createElement('span', {
+            key: 'text4',
+            style: { fontSize: '1.125rem', color: '#666666', lineHeight: '1.5' }
+          }, 'Designed to keep you in control - your data, your story.')
+        ])
+      ])
+    ),
 
-            <div style={styles.processStep}>
-              <div style={styles.stepIcon}>
-                <svg viewBox="0 0 24 24" style={styles.stepSvg}>
-                  <rect x="3" y="3" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="2"/>
-                  <path d="M12 3v18m-9-9h18" stroke="currentColor" strokeWidth="1"/>
-                </svg>
-              </div>
-              <div>
-                <h3 style={styles.stepLabel}>Target a Job</h3>
-                <p style={styles.stepDesc}>Drop in a job description.</p>
-              </div>
-            </div>
+    // Final CTA Section
+    React.createElement('section', {
+      key: 'final-cta',
+      style: {
+        padding: '6rem 2rem',
+        backgroundColor: '#f5f5f5',
+        borderTop: '1px solid #e5e5e5'
+      }
+    },
+      React.createElement('div', {
+        style: {
+          maxWidth: '800px',
+          margin: '0 auto',
+          textAlign: 'center'
+        }
+      }, [
+        React.createElement('h2', {
+          key: 'cta-title',
+          style: {
+            fontSize: '1.875rem',
+            fontWeight: '700',
+            color: '#1a1a1a',
+            marginBottom: '2rem',
+            lineHeight: '1.2'
+          }
+        }, 'You have already done the work. Let it work for you.'),
+        
+        React.createElement('button', {
+          key: 'cta-button',
+          onClick: () => openAuthModal('register'),
+          style: {
+            backgroundColor: '#2563eb',
+            color: 'white',
+            border: 'none',
+            padding: '1rem 2rem',
+            fontSize: '1rem',
+            fontWeight: '600',
+            cursor: 'pointer',
+            letterSpacing: '0.025em',
+            textTransform: 'uppercase',
+            fontFamily: 'inherit'
+          }
+        }, 'Start Now')
+      ])
+    ),
 
-            <div style={styles.processStep}>
-              <div style={styles.stepIcon}>
-                <svg viewBox="0 0 24 24" style={styles.stepSvg}>
-                  <rect x="3" y="3" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="2"/>
-                  <path d="M7 12l3 3 7-7" stroke="currentColor" strokeWidth="2" fill="none"/>
-                </svg>
-              </div>
-              <div>
-                <h3 style={styles.stepLabel}>Get Results</h3>
-                <p style={styles.stepDesc}>Receive a curated resume or answer pack, built from your own evidence.</p>
-              </div>
-            </div>
-          </div>
-        </div>
-      </section>
+    // Footer
+    React.createElement('footer', {
+      key: 'footer',
+      style: {
+        backgroundColor: '#ffffff',
+        borderTop: '1px solid #e5e5e5',
+        padding: '2rem'
+      }
+    },
+      React.createElement('div', {
+        style: {
+          maxWidth: '1200px',
+          margin: '0 auto',
+          textAlign: 'center'
+        }
+      },
+        React.createElement('div', {
+          style: {
+            display: 'flex',
+            gap: '2rem',
+            justifyContent: 'center'
+          }
+        }, [
+          React.createElement('a', {
+            key: 'privacy',
+            href: '/privacy',
+            style: {
+              color: '#999999',
+              textDecoration: 'none',
+              fontSize: '0.875rem',
+              fontWeight: '500',
+              textTransform: 'uppercase',
+              letterSpacing: '0.05em'
+            }
+          }, 'Privacy Policy'),
+          React.createElement('a', {
+            key: 'terms',
+            href: '/terms',
+            style: {
+              color: '#999999',
+              textDecoration: 'none',
+              fontSize: '0.875rem',
+              fontWeight: '500',
+              textTransform: 'uppercase',
+              letterSpacing: '0.05em'
+            }
+          }, 'Terms of Service'),
+          React.createElement('a', {
+            key: 'contact',
+            href: '/contact',
+            style: {
+              color: '#999999',
+              textDecoration: 'none',
+              fontSize: '0.875rem',
+              fontWeight: '500',
+              textTransform: 'uppercase',
+              letterSpacing: '0.05em'
+            }
+          }, 'Contact')
+        ])
+      )
+    ),
 
-      {/* Section 3: Why It's Different */}
-      <section style={styles.section}>
-        <div style={styles.sectionContainer}>
-          <div style={styles.differencesList}>
-            <div style={styles.differenceItem}>
-              <div style={styles.diffMarker}>—</div>
-              <div style={styles.diffText}>No profiles. No likes. No headshots.</div>
-            </div>
-            <div style={styles.differenceItem}>
-              <div style={styles.diffMarker}>—</div>
-              <div style={styles.diffText}>Built for accuracy and substance, not connections.</div>
-            </div>
-            <div style={styles.differenceItem}>
-              <div style={styles.diffMarker}>—</div>
-              <div style={styles.diffText}>Every line is backed by what you've uploaded.</div>
-            </div>
-            <div style={styles.differenceItem}>
-              <div style={styles.diffMarker}>—</div>
-              <div style={styles.diffText}>Designed to keep you in control — your data, your story.</div>
-            </div>
-          </div>
-        </div>
-      </section>
-
-      {/* Final CTA */}
-      <section style={styles.finalCta}>
-        <div style={styles.sectionContainer}>
-          <h2 style={styles.sectionTitle}>
-            You've already done the work. Let it work for you.
-          </h2>
-          <button 
-            onClick={() => openAuthModal('register')} 
-            style={styles.btnPrimary}
-          >
-            Start Now
-          </button>
-        </div>
-      </section>
-
-      {/* Footer */}
-      <footer style={styles.footer}>
-        <div style={styles.footerContainer}>
-          <div style={styles.footerLinks}>
-            <a href="/privacy" style={styles.footerLink}>Privacy Policy</a>
-            <a href="/terms" style={styles.footerLink}>Terms of Service</a>
-            <a href="/contact" style={styles.footerLink}>Contact</a>
-          </div>
-        </div>
-      </footer>
-
-      {/* Auth Modal */}
-      {authModalOpen && (
-        <AuthModal 
-          isOpen={authModalOpen}
-          onClose={closeAuthModal}
-          initialTab={authModalTab}
-        />
-      )}
-    </div>
-  );
+    // Auth Modal
+    authModalOpen ? React.createElement(AuthModal, {
+      key: 'auth-modal',
+      isOpen: authModalOpen,
+      onClose: closeAuthModal,
+      initialTab: authModalTab
+    }) : null
+  ]);
 };
 
 export default LandingPage;

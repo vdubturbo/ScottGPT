@@ -10,6 +10,12 @@ import Dashboard from './components/Dashboard';
 import PublicProfile from './components/PublicProfile';
 import AdminDashboard from './components/AdminDashboard';
 import LandingPage from './components/LandingPage';
+import DiagnosticTest from './components/DiagnosticTest';
+import LandingPageNoModal from './components/LandingPageNoModal';
+import UltraMinimal from './components/UltraMinimal';
+import LandingPageFixed from './components/LandingPageFixed';
+import LandingPageSimple from './components/LandingPageSimple';
+import StepByStep from './components/StepByStep';
 import LoadingSpinner from './components/LoadingSpinner';
 import './App.css';
 
@@ -56,7 +62,7 @@ const AppContent = () => {
   }
 
   return (
-    <div className="app">
+    <div>
       <Routes>
         {/* Public Routes */}
         <Route 
@@ -118,7 +124,7 @@ const AppContent = () => {
         {/* Dynamic Profile Routes (URL slug routing) */}
         <Route path="/:slug" element={<PublicProfile />} />
 
-        {/* Default Route - New Landing Page */}
+        {/* Default Route - Complete Landing Page */}
         <Route 
           path="/" 
           element={<LandingPage />}
