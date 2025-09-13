@@ -3,8 +3,7 @@
 
 .resume-generator {
   min-height: 100vh;
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-  padding: 2rem;
+  padding: 1rem 2rem 2rem;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -22,6 +21,7 @@
   border-radius: 20px;
   box-shadow: 0 20px 40px rgba(0, 0, 0, 0.1);
   overflow: hidden;
+  margin: 0 auto;
 }
 
 .phase-header {
@@ -48,6 +48,8 @@
 
 .input-form {
   padding: 3rem;
+  background: #3a3a3a;
+  border-top: 1px solid #4a4a4a;
 }
 
 .input-container {
@@ -64,7 +66,7 @@
 .input-label {
   font-size: 1.25rem;
   font-weight: 600;
-  color: #1e293b;
+  color: #f5f5f5;
   margin: 0;
 }
 
@@ -77,7 +79,7 @@
 
 .character-count {
   font-size: 0.875rem;
-  color: #64748b;
+  color: #b0b0b0;
   font-weight: 500;
 }
 
@@ -95,20 +97,22 @@
   width: 100%;
   min-height: 400px;
   padding: 1.5rem;
-  border: 2px solid #e2e8f0;
+  border: 2px solid #4a4a4a;
   border-radius: 12px;
   font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
   font-size: 1rem;
   line-height: 1.6;
   resize: vertical;
   transition: all 0.3s ease;
-  background: #f8fafc;
+  background: #333333;
+  color: #e0e0e0;
+  box-sizing: border-box;
 }
 
 .job-textarea:focus {
   outline: none;
   border-color: #8b5cf6;
-  background: white;
+  background: #333333;
   box-shadow: 0 0 0 3px rgba(139, 92, 246, 0.1);
 }
 
@@ -118,7 +122,7 @@
 }
 
 .job-textarea::placeholder {
-  color: #94a3b8;
+  color: #9ca3af;
   line-height: 1.5;
 }
 
@@ -225,7 +229,7 @@
   display: flex;
   align-items: center;
   gap: 0.5rem;
-  color: #64748b;
+  color: #b0b0b0;
   font-size: 0.875rem;
   justify-content: center;
   max-width: 600px;

@@ -111,7 +111,7 @@ const Dashboard = () => {
           className={`nav-item ${activeTab === 'data' ? 'active' : ''}`}
           onClick={() => setActiveTab('data')}
         >
-          📁 Manage Data
+          💼 Work History
         </button>
         <button 
           className={`nav-item ${activeTab === 'resumes' ? 'active' : ''}`}
@@ -180,36 +180,9 @@ const Dashboard = () => {
               </div>
             </div>
 
-            {/* Primary Actions */}
-            <div className="primary-actions">
-              <div className="action-section">
-                <button 
-                  className="primary-action-button data-action"
-                  onClick={() => setActiveTab('data')}
-                >
-                  <div className="action-icon">📁</div>
-                  <div className="action-content">
-                    <h3>Add & Manage Data</h3>
-                    <p>Upload documents, manage work history, review and clean your data</p>
-                  </div>
-                  <div className="action-arrow">→</div>
-                </button>
-              </div>
-              
-              <div className="action-section">
-                <button 
-                  className="primary-action-button resume-action"
-                  onClick={() => setActiveTab('resumes')}
-                >
-                  <div className="action-icon">📄</div>
-                  <div className="action-content">
-                    <h3>Generate Resumes</h3>
-                    <p>Create ATS-optimized resumes tailored to job descriptions</p>
-                  </div>
-                  <div className="action-arrow">→</div>
-                </button>
-              </div>
-              
+            {/* File Upload Section */}
+            <div className="upload-section">
+              <CompactUploadProcessor onUploadComplete={loadDashboardStats} />
             </div>
 
             {/* Quick Links */}
@@ -248,28 +221,13 @@ const Dashboard = () => {
         {activeTab === 'data' && (
           <div className="data-tab">
             <div className="data-tab-header">
-              <h2>📁 Manage Your Data</h2>
-              <p>Upload documents and manage your professional work history</p>
+              <h2>💼 Work History Manager</h2>
+              <p>Review, edit, and manage your job positions and career progression</p>
             </div>
 
             <div className="data-sections">
-              {/* Upload Section */}
+              {/* Work History Section - Now Prime Feature */}
               <div className="data-section">
-                <div className="section-header">
-                  <h3>📄 Upload Documents</h3>
-                  <p>Add new resumes, job descriptions, or other professional documents</p>
-                </div>
-                <div className="section-content">
-                  <CompactUploadProcessor onUploadComplete={loadDashboardStats} />
-                </div>
-              </div>
-
-              {/* Work History Section */}
-              <div className="data-section">
-                <div className="section-header">
-                  <h3>💼 Work History</h3>
-                  <p>Review and manage your job positions and career progression</p>
-                </div>
                 <div className="section-content">
                   <WorkHistoryManager />
                 </div>
