@@ -210,28 +210,29 @@ const PublicProfile = () => {
           {chatHistory.length === 0 && (
             <div className="chat-welcome">
               <div className="suggested-questions">
-                <h4>Try asking:</h4>
-                <button 
-                  className="suggestion-btn"
-                  onClick={() => setMessage("What's your background in software development?")}
-                >
-                  "What's your background in software development?"
-                </button>
-                <button 
-                  className="suggestion-btn"
-                  onClick={() => setMessage("Tell me about your leadership experience")}
-                >
-                  "Tell me about your leadership experience"
-                </button>
-                <button 
-                  className="suggestion-btn"
-                  onClick={() => setMessage("What technologies do you work with?")}
-                >
-                  "What technologies do you work with?"
-                </button>
+                <h4>Ask me about my experience, skills, or even for an example of an approach!</h4>
               </div>
             </div>
           )}
+
+          {/* Chat Input */}
+          <form onSubmit={handleChatSubmit} className="chat-form">
+            <input
+              type="text"
+              value={message}
+              onChange={(e) => setMessage(e.target.value)}
+              placeholder={`Ask about ${profile.display_name || profile.full_name}'s experience...`}
+              className="chat-input"
+              disabled={chatLoading}
+            />
+            <button 
+              type="submit" 
+              className="chat-submit"
+              disabled={!message.trim() || chatLoading}
+            >
+              {chatLoading ? '...' : 'Send'}
+            </button>
+          </form>
 
           {/* Chat History - Enhanced for Long Content */}
           <div className="enhanced-chat-history">
@@ -318,25 +319,6 @@ const PublicProfile = () => {
               </div>
             )}
           </div>
-
-          {/* Chat Input */}
-          <form onSubmit={handleChatSubmit} className="chat-form">
-            <input
-              type="text"
-              value={message}
-              onChange={(e) => setMessage(e.target.value)}
-              placeholder={`Ask about ${profile.display_name || profile.full_name}'s experience...`}
-              className="chat-input"
-              disabled={chatLoading}
-            />
-            <button 
-              type="submit" 
-              className="chat-submit"
-              disabled={!message.trim() || chatLoading}
-            >
-              {chatLoading ? '...' : 'Send'}
-            </button>
-          </form>
         </div>
       </div>
     </div>
