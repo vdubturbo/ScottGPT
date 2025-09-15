@@ -5,13 +5,24 @@ import React, { useState, useCallback } from 'react';
 import { motion } from 'framer-motion';
 import ResumeEditor from './ResumeEditor';
 import { useUserDataAPI } from '../hooks/useUserDataAPI';
+import { useBilling } from '../contexts/BillingContext';
 import { validateJobDescription } from '../lib/validations';
 import { extractKeywords } from '../lib/keywordExtraction';
+import UsageTracker from './billing/UsageTracker';
+import UpgradePrompt from './billing/UpgradePrompt';
+import PurchaseResumeModal from './billing/PurchaseResumeModal';
 import './ResumeGenerator.css';
 
 const ResumeGenerator = () => {
   const { generateResume, loading, error: apiError } = useUserDataAPI();
-  
+  const {
+    usage,
+    isAtLimit,
+    isPremium,
+    usagePercentage,
+    checkUsage
+  } = useBilling();
+
   const [jobDescription, setJobDescription] = useState('');
   const [jobKeywords, setJobKeywords] = useState(null);
   const [generatedResume, setGeneratedResume] = useState('');
@@ -21,6 +32,8 @@ const ResumeGenerator = () => {
   const [localError, setLocalError] = useState('');
   const [isValidating, setIsValidating] = useState(false);
   const [currentPhase, setCurrentPhase] = useState('input'); // 'input' or 'editor'
+  const [showUpgradePrompt, setShowUpgradePrompt] = useState(false);
+  const [showPurchaseModal, setShowPurchaseModal] = useState(false);
 
   const handleJobDescriptionChange = useCallback((e) => {
     const value = e.target.value;
@@ -48,6 +61,14 @@ const ResumeGenerator = () => {
     setError('');
     setLocalError('');
     setIsValidating(true);
+
+    // Check if user has reached their limit
+    if (isAtLimit) {
+      setLocalError('You have reached your resume generation limit. Please upgrade or purchase additional credits.');
+      setIsValidating(false);
+      setShowUpgradePrompt(true);
+      return;
+    }
 
     try {
       // Validate the job description
@@ -99,9 +120,13 @@ const ResumeGenerator = () => {
         setResumeMetadata({
           matchScore: matchScore,
           keywordMatches: extractedKeywords,
-          suggestions: response.suggestions || response.data?.suggestions || response.resume?.suggestions || []
+          suggestions: response.suggestions || response.data?.suggestions || response.resume?.suggestions || [],
+          usage: response.usage // Include usage info from response
         });
         setCurrentPhase('editor'); // Transition to editor phase
+
+        // Refresh usage data after successful generation
+        await checkUsage();
       } else {
         console.error('❌ [FRONTEND DEBUG] Invalid response format detected');
         console.error('❌ [FRONTEND DEBUG] Full response:', JSON.stringify(response, null, 2));
@@ -109,11 +134,18 @@ const ResumeGenerator = () => {
       }
     } catch (err) {
       console.error('Resume generation error:', err);
-      setError(err.message || apiError || 'An error occurred while generating the resume');
+
+      // Handle billing-specific errors
+      if (err.response?.status === 429 && err.response?.data?.code === 'RESUME_LIMIT_EXCEEDED') {
+        setError('You have reached your resume generation limit.');
+        setShowUpgradePrompt(true);
+      } else {
+        setError(err.message || apiError || 'An error occurred while generating the resume');
+      }
     } finally {
       setIsGenerating(false);
     }
-  }, [jobDescription, generateResume, apiError]);
+  }, [jobDescription, generateResume, apiError, isAtLimit, checkUsage]);
 
   const handleClearResume = useCallback(() => {
     setGeneratedResume('');
@@ -138,6 +170,7 @@ const ResumeGenerator = () => {
   }, [jobDescription, handleJobDescriptionSubmit]);
 
   const isContentValid = jobDescription.length >= 50 && jobDescription.length <= 10000;
+  const canGenerate = isContentValid && !isAtLimit && !isGenerating && !isValidating;
   const displayError = localError || error;
   const hasGeneratedResume = generatedResume.length > 0;
 
@@ -218,7 +251,7 @@ The more detailed the job posting, the better your resume match!"
               <button
                 type="submit"
                 className="generate-btn"
-                disabled={!isContentValid || isGenerating || isValidating}
+                disabled={!canGenerate}
               >
                 {isGenerating ? (
                   <>
@@ -267,6 +300,31 @@ The more detailed the job posting, the better your resume match!"
           </div>
         </motion.div>
       )}
+
+      {/* Usage Tracker - Always show in header */}
+      <div className="usage-tracker-container">
+        <UsageTracker
+          position="header"
+          compact={true}
+          showUpgradePrompts={true}
+          autoShowUpgrade={false}
+        />
+      </div>
+
+      {/* Billing Modals */}
+      <UpgradePrompt
+        open={showUpgradePrompt}
+        onOpenChange={setShowUpgradePrompt}
+        trigger={isAtLimit ? 'limit' : 'custom'}
+        title={isAtLimit ? undefined : 'Almost at your limit'}
+        message={isAtLimit ? undefined : 'Upgrade now to avoid interruptions'}
+      />
+
+      <PurchaseResumeModal
+        open={showPurchaseModal}
+        onOpenChange={setShowPurchaseModal}
+        credits={1}
+      />
     </div>
   );
 };

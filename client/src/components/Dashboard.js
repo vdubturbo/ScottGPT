@@ -3,6 +3,7 @@
 
 import React, { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '../contexts/AuthContext';
+import { useBilling } from '../contexts/BillingContext';
 import { Link } from 'react-router-dom';
 import { useUserDataAPI } from '../hooks/useUserDataAPI';
 import CompactUploadProcessor from './CompactUploadProcessor';
@@ -10,9 +11,11 @@ import WorkHistoryManager from './WorkHistoryManager';
 import DocumentsModal from './DocumentsModal';
 import ResumeGenerator from './ResumeGenerator';
 import UserMenu from './UserMenu';
+import UsageTracker from './billing/UsageTracker';
 
 const Dashboard = () => {
   const { user, logout, isAdmin } = useAuth();
+  const { usage, subscription, isPremium, isAtLimit } = useBilling();
   const [activeTab, setActiveTab] = useState('overview');
   const [dashboardStats, setDashboardStats] = useState(null);
   const [showDocumentsModal, setShowDocumentsModal] = useState(false);
@@ -76,6 +79,16 @@ const Dashboard = () => {
             />
           </div>
           <div className="header-actions">
+            {/* Usage Tracker */}
+            <div className="header-usage">
+              <UsageTracker
+                position="header"
+                compact={true}
+                showUpgradePrompts={true}
+                autoShowUpgrade={false}
+              />
+            </div>
+
             {isAdmin() && (
               <Link to="/admin" className="btn btn-admin">
                 Admin Panel

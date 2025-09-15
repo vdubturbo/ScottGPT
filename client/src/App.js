@@ -4,6 +4,7 @@
 import React from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import AuthProvider, { useAuth } from './contexts/AuthContext';
+import { BillingProvider } from './contexts/BillingContext';
 import LoginForm from './components/auth/LoginForm';
 import RegisterForm from './components/auth/RegisterForm';
 import Dashboard from './components/Dashboard';
@@ -17,6 +18,7 @@ import LandingPageFixed from './components/LandingPageFixed';
 import LandingPageSimple from './components/LandingPageSimple';
 import StepByStep from './components/StepByStep';
 import LoadingSpinner from './components/LoadingSpinner';
+import { BillingDashboard, PricingTiers } from './components/billing';
 import './App.css';
 
 // Protected Route Component
@@ -109,13 +111,27 @@ const AppContent = () => {
           } 
         />
 
-        <Route 
-          path="/admin" 
+        <Route
+          path="/admin"
           element={
             <ProtectedRoute requireRole="admin">
               <AdminDashboard />
             </ProtectedRoute>
-          } 
+          }
+        />
+
+        <Route
+          path="/billing"
+          element={
+            <ProtectedRoute>
+              <BillingDashboard />
+            </ProtectedRoute>
+          }
+        />
+
+        <Route
+          path="/pricing"
+          element={<PricingTiers />}
         />
 
         {/* Public Profile Routes */}
@@ -149,9 +165,11 @@ const AppContent = () => {
 function App() {
   return (
     <AuthProvider>
-      <Router>
-        <AppContent />
-      </Router>
+      <BillingProvider>
+        <Router>
+          <AppContent />
+        </Router>
+      </BillingProvider>
     </AuthProvider>
   );
 }
