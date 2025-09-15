@@ -262,16 +262,6 @@ The more detailed the job posting, the better your resume match!"
             >
               ← Back to Job Description
             </button>
-            <div className="editor-meta">
-              {resumeMetadata?.matchScore && (
-                <div className="match-score">
-                  <span className="score-icon">📊</span>
-                  <span className="score-text">
-                    Match: {Math.round(resumeMetadata.matchScore * 100)}%
-                  </span>
-                </div>
-              )}
-            </div>
           </div>
 
           {/* Resume Editor */}
