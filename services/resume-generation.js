@@ -629,7 +629,7 @@ PROFESSIONAL STANDARDS:
 
 Evidence Analysis: ${evidenceAnalysis.summary}
 Target keywords: ${[...jobKeywords.technical, ...jobKeywords.soft].join(', ')}
-Format: Clean HTML (header, section, h1-h3, p, ul, li, strong).`;
+Format: Professional resume text with proper formatting and structure.`;
 
     // Get user data summary (more concise)
     const profileSummary = userData.profile ? 
