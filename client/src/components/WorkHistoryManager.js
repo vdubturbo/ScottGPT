@@ -246,20 +246,50 @@ const WorkHistoryManager = ({ onViewDuplicates }) => {
     }
   };
 
+  // Helper function to parse dates consistently
+  const parseDate = (dateStr) => {
+    if (!dateStr) return null;
+
+    try {
+      // Handle YYYY-MM-DD format (from database)
+      if (typeof dateStr === 'string' && dateStr.match(/^\d{4}-\d{2}-\d{2}$/)) {
+        const [year, month, day] = dateStr.split('-');
+        return new Date(parseInt(year), parseInt(month) - 1, parseInt(day));
+      }
+      // Handle YYYY-MM format
+      else if (typeof dateStr === 'string' && dateStr.match(/^\d{4}-\d{2}$/)) {
+        const [year, month] = dateStr.split('-');
+        return new Date(parseInt(year), parseInt(month) - 1, 1);
+      }
+      // Handle other formats (fallback)
+      else {
+        return new Date(dateStr);
+      }
+    } catch (error) {
+      console.warn('Failed to parse date:', dateStr, error);
+      return null;
+    }
+  };
+
   // Format date for display
   const formatDate = (dateStr) => {
     if (!dateStr) return 'Present';
-    const date = new Date(dateStr);
-    return date.toLocaleDateString('en-US', { 
-      year: 'numeric', 
-      month: 'short' 
-    });
+
+    const date = parseDate(dateStr);
+    if (date && !isNaN(date.getTime())) {
+      return date.toLocaleDateString('en-US', {
+        year: 'numeric',
+        month: 'short'
+      });
+    }
+
+    return dateStr;
   };
 
   // Calculate job duration
   const calculateDuration = (startDate, endDate) => {
-    const start = new Date(startDate);
-    const end = endDate ? new Date(endDate) : new Date();
+    const start = parseDate(startDate);
+    const end = endDate ? parseDate(endDate) : new Date();
     const diffTime = Math.abs(end - start);
     const diffMonths = Math.ceil(diffTime / (1000 * 60 * 60 * 24 * 30));
     
@@ -299,14 +329,18 @@ const WorkHistoryManager = ({ onViewDuplicates }) => {
     Object.values(companies).forEach(company => {
       // Sort jobs by start date
       company.jobs.sort((a, b) => {
-        const aDate = new Date(a.date_start || '1900-01-01');
-        const bDate = new Date(b.date_start || '1900-01-01');
+        const aDate = parseDate(a.date_start) || new Date('1900-01-01');
+        const bDate = parseDate(b.date_start) || new Date('1900-01-01');
         return aDate - bDate;
       });
 
       // Calculate company tenure
-      const startDates = company.jobs.map(j => new Date(j.date_start || '1900-01-01')).filter(d => d.getFullYear() > 1900);
-      const endDates = company.jobs.map(j => j.date_end ? new Date(j.date_end) : new Date()).filter(d => d);
+      const startDates = company.jobs
+        .map(j => parseDate(j.date_start))
+        .filter(d => d && d.getFullYear() > 1900);
+      const endDates = company.jobs
+        .map(j => j.date_end ? parseDate(j.date_end) : new Date())
+        .filter(d => d);
 
       if (startDates.length > 0) {
         company.startDate = new Date(Math.min(...startDates));
