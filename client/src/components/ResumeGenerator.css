@@ -257,7 +257,7 @@
   box-shadow: 0 20px 40px rgba(0, 0, 0, 0.1);
 }
 
-.editor-header {
+.resume-generator .editor-header {
   background: linear-gradient(135deg, #1e293b 0%, #334155 100%);
   color: white;
   padding: 1rem 2rem;
@@ -374,7 +374,7 @@
     margin-top: 1rem;
   }
   
-  .editor-header {
+  .resume-generator .editor-header {
     padding: 1rem 1.5rem;
     flex-direction: column;
     gap: 1rem;

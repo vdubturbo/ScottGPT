@@ -589,7 +589,7 @@ export class ResumeGenerationService {
     const evidenceAnalysis = this.analyzeEvidence(ragContext.chunks);
 
     // Create focused system prompt that prioritizes real examples when available
-    const systemPrompt = `Professional resume writer creating comprehensive resumes based ONLY on provided evidence.
+    const systemPrompt = `Professional resume writer creating comprehensive HTML-formatted resumes based ONLY on provided evidence.
 
 CRITICAL ANTI-FABRICATION RULES:
 - Use ONLY information that exists in the provided evidence
@@ -602,6 +602,8 @@ CRITICAL ANTI-FABRICATION RULES:
 CONTENT REQUIREMENTS:
 - Generate 1,500-2,000 words using provided evidence and reasonable professional context
 - Create 5-7 bullets per job role, prioritizing evidence-based achievements
+- Format output as clean, semantic HTML (use h1, h2, h3, ul, li, p, strong tags)
+- No full HTML document structure needed (no html, head, body tags)
 ${evidenceAnalysis.hasQuantifiableMetrics ? '- FEATURE quantifiable results prominently (percentages, costs, revenue, team sizes, etc.)' : ''}
 ${evidenceAnalysis.hasSpecificProjects ? '- HIGHLIGHT specific projects and initiatives mentioned in evidence' : ''}
 ${evidenceAnalysis.hasSpecificTechnologies ? '- EMPHASIZE specific technologies and methodologies from evidence' : ''}
@@ -686,7 +688,7 @@ SKILLS: ${userData.skills.slice(0, 20).join(', ')}
 RELEVANT EXPERIENCE AND ACHIEVEMENTS:
 ${budgetedContext}
 
-Generate a detailed resume with:
+Generate a detailed resume with HTML formatting:
 1. Professional Summary highlighting relevant experience
 2. Core Competencies listing relevant skills and technologies
 3. Professional Experience with 5-7 achievement bullets per role
@@ -694,7 +696,16 @@ Generate a detailed resume with:
 5. Include specific technologies, methodologies, and results mentioned in the evidence
 6. Target 1,500+ words for comprehensive coverage
 
-Transform the evidence into a compelling professional narrative that demonstrates clear value for the target role.`;
+FORMAT REQUIREMENTS:
+- Return content as HTML with proper semantic markup
+- Use <h1> for name/title, <h2> for section headers, <h3> for job titles
+- Use <ul> and <li> for bullet points and lists
+- Use <p> for paragraphs and descriptions
+- Use <strong> for emphasis and <em> for italics when appropriate
+- Include proper line breaks and structure for readability
+- NO need for full HTML document structure (no <html>, <head>, <body> tags)
+
+Transform the evidence into a compelling professional narrative with proper HTML formatting that demonstrates clear value for the target role.`;
 
     console.log(`🤖 Generating resume with AI (optimized prompts)...`);
 

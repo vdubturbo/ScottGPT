@@ -35,7 +35,7 @@ const ResumeEditor = ({
         emptyEditorClass: 'is-editor-empty',
       }),
     ],
-    content: content,
+    content: '', // Initialize empty, set content in useEffect
     editorProps: {
       attributes: {
         class: 'resume-editor-content',
@@ -58,6 +58,13 @@ const ResumeEditor = ({
     const compatibility = validateATSCompatibility(html);
     setATSIssues(compatibility.issues);
   }, [jobKeywords]);
+
+  // Set editor content when it changes
+  useEffect(() => {
+    if (editor && content) {
+      editor.commands.setContent(content);
+    }
+  }, [editor, content]);
 
   // Initialize analysis when component mounts
   useEffect(() => {

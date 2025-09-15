@@ -253,17 +253,6 @@ The more detailed the job posting, the better your resume match!"
           transition={{ duration: 0.4 }}
           className="editor-phase"
         >
-          {/* Back Button */}
-          <div className="editor-header">
-            <button
-              onClick={handleClearResume}
-              className="back-btn"
-              disabled={isGenerating}
-            >
-              ← Back to Job Description
-            </button>
-          </div>
-
           {/* Resume Editor */}
           <div className="editor-container">
             <ResumeEditor

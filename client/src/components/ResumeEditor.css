@@ -8,8 +8,8 @@
   background: #ffffff;
 }
 
-/* Header */
-.editor-header {
+/* Resume Editor Header - more specific selector to avoid conflicts */
+.resume-editor .editor-header {
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -19,20 +19,20 @@
   min-height: 60px;
 }
 
-.editor-header-left {
+.resume-editor .editor-header-left {
   display: flex;
   align-items: center;
   gap: 1rem;
 }
 
-.editor-title {
+.resume-editor .editor-title {
   margin: 0;
   font-size: 1.25rem;
   font-weight: 600;
   color: #1f2937;
 }
 
-.editor-header-right {
+.resume-editor .editor-header-right {
   display: flex;
   align-items: center;
 }
@@ -479,18 +479,18 @@
 }
 
 @media (max-width: 768px) {
-  .editor-header {
+  .resume-editor .editor-header {
     padding: 0.75rem 1rem;
     flex-direction: column;
     gap: 0.75rem;
     align-items: flex-start;
   }
-  
-  .editor-header-left {
+
+  .resume-editor .editor-header-left {
     gap: 0.75rem;
   }
-  
-  .editor-title {
+
+  .resume-editor .editor-title {
     font-size: 1.125rem;
   }
   
@@ -529,7 +529,7 @@
 }
 
 @media (max-width: 640px) {
-  .editor-header {
+  .resume-editor .editor-header {
     padding: 0.5rem;
   }
   
