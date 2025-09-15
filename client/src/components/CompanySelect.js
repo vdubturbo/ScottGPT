@@ -22,21 +22,28 @@ const CompanySelect = ({
   const [filteredCompanies, setFilteredCompanies] = useState([]);
   const [loading, setLoading] = useState(false);
 
-  // Load existing companies
+  // Load existing companies (now always load, not just for editing)
   const loadCompanies = useCallback(async () => {
-    if (!isEditing) return; // Only load for editing mode
-    
     setLoading(true);
     try {
       const response = await getExistingCompanies();
-      // Extract company names from company groups
+      // Extract company names from company groups with enhanced data
       const companyNames = response?.companies?.map(company => ({
         name: company.originalNames[0], // Use the first original name
         normalizedName: company.normalizedName,
         totalPositions: company.totalPositions,
-        variations: company.originalNames
+        variations: company.originalNames,
+        isMultiplePositions: company.totalPositions > 1
       })) || [];
-      
+
+      // Sort companies by position count (descending) then alphabetically
+      companyNames.sort((a, b) => {
+        if (b.totalPositions !== a.totalPositions) {
+          return b.totalPositions - a.totalPositions;
+        }
+        return a.name.localeCompare(b.name);
+      });
+
       setCompanies(companyNames);
     } catch (err) {
       console.error('Failed to load existing companies:', err);
@@ -44,47 +51,54 @@ const CompanySelect = ({
     } finally {
       setLoading(false);
     }
-  }, [getExistingCompanies, isEditing]);
+  }, [getExistingCompanies]);
 
   useEffect(() => {
     loadCompanies();
   }, [loadCompanies]);
 
-  // Filter companies based on input (only for add mode, show all for edit mode)
+  // Enhanced filtering with search and sections
   useEffect(() => {
-    if (isEditing) {
-      // In edit mode, always show all companies
+    if (!value || value.trim() === '') {
+      // Show all companies when no search term
       setFilteredCompanies(companies);
       return;
     }
 
-    if (!value) {
-      setFilteredCompanies(companies);
-      return;
-    }
-
-    const searchTerm = value.toLowerCase();
+    const searchTerm = value.toLowerCase().trim();
     const filtered = companies.filter(company =>
       company.name.toLowerCase().includes(searchTerm) ||
       company.normalizedName.toLowerCase().includes(searchTerm) ||
-      company.variations.some(variation => 
+      company.variations.some(variation =>
         variation.toLowerCase().includes(searchTerm)
       )
     );
+
     setFilteredCompanies(filtered);
-  }, [value, companies, isEditing]);
+  }, [value, companies]);
+
+  // Determine if we should show the "Create new company" option
+  const shouldShowCreateNew = () => {
+    if (!value || value.trim() === '') return false;
+
+    const exactMatch = companies.some(company =>
+      company.name.toLowerCase() === value.toLowerCase().trim() ||
+      company.variations.some(variation =>
+        variation.toLowerCase() === value.toLowerCase().trim()
+      )
+    );
+
+    return !exactMatch;
+  };
 
   const handleInputChange = (e) => {
     const newValue = e.target.value;
     onChange(newValue);
-    
-    if (isEditing) {
-      setShowDropdown(true);
-    }
+    setShowDropdown(true);
   };
 
   const handleInputClick = () => {
-    if (isEditing && companies.length > 0) {
+    if (companies.length > 0) {
       setShowDropdown(!showDropdown);
     }
   };
@@ -94,8 +108,13 @@ const CompanySelect = ({
     setShowDropdown(false);
   };
 
+  const handleCreateNew = () => {
+    // Keep current value as new company name
+    setShowDropdown(false);
+  };
+
   const handleInputFocus = () => {
-    if (isEditing && companies.length > 0) {
+    if (companies.length > 0) {
       setShowDropdown(true);
     }
   };
@@ -105,63 +124,7 @@ const CompanySelect = ({
     setTimeout(() => setShowDropdown(false), 200);
   };
 
-  // For editing mode: show dropdown with existing companies only
-  if (isEditing) {
-    return (
-      <div className={`company-select ${className}`}>
-        <input
-          id={id}
-          type="text"
-          value={value}
-          onChange={handleInputChange}
-          onClick={handleInputClick}
-          onFocus={handleInputFocus}
-          onBlur={handleInputBlur}
-          placeholder={loading ? "Loading companies..." : placeholder}
-          className={`${className} ${isEditing ? 'dropdown-mode' : ''}`}
-          required={required}
-          disabled={loading}
-          readOnly={isEditing}
-          autoComplete="organization"
-        />
-        
-        {showDropdown && filteredCompanies.length > 0 && (
-          <div className="company-dropdown">
-            <div className="dropdown-header">
-              Select from your existing companies:
-            </div>
-            <ul className="company-list">
-              {filteredCompanies.map((company, index) => (
-                <li 
-                  key={index}
-                  onClick={() => handleCompanySelect(company)}
-                  className="company-option"
-                >
-                  <div className="company-name">{company.name}</div>
-                  <div className="company-meta">
-                    {company.totalPositions} position{company.totalPositions !== 1 ? 's' : ''}
-                    {company.variations.length > 1 && (
-                      <span className="variations-hint">
-                        +{company.variations.length - 1} variation{company.variations.length - 1 !== 1 ? 's' : ''}
-                      </span>
-                    )}
-                  </div>
-                </li>
-              ))}
-            </ul>
-          </div>
-        )}
-        
-        {isEditing && companies.length === 0 && !loading && (
-          <div className="no-companies-message">
-            No existing companies found. You can type a new company name.
-          </div>
-        )}
-      </div>
-    );
-  }
-
-  // For adding mode: regular input that allows any company name
+  // Enhanced component with sections and grouping
   return (
     <div className={`company-select ${className}`}>
       <input
@@ -169,14 +132,79 @@ const CompanySelect = ({
         type="text"
         value={value}
         onChange={handleInputChange}
-        placeholder={placeholder}
-        className={className}
+        onClick={handleInputClick}
+        onFocus={handleInputFocus}
+        onBlur={handleInputBlur}
+        placeholder={loading ? "Loading companies..." : placeholder}
+        className={`${className} ${companies.length > 0 ? 'dropdown-mode' : ''}`}
         required={required}
+        disabled={loading}
         autoComplete="organization"
       />
-      <div className="field-hint">
-        Enter a new company name or use an existing one from your work history.
-      </div>
+
+      {showDropdown && (
+        <div className="company-dropdown">
+          {/* Create new company section */}
+          {shouldShowCreateNew() && (
+            <>
+              <div className="dropdown-header">Create New Company</div>
+              <ul className="company-list">
+                <li
+                  onClick={handleCreateNew}
+                  className="company-option create-new-option"
+                >
+                  <div className="company-name">✨ Create "{value}"</div>
+                  <div className="company-meta">New company</div>
+                </li>
+              </ul>
+            </>
+          )}
+
+          {/* Existing companies section */}
+          {filteredCompanies.length > 0 && (
+            <>
+              <div className="dropdown-header">
+                {shouldShowCreateNew() ? 'Or Select Existing Company' : 'Select from Your Companies'}
+              </div>
+              <ul className="company-list">
+                {filteredCompanies.map((company, index) => (
+                  <li
+                    key={`company-${index}`}
+                    onClick={() => handleCompanySelect(company)}
+                    className={`company-option ${company.isMultiplePositions ? 'multiple-positions' : 'single-position'}`}
+                  >
+                    <div className="company-name">
+                      {company.isMultiplePositions && '🏢 '}
+                      {company.name}
+                    </div>
+                    <div className="company-meta">
+                      {company.totalPositions} position{company.totalPositions !== 1 ? 's' : ''}
+                      {company.variations.length > 1 && (
+                        <span className="variations-hint">
+                          • {company.variations.length} name{company.variations.length !== 1 ? 's' : ''}
+                        </span>
+                      )}
+                    </div>
+                  </li>
+                ))}
+              </ul>
+            </>
+          )}
+
+          {/* No companies message */}
+          {companies.length === 0 && !loading && (
+            <div className="no-companies-message">
+              No existing companies found. Type a company name to create a new one.
+            </div>
+          )}
+        </div>
+      )}
+
+      {!isEditing && (
+        <div className="field-hint">
+          Type to search existing companies or create a new one
+        </div>
+      )}
     </div>
   );
 };

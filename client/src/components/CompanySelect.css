@@ -57,15 +57,38 @@
   padding: 10px 12px;
   cursor: pointer;
   border-bottom: 1px solid rgba(139, 92, 246, 0.1);
-  transition: background-color 0.15s ease;
+  transition: all 0.15s ease;
 }
 
 .company-option:hover {
   background-color: rgba(139, 92, 246, 0.1);
+  transform: translateX(2px);
 }
 
 .company-option:last-child {
   border-bottom: none;
+}
+
+.company-option.create-new-option {
+  background-color: rgba(16, 185, 129, 0.05);
+  border-left: 3px solid rgba(16, 185, 129, 0.3);
+}
+
+.company-option.create-new-option:hover {
+  background-color: rgba(16, 185, 129, 0.1);
+  border-left-color: rgba(16, 185, 129, 0.5);
+}
+
+.company-option.multiple-positions {
+  border-left: 3px solid rgba(139, 92, 246, 0.3);
+}
+
+.company-option.multiple-positions:hover {
+  border-left-color: rgba(139, 92, 246, 0.5);
+}
+
+.company-option.single-position {
+  border-left: 3px solid rgba(156, 163, 175, 0.2);
 }
 
 .company-name {
@@ -85,6 +108,12 @@
 .variations-hint {
   color: #888;
   font-style: italic;
+  font-size: 0.85em;
+  margin-left: 8px;
+  padding: 2px 6px;
+  background-color: rgba(139, 92, 246, 0.1);
+  border-radius: 10px;
+  display: inline-block;
 }
 
 .no-companies-message {
