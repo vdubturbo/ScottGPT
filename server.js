@@ -83,13 +83,19 @@ async function startServer() {
   const resumeGenerationRoutes = await import('./routes/resume-generation.js');
   const advancedResumeGenerationRoutes = await import('./routes/advanced-resume-generation.js');
   const resumeExportRoutes = await import('./routes/resume-export.js');
-  
+
   // Multi-tenant SaaS routes
   const authRoutes = await import('./routes/auth.js');
   const adminRoutes = await import('./routes/admin.js');
+  const billingRoutes = await import('./routes/billing.js');
+  const webhookRoutes = await import('./routes/webhooks.js');
+  const analyticsRoutes = await import('./routes/analytics.js');
   
   // Auth middleware
   const { authenticateToken, requireAuth } = await import('./middleware/auth.js');
+
+  // Usage tracking middleware
+  const { handleUsageError } = await import('./middleware/usage-tracking.js');
 
   // API Routes with specific rate limiting
   app.use('/api/chat', chatLimit, chatRoutes.default);
@@ -106,6 +112,9 @@ async function startServer() {
   // Multi-tenant SaaS routes
   app.use('/api/auth', authRoutes.default);
   app.use('/api/admin', adminRoutes.default);
+  app.use('/api/billing', billingRoutes.default);
+  app.use('/api/webhooks', webhookRoutes.default);
+  app.use('/api/analytics', analyticsRoutes.default);
 
   // Health check endpoint
   app.get('/api/health', (req, res) => {
@@ -159,6 +168,9 @@ async function startServer() {
     res.sendFile(path.join(__dirname, 'client/build', 'index.html'));
   });
 
+  // Usage-specific error handling middleware
+  app.use(handleUsageError);
+
   // Error handling middleware
   app.use((err, req, res, _next) => {
     logger.error('Unhandled application error', {
@@ -171,9 +183,22 @@ async function startServer() {
     res.status(500).json({ error: 'Internal server error occurred' });
   });
 
-  app.listen(PORT, () => {
+  app.listen(PORT, async () => {
     logger.info('ScottGPT server started successfully', { port: PORT });
     console.log(`ScottGPT server running on port ${PORT}`);
+
+    // Start usage reset scheduler in production
+    if (CONFIG.environment.NODE_ENV === 'production') {
+      try {
+        const { default: usageResetScheduler } = await import('./services/usage-reset-scheduler.js');
+        usageResetScheduler.start();
+        console.log('✅ Usage reset scheduler started');
+      } catch (error) {
+        console.error('❌ Failed to start usage reset scheduler:', error.message);
+      }
+    } else {
+      console.log('⏸️ Usage reset scheduler disabled in development mode');
+    }
   });
 }
 

@@ -4,7 +4,6 @@
 
 export default {
   // Use ES modules
-  preset: 'jest-environment-node',
   moduleNameMapper: {
     '^(\\.{1,2}/.*)\\.js$': '$1'
   },

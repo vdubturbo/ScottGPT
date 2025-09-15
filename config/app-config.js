@@ -24,7 +24,9 @@ console.log('NODE_ENV:', process.env.NODE_ENV);
 console.log('SUPABASE_URL present:', !!process.env.SUPABASE_URL);
 console.log('OPENAI_API_KEY present:', !!process.env.OPENAI_API_KEY);
 console.log('COHERE_API_KEY present:', !!process.env.COHERE_API_KEY);
-console.log('All env vars:', Object.keys(process.env).filter(k => k.includes('SUPABASE') || k.includes('OPENAI') || k.includes('COHERE')));
+console.log('STRIPE_SECRET_KEY present:', !!process.env.STRIPE_SECRET_KEY);
+console.log('STRIPE_PUBLISHABLE_KEY present:', !!process.env.STRIPE_PUBLISHABLE_KEY);
+console.log('All env vars:', Object.keys(process.env).filter(k => k.includes('SUPABASE') || k.includes('OPENAI') || k.includes('COHERE') || k.includes('STRIPE')));
 console.log('🔍 Debug complete');
 
 // Get current environment
@@ -59,6 +61,23 @@ const ENV_CONFIG = {
     required: true,
     validator: (value) => value && value.length > 10,
     error: 'COHERE_API_KEY must be provided and be at least 10 characters'
+  },
+
+  // Stripe Configuration (optional in development)
+  STRIPE_SECRET_KEY: {
+    required: IS_PRODUCTION,
+    validator: (value) => !value || (value.startsWith('sk_test_') || value.startsWith('sk_live_')),
+    error: 'STRIPE_SECRET_KEY must start with "sk_test_" or "sk_live_" if provided'
+  },
+  STRIPE_PUBLISHABLE_KEY: {
+    required: IS_PRODUCTION,
+    validator: (value) => !value || (value.startsWith('pk_test_') || value.startsWith('pk_live_')),
+    error: 'STRIPE_PUBLISHABLE_KEY must start with "pk_test_" or "pk_live_" if provided'
+  },
+  STRIPE_WEBHOOK_SECRET: {
+    required: false,
+    validator: (value) => !value || value.startsWith('whsec_'),
+    error: 'STRIPE_WEBHOOK_SECRET must start with "whsec_" if provided'
   },
   
   // Server Configuration
@@ -240,6 +259,88 @@ export const APP_CONFIG = {
         requestsPerMinute: 100,
         delayBetweenRequests: 1000 // 1 second
       }
+    }
+  },
+
+  // Billing and Subscription Configuration
+  billing: {
+    stripe: {
+      secretKey: process.env.STRIPE_SECRET_KEY || null,
+      publishableKey: process.env.STRIPE_PUBLISHABLE_KEY || null,
+      webhookSecret: process.env.STRIPE_WEBHOOK_SECRET || null,
+      apiVersion: '2023-10-16', // Latest Stripe API version
+      timeout: 15000, // 15 seconds
+      maxNetworkRetries: 3,
+      currency: 'usd'
+    },
+
+    // Subscription Plans
+    plans: {
+      free: {
+        id: 'free',
+        name: 'Free Plan',
+        price: 0,
+        resumeLimit: 3,
+        billingPeriod: 'monthly',
+        features: [
+          'Basic resume generation',
+          'Export to PDF/Word',
+          'ATS optimization'
+        ]
+      },
+      premium: {
+        id: 'premium',
+        name: 'Premium Plan',
+        price: 6.99,
+        resumeLimit: 30,
+        billingPeriod: 'monthly',
+        stripePriceId: process.env.STRIPE_PREMIUM_PRICE_ID || null,
+        features: [
+          'Unlimited resume generation',
+          'Premium templates',
+          'Advanced ATS optimization',
+          'Priority support',
+          'Custom formatting'
+        ]
+      }
+    },
+
+    // One-time Purchases
+    oneTimePurchases: {
+      additionalResume: {
+        id: 'additional_resume',
+        name: 'Additional Resume',
+        price: 2.99,
+        credits: 1,
+        stripePriceId: process.env.STRIPE_ADDITIONAL_RESUME_PRICE_ID || null,
+        description: 'One additional resume generation for free tier users'
+      }
+    },
+
+    // Usage Limits and Tracking
+    usage: {
+      resetPeriod: 'monthly', // 'monthly', 'daily', 'weekly'
+      gracePeriod: 24 * 60 * 60 * 1000, // 24 hours in milliseconds
+      overage: {
+        allowed: false, // Whether to allow overages
+        price: 2.99 // Price per overage unit
+      }
+    },
+
+    // Webhook Configuration
+    webhooks: {
+      toleranceSeconds: 300, // 5 minutes tolerance for timestamp validation
+      retryAttempts: 3,
+      retryDelayMs: 1000,
+      events: [
+        'customer.subscription.created',
+        'customer.subscription.updated',
+        'customer.subscription.deleted',
+        'invoice.payment_succeeded',
+        'invoice.payment_failed',
+        'payment_intent.succeeded',
+        'payment_intent.payment_failed'
+      ]
     }
   },
 

@@ -9,6 +9,12 @@ import rateLimit from 'express-rate-limit';
 import winston from 'winston';
 import AdvancedResumeGenerationService from '../services/advanced-resume-generation.js';
 import { authenticateToken } from '../middleware/auth.js';
+import {
+  checkResumeGenerationLimit,
+  incrementResumeUsage,
+  addUsageToResponse,
+  sendUsageAwareResponse
+} from '../middleware/usage-tracking.js';
 
 const router = express.Router();
 
@@ -53,7 +59,7 @@ const previewLimiter = rateLimit({
  * POST /api/user/advanced-generate/resume
  * Generate resume using advanced JD pipeline
  */
-router.post('/resume', authenticateToken, advancedResumeLimiter, async (req, res) => {
+router.post('/resume', authenticateToken, checkResumeGenerationLimit, addUsageToResponse, advancedResumeLimiter, async (req, res) => {
   try {
     const {
       jobDescription,

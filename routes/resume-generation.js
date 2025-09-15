@@ -9,6 +9,12 @@ import winston from 'winston';
 // import { z } from 'zod'; // Not currently used
 import ResumeGenerationService from '../services/resume-generation.js';
 import { authenticateToken } from '../middleware/auth.js';
+import {
+  checkResumeGenerationLimit,
+  incrementResumeUsage,
+  addUsageToResponse,
+  sendUsageAwareResponse
+} from '../middleware/usage-tracking.js';
 
 const router = express.Router();
 
@@ -53,7 +59,7 @@ const previewLimiter = rateLimit({
  * POST /api/user/generate/resume
  * Generate a complete resume from user data
  */
-router.post('/resume', authenticateToken, resumeLimiter, async (req, res) => {
+router.post('/resume', authenticateToken, checkResumeGenerationLimit, addUsageToResponse, resumeLimiter, async (req, res) => {
   try {
     const {
       jobDescription,
@@ -117,50 +123,64 @@ router.post('/resume', authenticateToken, resumeLimiter, async (req, res) => {
       });
     }
 
+    // Increment usage after successful generation (unless it's a preview)
+    if (!preview) {
+      try {
+        await incrementResumeUsage(req, res, () => {});
+      } catch (usageError) {
+        logger.warn('Failed to increment usage after successful generation', {
+          userId,
+          error: usageError.message
+        });
+      }
+    }
+
+    // Prepare response data
+    const responseData = {
+      resumeHTML: result.resume,
+      matchScore: result.matchScore,
+      extractedKeywords: result.extractedKeywords,
+      sourceData: result.sourceData,
+      isPreview: preview,
+      generatedAt: new Date().toISOString()
+    };
+
+    console.log(`✅ [BACKEND DEBUG] Sending response:`, {
+      hasResumeHTML: !!responseData.resumeHTML,
+      resumeHTMLLength: responseData.resumeHTML?.length || 0,
+      isPreview: preview,
+      outputFormat
+    });
+
     // Return based on format and preview status
     if (preview || outputFormat === 'json') {
-      const responseData = {
-        success: true,
-        data: {
-          resumeHTML: result.resume,
-          matchScore: result.matchScore,
-          extractedKeywords: result.extractedKeywords,
-          sourceData: result.sourceData,
-          isPreview: preview
-        },
-        timestamp: new Date().toISOString()
-      };
-      
-      console.log(`✅ [BACKEND DEBUG] Sending JSON response:`, {
-        success: responseData.success,
-        hasData: !!responseData.data,
-        hasResumeHTML: !!responseData.data.resumeHTML,
-        resumeHTMLLength: responseData.data.resumeHTML?.length || 0
-      });
-      
-      res.json(responseData);
+      // Use usage-aware response for JSON format
+      sendUsageAwareResponse(req, res, responseData);
     } else if (outputFormat === 'html') {
       res.setHeader('Content-Type', 'text/html; charset=utf-8');
       res.send(result.resume);
     } else {
       // For future PDF/DOCX support
-      res.json({
-        success: true,
+      sendUsageAwareResponse(req, res, {
         message: `${outputFormat.toUpperCase()} generation not yet implemented`,
-        data: {
-          resumeHTML: result.resume,
-          matchScore: result.matchScore,
-          sourceData: result.sourceData
-        }
+        ...responseData
       });
     }
 
   } catch (error) {
-    logger.error('Error in resume generation endpoint', { 
+    logger.error('Error in resume generation endpoint', {
       error: error.message,
       stack: error.stack,
-      userId: req.user?.id 
+      userId: req.user?.id,
+      sessionId: req.sessionId
     });
+
+    // Release session on error
+    if (req.user?.id && req.sessionId) {
+      const { default: usageConcurrencyManager } = await import('../services/usage-concurrency-manager.js');
+      usageConcurrencyManager.releaseSession(req.user.id, req.sessionId);
+    }
+
     res.status(500).json({
       error: 'Failed to generate resume',
       message: error.message

@@ -4,6 +4,8 @@
 import express from 'express';
 import AuthService from '../services/auth.js';
 import { supabase } from '../config/database.js';
+import PaymentReconciliationService from '../services/payment-reconciliation.js';
+import winston from 'winston';
 import {
   authenticateToken,
   requireAdmin,
@@ -12,6 +14,20 @@ import {
 } from '../middleware/auth.js';
 
 const router = express.Router();
+const reconciliationService = new PaymentReconciliationService();
+
+// Setup logging
+const logger = winston.createLogger({
+  level: 'info',
+  format: winston.format.combine(
+    winston.format.timestamp(),
+    winston.format.json()
+  ),
+  transports: [
+    new winston.transports.Console(),
+    new winston.transports.File({ filename: 'logs/admin-api.log' })
+  ]
+});
 
 // Apply admin middleware to all routes
 router.use(authenticateToken);
@@ -624,6 +640,328 @@ router.post('/slugs/reserved', async (req, res) => {
     res.status(500).json({
       error: 'Add reserved slug failed',
       message: 'Unable to add reserved slug'
+    });
+  }
+});
+
+// =========================================================================
+// PAYMENT RECONCILIATION
+// =========================================================================
+
+/**
+ * POST /api/admin/reconcile/payments
+ * Run payment reconciliation between Stripe and database
+ */
+router.post('/reconcile/payments', async (req, res) => {
+  try {
+    const { start_date, end_date, auto_fix = false, dry_run = true } = req.body;
+
+    if (!start_date || !end_date) {
+      return res.status(400).json({
+        error: 'Missing date parameters',
+        message: 'start_date and end_date are required'
+      });
+    }
+
+    logger.info('Starting payment reconciliation', {
+      adminUserId: req.user.id,
+      startDate: start_date,
+      endDate: end_date,
+      autoFix: auto_fix,
+      dryRun: dry_run
+    });
+
+    const reconciliationReport = await reconciliationService.reconcilePayments(
+      start_date,
+      end_date,
+      { autoFix: auto_fix, dryRun: dry_run }
+    );
+
+    logger.info('Payment reconciliation completed', {
+      adminUserId: req.user.id,
+      summary: reconciliationReport.summary
+    });
+
+    res.json({
+      success: true,
+      data: reconciliationReport,
+      timestamp: new Date().toISOString()
+    });
+
+  } catch (error) {
+    logger.error('Payment reconciliation failed', {
+      adminUserId: req.user?.id,
+      error: error.message
+    });
+
+    res.status(500).json({
+      error: 'Payment reconciliation failed',
+      message: error.message
+    });
+  }
+});
+
+/**
+ * POST /api/admin/payments/manual
+ * Process manual payment adjustment
+ */
+router.post('/payments/manual', async (req, res) => {
+  try {
+    const {
+      user_id,
+      amount,
+      currency = 'usd',
+      reason,
+      description,
+      credits,
+      refund = false
+    } = req.body;
+
+    if (!user_id || !amount || !reason) {
+      return res.status(400).json({
+        error: 'Missing required fields',
+        message: 'user_id, amount, and reason are required'
+      });
+    }
+
+    logger.info('Processing manual payment', {
+      adminUserId: req.user.id,
+      targetUserId: user_id,
+      amount,
+      reason,
+      refund
+    });
+
+    const result = await reconciliationService.processManualPayment(
+      {
+        userId: user_id,
+        amount,
+        currency,
+        reason,
+        description,
+        credits,
+        refund
+      },
+      req.user.id
+    );
+
+    logger.info('Manual payment processed successfully', {
+      adminUserId: req.user.id,
+      manualPaymentId: result.manualPaymentId
+    });
+
+    res.json({
+      success: true,
+      data: result,
+      message: `Manual ${refund ? 'refund' : 'payment'} processed successfully`,
+      timestamp: new Date().toISOString()
+    });
+
+  } catch (error) {
+    logger.error('Manual payment processing failed', {
+      adminUserId: req.user?.id,
+      error: error.message
+    });
+
+    res.status(500).json({
+      error: 'Manual payment processing failed',
+      message: error.message
+    });
+  }
+});
+
+/**
+ * GET /api/admin/reconcile/history
+ * Get reconciliation history
+ */
+router.get('/reconcile/history', async (req, res) => {
+  try {
+    const { limit = 20, offset = 0 } = req.query;
+
+    logger.info('Fetching reconciliation history', {
+      adminUserId: req.user.id,
+      limit,
+      offset
+    });
+
+    const history = await reconciliationService.getReconciliationHistory(
+      parseInt(limit),
+      parseInt(offset)
+    );
+
+    res.json({
+      success: true,
+      data: history,
+      timestamp: new Date().toISOString()
+    });
+
+  } catch (error) {
+    logger.error('Failed to get reconciliation history', {
+      adminUserId: req.user?.id,
+      error: error.message
+    });
+
+    res.status(500).json({
+      error: 'Failed to retrieve reconciliation history',
+      message: error.message
+    });
+  }
+});
+
+/**
+ * POST /api/admin/audit/generate
+ * Generate financial audit report
+ */
+router.post('/audit/generate', async (req, res) => {
+  try {
+    const { start_date, end_date } = req.body;
+
+    if (!start_date || !end_date) {
+      return res.status(400).json({
+        error: 'Missing date parameters',
+        message: 'start_date and end_date are required'
+      });
+    }
+
+    logger.info('Generating audit report', {
+      adminUserId: req.user.id,
+      startDate: start_date,
+      endDate: end_date
+    });
+
+    const auditReport = await reconciliationService.generateAuditReport({
+      startDate: start_date,
+      endDate: end_date
+    });
+
+    logger.info('Audit report generated successfully', {
+      adminUserId: req.user.id,
+      summary: auditReport.summary
+    });
+
+    res.json({
+      success: true,
+      data: auditReport,
+      timestamp: new Date().toISOString()
+    });
+
+  } catch (error) {
+    logger.error('Audit report generation failed', {
+      adminUserId: req.user?.id,
+      error: error.message
+    });
+
+    res.status(500).json({
+      error: 'Audit report generation failed',
+      message: error.message
+    });
+  }
+});
+
+/**
+ * GET /api/admin/payments/discrepancies
+ * Get current payment discrepancies that need attention
+ */
+router.get('/payments/discrepancies', async (req, res) => {
+  try {
+    const { days = 7 } = req.query;
+    const endDate = new Date().toISOString();
+    const startDate = new Date(Date.now() - days * 24 * 60 * 60 * 1000).toISOString();
+
+    logger.info('Checking for payment discrepancies', {
+      adminUserId: req.user.id,
+      days
+    });
+
+    const reconciliation = await reconciliationService.reconcilePayments(
+      startDate,
+      endDate,
+      { autoFix: false, dryRun: true }
+    );
+
+    const highPriorityDiscrepancies = reconciliation.discrepancies.filter(
+      d => d.severity === 'high'
+    );
+
+    res.json({
+      success: true,
+      data: {
+        summary: reconciliation.summary,
+        discrepancies: reconciliation.discrepancies,
+        highPriority: highPriorityDiscrepancies,
+        requiresAttention: highPriorityDiscrepancies.length > 0
+      },
+      period: { startDate, endDate },
+      timestamp: new Date().toISOString()
+    });
+
+  } catch (error) {
+    logger.error('Failed to check payment discrepancies', {
+      adminUserId: req.user?.id,
+      error: error.message
+    });
+
+    res.status(500).json({
+      error: 'Failed to check payment discrepancies',
+      message: error.message
+    });
+  }
+});
+
+/**
+ * GET /api/admin/payments/manual/history
+ * Get manual payment history
+ */
+router.get('/payments/manual/history', async (req, res) => {
+  try {
+    const { limit = 20, offset = 0, user_id } = req.query;
+
+    let query = supabase
+      .from('manual_payments')
+      .select(`
+        id, user_id, amount, currency, reason, description,
+        processed_by, status, created_at,
+        user_profiles!manual_payments_user_id_fkey (
+          full_name, email
+        ),
+        admin_profiles:user_profiles!manual_payments_processed_by_fkey (
+          full_name, email
+        )
+      `)
+      .order('created_at', { ascending: false });
+
+    if (user_id) {
+      query = query.eq('user_id', user_id);
+    }
+
+    const { data: manualPayments, error } = await query
+      .range(parseInt(offset), parseInt(offset) + parseInt(limit) - 1);
+
+    if (error) throw error;
+
+    res.json({
+      success: true,
+      data: {
+        payments: manualPayments,
+        pagination: {
+          limit: parseInt(limit),
+          offset: parseInt(offset),
+          count: manualPayments.length,
+          hasMore: manualPayments.length === parseInt(limit)
+        }
+      },
+      timestamp: new Date().toISOString()
+    });
+
+  } catch (error) {
+    logger.error('Failed to get manual payment history', {
+      adminUserId: req.user?.id,
+      error: error.message
+    });
+
+    res.status(500).json({
+      error: 'Failed to retrieve manual payment history',
+      message: error.message
     });
   }
 });
