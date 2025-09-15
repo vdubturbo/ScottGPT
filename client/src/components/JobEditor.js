@@ -24,7 +24,6 @@ const JobEditor = ({ job, onSave, onCancel }) => {
   const [formData, setFormData] = useState({
     title: '',
     org: '',
-    description: '',
     location: '',
     date_start: '',
     date_end: '',
@@ -49,7 +48,6 @@ const JobEditor = ({ job, onSave, onCancel }) => {
       setFormData({
         title: job.title || '',
         org: job.org || '',
-        description: job.description || '',
         location: job.location || '',
         date_start: job.date_start || '',
         date_end: job.date_end || '',
@@ -61,7 +59,6 @@ const JobEditor = ({ job, onSave, onCancel }) => {
       setFormData({
         title: '',
         org: '',
-        description: '',
         location: '',
         date_start: '',
         date_end: '',
@@ -322,28 +319,6 @@ const JobEditor = ({ job, onSave, onCancel }) => {
                 </div>
               </div>
 
-              <div className="form-section full-width">
-                <h3>Description</h3>
-                <div className="form-group">
-                  <label htmlFor="description">Job Description</label>
-                  <textarea
-                    id="description"
-                    value={formData.description}
-                    onChange={(e) => handleFieldChange('description', e.target.value)}
-                    placeholder="Describe your role, responsibilities, and achievements..."
-                    rows={6}
-                    className={validation.errors?.some(e => e.field === 'description') ? 'error' : ''}
-                  />
-                  <ValidationMessage 
-                    field="description" 
-                    errors={validation.errors} 
-                    warnings={validation.warnings} 
-                  />
-                  <div className="character-count">
-                    {formData.description.length} characters
-                  </div>
-                </div>
-              </div>
 
               <div className="form-section full-width">
                 <h3>Skills & Technologies</h3>
