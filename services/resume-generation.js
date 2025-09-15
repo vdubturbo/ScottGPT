@@ -446,7 +446,15 @@ GENERATION REQUIREMENTS:
 Transform every piece of evidence into quantified, results-driven content that clearly demonstrates the candidate's value proposition and fit for the target role.`;
 
     console.log(`🤖 Generating resume with AI (optimized prompts)...`);
-    
+
+    // Calculate cost estimation for monitoring
+    const inputTokens = Math.ceil((systemPrompt.length + userPrompt.length) / 4); // Rough token estimation
+    const maxTokens = MAX_COMPLETION_TOKENS;
+    const estimatedCost = (inputTokens * CONFIG.ai.openai.modelInfo.inputCostPer1k / 1000) +
+                         (maxTokens * CONFIG.ai.openai.modelInfo.outputCostPer1k / 1000);
+
+    console.log(`🤖 Resume generation: ${CONFIG.ai.openai.model}, Est. cost: $${estimatedCost.toFixed(4)}, Tokens: ${inputTokens}→${maxTokens}`);
+
     try {
       const response = await this.openai.chat.completions.create({
         model: CONFIG.ai.openai.model,

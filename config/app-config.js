@@ -203,7 +203,7 @@ export const APP_CONFIG = {
     // OpenAI Configuration
     openai: {
       apiKey: validateAndGetEnv('OPENAI_API_KEY'),
-      model: 'gpt-4',
+      model: 'gpt-4o', // Switched from gpt-4 for 89% cost reduction
       temperature: {
         default: 0.4,
         precise: 0.2,
@@ -214,7 +214,16 @@ export const APP_CONFIG = {
         summary: 500,
         detailed: 2000
       },
-      timeout: 30000 // 30 seconds
+      timeout: 30000, // 30 seconds
+
+      // Model cost tracking for monitoring
+      modelInfo: {
+        name: 'gpt-4o',
+        inputCostPer1k: 0.0025,    // $0.0025 per 1K input tokens
+        outputCostPer1k: 0.01,     // $0.01 per 1K output tokens
+        previousModel: 'gpt-4',    // For reference
+        switchReason: 'Cost optimization - 89% cost reduction with minimal quality impact'
+      }
     },
     
     // Cohere Configuration

@@ -324,6 +324,14 @@ Return JSON with this exact structure:
   "keywords": ["ATS keyword 1", "keyword 2", "industry term"]
 }`;
 
+      // Calculate cost estimation for job analysis
+      const inputTokens = Math.ceil((systemPrompt.length + jobDescription.length + 50) / 4); // Rough token estimation
+      const maxTokens = 2500;
+      const estimatedCost = (inputTokens * CONFIG.ai.openai.modelInfo.inputCostPer1k / 1000) +
+                           (maxTokens * CONFIG.ai.openai.modelInfo.outputCostPer1k / 1000);
+
+      console.log(`🤖 [ADVANCED] Job analysis: ${CONFIG.ai.openai.model}, Est. cost: $${estimatedCost.toFixed(4)}, Tokens: ${inputTokens}→${maxTokens}`);
+
       const response = await this.openai.chat.completions.create({
         model: CONFIG.ai.openai.model,
         messages: [
@@ -581,6 +589,14 @@ OUTPUT REQUIREMENTS:
 4. <h2>Core Competencies</h2> - Skills extracted from evidence
 
 Use ONLY evidence provided. No placeholders, no generic content, no contact info.`;
+
+      // Calculate cost estimation for enhanced resume generation
+      const inputTokens = Math.ceil((systemPrompt.length + userPrompt.length) / 4);
+      const maxTokens = 3000;
+      const estimatedCost = (inputTokens * CONFIG.ai.openai.modelInfo.inputCostPer1k / 1000) +
+                           (maxTokens * CONFIG.ai.openai.modelInfo.outputCostPer1k / 1000);
+
+      console.log(`🤖 [ADVANCED] Enhanced resume: ${CONFIG.ai.openai.model}, Est. cost: $${estimatedCost.toFixed(4)}, Tokens: ${inputTokens}→${maxTokens}`);
 
       const response = await this.openai.chat.completions.create({
         model: CONFIG.ai.openai.model,
@@ -1080,6 +1096,14 @@ SCOTT'S RELEVANT EXPERIENCE NARRATIVE:
 ${ragResponse.narrative}
 
 Convert this narrative into a structured, ATS-optimized resume in HTML format. Focus on the most relevant experience and achievements that match the job requirements. Ensure the resume showcases quantified results and leadership impact.`;
+
+      // Calculate cost estimation for narrative conversion
+      const inputTokens = Math.ceil((systemPrompt.length + userPrompt.length) / 4);
+      const maxTokens = 3000;
+      const estimatedCost = (inputTokens * CONFIG.ai.openai.modelInfo.inputCostPer1k / 1000) +
+                           (maxTokens * CONFIG.ai.openai.modelInfo.outputCostPer1k / 1000);
+
+      console.log(`🤖 [ADVANCED] Narrative→Resume: ${CONFIG.ai.openai.model}, Est. cost: $${estimatedCost.toFixed(4)}, Tokens: ${inputTokens}→${maxTokens}`);
 
       const response = await this.openai.chat.completions.create({
         model: CONFIG.ai.openai.model,
