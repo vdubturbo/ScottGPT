@@ -5,11 +5,11 @@ export class TokenBudget {
     this.encoder = encoding_for_model('gpt-4');
     
     this.BUDGET = {
-      TARGET_MIN: 60,
-      TARGET_MAX: 120,
-      HARD_CAP: 180,
-      CHAR_ESTIMATE_MIN: 240,
-      CHAR_ESTIMATE_MAX: 480
+      TARGET_MIN: 200,
+      TARGET_MAX: 400,
+      HARD_CAP: 500,
+      CHAR_ESTIMATE_MIN: 800,
+      CHAR_ESTIMATE_MAX: 1600
     };
     
     this.metrics = {
@@ -153,21 +153,21 @@ export class TokenBudget {
 
   generateHistogram(tokenCounts) {
     const bins = {
-      '0-40': 0,
-      '41-60': 0,
-      '61-120': 0,
-      '121-180': 0,
-      '181+': 0
+      '0-100': 0,
+      '101-200': 0,
+      '201-400': 0,
+      '401-500': 0,
+      '501+': 0
     };
-    
+
     tokenCounts.forEach(count => {
-      if (count <= 40) bins['0-40']++;
-      else if (count <= 60) bins['41-60']++;
-      else if (count <= 120) bins['61-120']++;
-      else if (count <= 180) bins['121-180']++;
-      else bins['181+']++;
+      if (count <= 100) bins['0-100']++;
+      else if (count <= 200) bins['101-200']++;
+      else if (count <= 400) bins['201-400']++;
+      else if (count <= 500) bins['401-500']++;
+      else bins['501+']++;
     });
-    
+
     return bins;
   }
 

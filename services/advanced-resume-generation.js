@@ -4,6 +4,10 @@
  * Provides the same interface as the existing ResumeGenerationService
  */
 
+// CRITICAL: All resume content must be based on actual evidence provided
+// NO FABRICATION of metrics, numbers, or achievements not in source data
+// Focus on transforming real accomplishments into professional language
+
 // Enhanced with JD Summarization → RAG Chat Pipeline
 import OpenAI from 'openai';
 import CONFIG from '../config/app-config.js';
@@ -1054,38 +1058,36 @@ RELEVANCE SCORE: ${item.qualityScore.toFixed(2)}`;
   async generateResumeFromNarrative(ragResponse, jobDescription, jdAnalysis, options = {}) {
     try {
       console.log(`📝 [NARRATIVE→RESUME] Converting ${ragResponse.narrative.length} chars to resume format`);
+
+      // Add debugging to see narrative utilization
+      console.log(`🔍 Narrative used (first 500 chars): ${ragResponse.narrative.substring(0, 500)}...`);
+      console.log(`📊 Total narrative length: ${ragResponse.narrative.length} characters`);
+      console.log(`📊 Source count: ${ragResponse.sources.length} sources`);
       
-      const systemPrompt = `You are a professional resume writer creating comprehensive resumes that showcase measurable achievements and clear value proposition for any role level.
+      const systemPrompt = `Professional resume writer creating comprehensive, executive-level resumes.
 
-COMPREHENSIVE RESUME REQUIREMENTS:
-- Target 1,500-2,000 words for detailed 2-page format
-- Each professional role must include 5-7 quantified achievement bullets
-- Include specific metrics: percentages, dollar amounts, volumes, timeframes, team sizes, efficiency gains
-- Adapt language sophistication to match the target role level and industry
-- Transform narrative content into powerful, results-driven bullet points with measurable outcomes
+REQUIREMENTS:
+- Generate 1,500-2,000 words using the provided narrative and evidence
+- Create 5-7 compelling bullets per role
+- Use executive language appropriate for senior positions
+- Include specific achievements and technologies mentioned in the narrative
+- When narrative includes metrics, feature them prominently
+- When narrative lacks specific numbers, focus on impact, scope, and leadership
 
-CONTENT DEPTH STANDARDS:
-- Professional Summary: 100-120 words highlighting key strengths and quantified impact
-- Experience Bullets: 20-30 words each with specific numbers and measurable outcomes
-- Value Demonstration: Show clear problem-solving, innovation, and contribution to organizational goals
-- Growth Narrative: Demonstrate increasing responsibility and expanding scope of impact
+NARRATIVE USAGE:
+- Transform narrative content into polished professional statements
+- Extrapolate reasonable context from documented experience
+- Use sophisticated vocabulary while staying truthful to the source material
+- Show career progression and increasing executive responsibility
+- Emphasize strategic thinking, leadership, and business impact
 
-LANGUAGE AND TONE ADAPTATION:
-- Match sophistication level to target role (entry, mid, senior, executive)
-- Use industry-appropriate terminology from job requirements
-- Strong action verbs appropriate to role level and function
-- Quantified achievements with before/after scenarios where possible
-- Focus on value creation, problem-solving, and measurable contributions
-- Show collaboration, initiative, and professional growth
+STRUCTURE:
+- Professional Summary: Executive-level positioning statement
+- Core Competencies: Leadership and technical skills from narrative
+- Professional Experience: Achievement-focused executive bullets
+- Focus on strategic value delivered and organizational impact
 
-UNIVERSAL QUALITY STANDARDS:
-- Every bullet point should demonstrate clear value delivered
-- Include scale and scope indicators appropriate to role level
-- Show progression of skills and responsibilities
-- Emphasize both technical competencies and soft skills with concrete examples
-- Maintain professional tone while showcasing personality and drive
-
-OUTPUT FORMAT: Clean HTML with professional structure optimized for ATS scanning and human review.`;
+OUTPUT FORMAT: Clean HTML presenting a compelling executive resume based on provided narrative content.`;
 
       const userPrompt = `Based on this narrative about Scott's professional experience, create a tailored resume for this specific job opportunity:
 

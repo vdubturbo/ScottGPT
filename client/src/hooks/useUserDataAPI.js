@@ -260,6 +260,15 @@ export const useUserDataAPI = () => {
     return apiCall(() => axios.post(`${API_BASE}/regenerate-all-embeddings`, options));
   }, [apiCall]);
 
+  const deleteAllUserData = useCallback((confirmText) => {
+    return apiCall(() => axios.delete(`${API_BASE}/delete-all-data`, {
+      data: {
+        confirm: true,
+        confirmText: confirmText
+      }
+    }));
+  }, [apiCall]);
+
   // Document Management API calls
   const getUploadedDocuments = useCallback(async (options = {}) => {
     const params = new URLSearchParams(options);
@@ -344,7 +353,8 @@ export const useUserDataAPI = () => {
     
     // System Operations
     regenerateAllEmbeddings,
-    
+    deleteAllUserData,
+
     // Document Management
     getUploadedDocuments
   };

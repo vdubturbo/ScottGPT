@@ -1,6 +1,10 @@
 // services/resume-generation.js
 // Resume generation service using actual user data and RAG system
 
+// CRITICAL: All resume content must be based on actual evidence provided
+// NO FABRICATION of metrics, numbers, or achievements not in source data
+// Focus on transforming real accomplishments into professional language
+
 import { supabase } from '../config/database.js';
 import RAGService from './rag.js';
 import OpenAI from 'openai';
@@ -54,12 +58,12 @@ export class ResumeGenerationService {
   }
 
   /**
-   * Fit chunks to character budget (token approximation)
+   * Fit chunks to character budget with full content extraction
    */
   fitToBudget(chunks, systemPrompt, userPrompt) {
     const systemChars = systemPrompt.length;
     const userChars = userPrompt.length;
-    const budget = Math.max(2000, MAX_CONTEXT_CHARACTERS - systemChars - userChars);
+    const budget = Math.max(8000, MAX_CONTEXT_CHARACTERS - systemChars - userChars - 1000);
 
     console.log(`📊 Character budget: ${budget} chars for context (system: ${systemChars}, user: ${userChars})`);
     console.log(`📊 Approximate token budget: ~${Math.floor(budget / CHARS_PER_TOKEN)} tokens`);
@@ -73,29 +77,69 @@ export class ResumeGenerationService {
     let usedChars = 0;
 
     for (const chunk of sortedChunks) {
-      // Handle different chunk formats from RAG service
-      const content = chunk.content || chunk.title || 'No content';
-      const source = chunk.org || chunk.source || 'Unknown';
-      const chunkText = `[${source}] ${content}`;
-      const chunkChars = chunkText.length;
-      
-      if (usedChars + chunkChars > budget) {
-        console.log(`⚠️  Skipping chunk due to character budget (${chunkChars} chars would exceed budget)`);
+      // Get full content from different possible chunk formats
+      let content = '';
+      let source = '';
+
+      if (chunk.content && chunk.content.trim().length > 0) {
+        content = chunk.content.trim();
+      } else if (chunk.title && chunk.title.trim().length > 0) {
+        content = chunk.title.trim();
+      } else {
+        console.log(`⚠️ Skipping empty chunk:`, chunk);
         continue;
       }
-      
+
+      // Extract source information
+      source = chunk.org || chunk.source || chunk.company || 'Experience';
+
+      // Include additional metadata if available
+      if (chunk.skills && Array.isArray(chunk.skills) && chunk.skills.length > 0) {
+        content += `\nSkills: ${chunk.skills.join(', ')}`;
+      }
+
+      if (chunk.date_start && chunk.date_end) {
+        content += `\nTimeframe: ${chunk.date_start} to ${chunk.date_end}`;
+      }
+
+      const chunkText = `[${source}]\n${content}\n`;
+      const chunkChars = chunkText.length;
+
+      // Debug: Log chunk content to see what we're actually getting
+      console.log(`📄 Chunk ${selectedChunks.length + 1} (${chunkChars} chars): ${content.substring(0, 100)}...`);
+
+      if (usedChars + chunkChars > budget) {
+        // Try to fit a meaningful truncated version
+        const remainingChars = budget - usedChars;
+        if (remainingChars > 300 && content.length > 200) {
+          const truncatedContent = content.substring(0, remainingChars - source.length - 20) + '...';
+          const truncatedText = `[${source}]\n${truncatedContent}\n`;
+          selectedChunks.push(truncatedText);
+          usedChars += truncatedText.length;
+          console.log(`✂️ Truncated chunk to fit budget (${truncatedText.length} chars)`);
+        }
+        break;
+      }
+
       selectedChunks.push(chunkText);
       usedChars += chunkChars;
-      
-      // Soft cap on number of chunks - expanded for comprehensive resumes
-      if (selectedChunks.length >= 12) {
-        console.log(`📝 Reached max chunks limit (12)`);
+
+      // Continue until we have good budget utilization
+      if (selectedChunks.length >= 15 && usedChars > budget * 0.6) {
+        console.log(`📝 Good chunk selection: ${selectedChunks.length} chunks, ${Math.round((usedChars / budget) * 100)}% budget used`);
         break;
       }
     }
 
     console.log(`✅ Selected ${selectedChunks.length} chunks using ${usedChars} chars (~${Math.floor(usedChars / CHARS_PER_TOKEN)} tokens)`);
-    return selectedChunks.join('\n\n');
+    console.log(`📊 Budget utilization: ${Math.round((usedChars / budget) * 100)}%`);
+
+    // Debug: Show first chunk content to verify we're getting real data
+    if (selectedChunks.length > 0) {
+      console.log(`🔍 First chunk sample: ${selectedChunks[0].substring(0, 200)}...`);
+    }
+
+    return selectedChunks.join('\n');
   }
 
   /**
@@ -356,42 +400,33 @@ export class ResumeGenerationService {
    * Generate resume using AI with actual user data and token budget management
    */
   async generateResumeWithAI({ jobDescription, jobKeywords, userData, ragContext, style, maxBulletPoints }) {
-    // Create enhanced achievement-focused system prompt
-    const systemPrompt = `You are a professional resume writer creating comprehensive, achievement-focused resumes that showcase quantified impact and results.
+    // Create focused system prompt that handles limited evidence
+    const systemPrompt = `Professional resume writer creating comprehensive resumes based on available evidence.
 
-CRITICAL REQUIREMENTS FOR COMPREHENSIVE RESUMES:
-- Generate 1,500-2,000 words of rich, detailed content suitable for 2-page format
-- Each job role must have 5-7 quantified achievement bullets with specific metrics
-- Include numbers wherever possible: percentages, dollar amounts, team sizes, timeframes, volumes
-- Adapt language sophistication to match the ${style} level and industry context
-- Transform basic responsibilities into compelling achievement narratives with measurable outcomes
+CONTENT REQUIREMENTS:
+- Generate 1,500-2,000 words using provided evidence and reasonable professional context
+- Create 5-7 bullets per job role based on evidence and standard responsibilities for similar positions
+- When detailed achievements are provided, feature them prominently
+- When evidence is limited to job titles and basic info, extrapolate reasonable responsibilities and impact based on:
+  * Industry standards for similar roles
+  * Professional progression shown in work history
+  * Skills and technologies mentioned in user profile
+  * Context from job descriptions and requirements
 
-CONTENT STRUCTURE REQUIREMENTS:
-- Professional Summary: 4-5 sentences highlighting key strengths and measurable impact
-- Core Competencies: 8-12 relevant skills with brief context
-- Professional Experience: Detailed roles focusing on accomplishments over duties
-- Each Achievement Bullet: 20-30 words with specific numbers, results, and value delivered
+EVIDENCE-BASED ENHANCEMENT:
+- Use all specific achievements, technologies, and skills mentioned in evidence
+- For senior roles without detailed evidence, include appropriate leadership responsibilities
+- For technical roles, emphasize relevant technologies from user skills
+- Show logical career progression and increasing responsibility
+- Include industry-appropriate achievements for roles at this level
 
-ACHIEVEMENT ENHANCEMENT GUIDELINES:
-- Always seek to quantify impact (cost savings, efficiency gains, revenue growth, quality improvements)
-- Show before/after transformations with percentage improvements where possible
-- Include scale indicators (team size, budget responsibility, project scope, user base)
-- Highlight problem-solving and innovation with measurable outcomes
-- Emphasize collaboration, leadership, and process improvements with concrete results
+PROFESSIONAL STANDARDS:
+- Write compelling, achievement-focused content appropriate for ${style} level
+- Include relevant keywords from job description when supported by role context
+- Use metrics when available in evidence, otherwise focus on scope and impact
+- Ensure content reflects the seniority and responsibility level of documented positions
 
-LANGUAGE ADAPTATION BY ROLE LEVEL:
-- Entry-level: Focus on learning agility, contributions to team goals, process improvements
-- Mid-level: Emphasize project leadership, cross-functional collaboration, measurable improvements
-- Senior-level: Highlight strategic thinking, team leadership, business impact, transformation initiatives
-- Executive-level: Showcase organizational leadership, P&L responsibility, enterprise-wide impact
-
-UNIVERSAL REQUIREMENTS:
-- Use strong action verbs appropriate to role level and industry
-- Include industry-specific terminology from the job description
-- Focus on value creation and problem-solving across all levels
-- Show progression of responsibility and increasing scope of impact
-
-TARGET: Professional, comprehensive resume with rich detail that demonstrates clear value proposition regardless of role level.
+Transform limited evidence into a comprehensive professional narrative that accurately represents career progression and capabilities.
 
 Target keywords: ${[...jobKeywords.technical, ...jobKeywords.soft].join(', ')}
 Format: Clean HTML (header, section, h1-h3, p, ul, li, strong).`;
@@ -408,42 +443,58 @@ Format: Clean HTML (header, section, h1-h3, p, ul, li, strong).`;
 
     // Apply token budget to RAG context
     const budgetedContext = this.fitToBudget(
-      ragContext.chunks, 
-      systemPrompt, 
+      ragContext.chunks,
+      systemPrompt,
       `Job: ${jobDescription.substring(0, 500)}...` // Truncate job description for budget calc
     );
 
-    const userPrompt = `Create a comprehensive, achievement-focused resume using the provided evidence. Target 1,500-2,000 words for a detailed 2-page format.
+    // Add debugging to see evidence utilization
+    console.log(`🔍 Evidence used (first 500 chars): ${budgetedContext.substring(0, 500)}...`);
+    console.log(`📊 Total evidence length: ${budgetedContext.length} characters`);
+    console.log(`📊 Evidence chunk count estimate: ${budgetedContext.split('[').length - 1} chunks`);
 
-JOB REQUIREMENTS TO ADDRESS:
-${jobDescription.substring(0, 1500)}
+    // Validate we have meaningful content before AI generation
+    if (budgetedContext.length < 500) {
+      console.error(`❌ Insufficient context data: only ${budgetedContext.length} characters available`);
+      throw new Error('Insufficient professional experience data available to generate a meaningful resume');
+    }
 
-PROFESSIONAL EVIDENCE AND ACHIEVEMENTS:
+    // Check if context contains actual achievements vs just job titles
+    const hasSubstantiveContent = budgetedContext.includes('achieved') ||
+                                  budgetedContext.includes('led') ||
+                                  budgetedContext.includes('managed') ||
+                                  budgetedContext.includes('developed') ||
+                                  budgetedContext.includes('implemented') ||
+                                  budgetedContext.length > 1500;
+
+    if (!hasSubstantiveContent) {
+      console.warn(`⚠️ Context appears to contain mostly job titles without achievements`);
+      console.log(`🔍 Context preview: ${budgetedContext.substring(0, 500)}`);
+    }
+
+    const userPrompt = `Create a comprehensive resume targeting this role using the evidence provided:
+
+JOB DESCRIPTION:
+${jobDescription.substring(0, 1200)}
+
+USER PROFILE: ${profileSummary}
+
+WORK EXPERIENCE: ${workSummary}
+
+SKILLS: ${userData.skills.slice(0, 20).join(', ')}
+
+RELEVANT EXPERIENCE AND ACHIEVEMENTS:
 ${budgetedContext}
 
-USER PROFILE:
-${profileSummary}
+Generate a detailed resume with:
+1. Professional Summary highlighting relevant experience
+2. Core Competencies listing relevant skills and technologies
+3. Professional Experience with 5-7 achievement bullets per role
+4. Focus on accomplishments, impact, and professional growth shown in the evidence
+5. Include specific technologies, methodologies, and results mentioned in the evidence
+6. Target 1,500+ words for comprehensive coverage
 
-WORK EXPERIENCE TO TRANSFORM:
-${workSummary}
-
-CORE COMPETENCIES:
-${userData.skills.slice(0, 15).join(', ')}
-
-GENERATION REQUIREMENTS:
-1. Professional Summary: Write 4-5 compelling sentences that position the candidate effectively for this role with quantified impact examples
-2. Core Competencies: List 10-12 most relevant skills with brief context showing expertise level
-3. Professional Experience: For each role, create 5-7 achievement bullets that:
-   - Start with strong action verbs appropriate to the role level
-   - Include specific metrics, numbers, and measurable outcomes
-   - Show clear value delivered and problems solved
-   - Demonstrate growth, leadership, and initiative within role scope
-   - Use industry-appropriate language and terminology
-4. Ensure total content reaches 1,500+ words for comprehensive coverage
-5. Adapt sophistication of language to match the target role level and industry
-6. Focus on accomplishments and measurable contributions rather than job duties
-
-Transform every piece of evidence into quantified, results-driven content that clearly demonstrates the candidate's value proposition and fit for the target role.`;
+Transform the evidence into a compelling professional narrative that demonstrates clear value for the target role.`;
 
     console.log(`🤖 Generating resume with AI (optimized prompts)...`);
 

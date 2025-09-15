@@ -16,7 +16,8 @@ const WorkHistoryManager = ({ onViewDuplicates }) => {
     getWorkHistory,
     getDuplicatesSummary,
     deleteJob,
-    bulkDeleteJobs
+    bulkDeleteJobs,
+    deleteAllUserData
   } = useUserDataAPI();
 
   const [jobs, setJobs] = useState([]);
@@ -29,6 +30,8 @@ const WorkHistoryManager = ({ onViewDuplicates }) => {
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedJobs, setSelectedJobs] = useState(new Set());
   const [showBulkActions, setShowBulkActions] = useState(false);
+  const [showDeleteAllDialog, setShowDeleteAllDialog] = useState(false);
+  const [deleteConfirmText, setDeleteConfirmText] = useState('');
 
   // Load work history data
   const loadWorkHistory = useCallback(async () => {
@@ -166,6 +169,43 @@ const WorkHistoryManager = ({ onViewDuplicates }) => {
       setSelectedJobs(new Set());
       setShowBulkActions(false);
     }
+  };
+
+  // Handle delete all data
+  const handleDeleteAllData = async () => {
+    if (deleteConfirmText !== 'DELETE ALL MY DATA') {
+      alert('Please type "DELETE ALL MY DATA" exactly to confirm this action.');
+      return;
+    }
+
+    try {
+      console.log('Deleting all user data with confirmation:', deleteConfirmText);
+      const result = await deleteAllUserData(deleteConfirmText);
+      console.log('Delete all data completed:', result);
+
+      // Close dialog and reset state
+      setShowDeleteAllDialog(false);
+      setDeleteConfirmText('');
+
+      // Clear all local state
+      setJobs([]);
+      setSelectedJobs(new Set());
+      setShowBulkActions(false);
+      setDuplicatesSummary(null);
+
+      // Show success message
+      alert(`All data has been permanently deleted.\n\nDeleted:\n• ${result.data.impact.sourcesDeleted} job sources\n• ${result.data.impact.chunksDeleted} content chunks\n• ${result.data.impact.documentsDeleted} documents\n• ${result.data.impact.embeddingsRemoved} embeddings`);
+
+    } catch (err) {
+      console.error('Failed to delete all data:', err);
+      // Error will be handled by the useUserDataAPI hook and displayed in the error banner
+    }
+  };
+
+  // Handle cancel delete all data
+  const handleCancelDeleteAll = () => {
+    setShowDeleteAllDialog(false);
+    setDeleteConfirmText('');
   };
 
   // Handle bulk delete
@@ -705,7 +745,7 @@ const WorkHistoryManager = ({ onViewDuplicates }) => {
           )}
           
           <div className="action-buttons">
-            <button 
+            <button
               className="btn-secondary btn-tool"
               onClick={() => {
                 if (onViewDuplicates) {
@@ -718,7 +758,7 @@ const WorkHistoryManager = ({ onViewDuplicates }) => {
             >
               🔍 Duplicates
             </button>
-            <button 
+            <button
               className="btn-secondary btn-tool"
               onClick={() => {
                 // Open data quality inline view
@@ -728,7 +768,15 @@ const WorkHistoryManager = ({ onViewDuplicates }) => {
             >
               📊 Quality
             </button>
-            <button 
+            <button
+              className="btn-danger btn-tool"
+              onClick={() => setShowDeleteAllDialog(true)}
+              title="Delete all your data - this action cannot be undone"
+              style={{ marginLeft: '10px', borderLeft: '2px solid #ccc', paddingLeft: '10px' }}
+            >
+              🗑️ Delete All Data
+            </button>
+            <button
               className="btn-primary"
               onClick={handleCreateJob}
               disabled={loading}
@@ -836,6 +884,69 @@ const WorkHistoryManager = ({ onViewDuplicates }) => {
           </>
         )}
       </div>
+
+      {showDeleteAllDialog && (
+        <div className="modal-overlay">
+          <div className="modal-dialog delete-all-dialog">
+            <div className="modal-header">
+              <h3>⚠️ Delete All Data</h3>
+              <button
+                className="close-button"
+                onClick={handleCancelDeleteAll}
+                title="Cancel"
+              >
+                ×
+              </button>
+            </div>
+
+            <div className="modal-body">
+              <div className="warning-message">
+                <p><strong>This action will permanently delete ALL of your data:</strong></p>
+                <ul>
+                  <li>All job positions and work history</li>
+                  <li>All uploaded documents</li>
+                  <li>All content chunks and embeddings</li>
+                  <li>All generated resumes and exports</li>
+                </ul>
+                <p className="danger-text">
+                  <strong>This action cannot be undone and there is no way to recover deleted data.</strong>
+                </p>
+              </div>
+
+              <div className="confirmation-section">
+                <label htmlFor="delete-confirm-input">
+                  To confirm, type <strong>"DELETE ALL MY DATA"</strong> exactly:
+                </label>
+                <input
+                  id="delete-confirm-input"
+                  type="text"
+                  value={deleteConfirmText}
+                  onChange={(e) => setDeleteConfirmText(e.target.value)}
+                  placeholder="Type: DELETE ALL MY DATA"
+                  className="delete-confirm-input"
+                  autoFocus
+                />
+              </div>
+            </div>
+
+            <div className="modal-footer">
+              <button
+                className="btn-secondary"
+                onClick={handleCancelDeleteAll}
+              >
+                Cancel
+              </button>
+              <button
+                className="btn-danger"
+                onClick={handleDeleteAllData}
+                disabled={deleteConfirmText !== 'DELETE ALL MY DATA' || loading}
+              >
+                {loading ? 'Deleting...' : 'Delete All Data'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {showEditor && (
         <JobEditor

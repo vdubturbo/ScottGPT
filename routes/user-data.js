@@ -1276,6 +1276,161 @@ router.get('/documents', async (req, res) => {
 });
 
 /**
+ * DELETE /api/user/delete-all-data
+ * Delete ALL user data including sources, chunks, documents, and embeddings
+ * DANGER: This is irreversible and will remove all user data
+ */
+router.delete('/delete-all-data', deleteLimiter, async (req, res) => {
+  try {
+    const { confirm, confirmText } = req.body;
+
+    // Require explicit confirmation
+    if (confirm !== true || confirmText !== 'DELETE ALL MY DATA') {
+      return res.status(400).json({
+        error: 'Confirmation required',
+        message: 'This action requires explicit confirmation',
+        required: {
+          confirm: true,
+          confirmText: 'DELETE ALL MY DATA'
+        },
+        warning: 'This action is irreversible and will permanently delete ALL your data'
+      });
+    }
+
+    logger.warn('User requested complete data deletion', {
+      userId: req.user.id,
+      ip: req.ip,
+      timestamp: new Date().toISOString()
+    });
+
+    let deletionSummary = {
+      sources: 0,
+      chunks: 0,
+      documents: 0,
+      embeddings: 0,
+      errors: []
+    };
+
+    try {
+      // Step 1: Count existing data for summary
+      const { count: sourcesCount } = await supabase
+        .from('sources')
+        .select('*', { count: 'exact', head: true })
+        .eq('user_id', req.user.id);
+
+      const { count: chunksCount } = await supabase
+        .from('content_chunks')
+        .select('*', { count: 'exact', head: true })
+        .eq('user_id', req.user.id);
+
+      const { count: documentsCount } = await supabase
+        .from('pipeline_documents')
+        .select('*', { count: 'exact', head: true })
+        .eq('user_id', req.user.id);
+
+      // Step 2: Delete content chunks (contains embeddings)
+      if (chunksCount > 0) {
+        const { error: chunksError } = await supabase
+          .from('content_chunks')
+          .delete()
+          .eq('user_id', req.user.id);
+
+        if (chunksError) {
+          deletionSummary.errors.push(`Failed to delete chunks: ${chunksError.message}`);
+        } else {
+          deletionSummary.chunks = chunksCount;
+          deletionSummary.embeddings = chunksCount; // Each chunk has an embedding
+        }
+      }
+
+      // Step 3: Delete sources
+      if (sourcesCount > 0) {
+        const { error: sourcesError } = await supabase
+          .from('sources')
+          .delete()
+          .eq('user_id', req.user.id);
+
+        if (sourcesError) {
+          deletionSummary.errors.push(`Failed to delete sources: ${sourcesError.message}`);
+        } else {
+          deletionSummary.sources = sourcesCount;
+        }
+      }
+
+      // Step 4: Delete pipeline documents
+      if (documentsCount > 0) {
+        const { error: documentsError } = await supabase
+          .from('pipeline_documents')
+          .delete()
+          .eq('user_id', req.user.id);
+
+        if (documentsError) {
+          deletionSummary.errors.push(`Failed to delete documents: ${documentsError.message}`);
+        } else {
+          deletionSummary.documents = documentsCount;
+        }
+      }
+
+      // Step 5: Clean up any remaining user-related data in other tables if needed
+      // Add additional cleanup operations here as needed
+
+      logger.info('Complete data deletion completed', {
+        userId: req.user.id,
+        summary: deletionSummary
+      });
+
+      const hasErrors = deletionSummary.errors.length > 0;
+      const totalDeleted = deletionSummary.sources + deletionSummary.chunks + deletionSummary.documents;
+
+      res.status(hasErrors ? 207 : 200).json({
+        success: totalDeleted > 0 || deletionSummary.errors.length === 0,
+        data: {
+          deletionSummary,
+          impact: {
+            sourcesDeleted: deletionSummary.sources,
+            chunksDeleted: deletionSummary.chunks,
+            documentsDeleted: deletionSummary.documents,
+            embeddingsRemoved: deletionSummary.embeddings,
+            totalItemsDeleted: totalDeleted
+          }
+        },
+        message: hasErrors
+          ? `Data deletion completed with ${deletionSummary.errors.length} errors`
+          : 'All user data has been permanently deleted',
+        warnings: hasErrors ? deletionSummary.errors : undefined,
+        timestamp: new Date().toISOString()
+      });
+
+    } catch (deletionError) {
+      logger.error('Error during data deletion', {
+        userId: req.user.id,
+        error: deletionError.message,
+        stack: deletionError.stack
+      });
+
+      res.status(500).json({
+        error: 'Data deletion failed',
+        message: 'An error occurred while deleting your data',
+        details: deletionError.message,
+        partialDeletion: deletionSummary
+      });
+    }
+
+  } catch (error) {
+    logger.error('Unexpected error in delete-all-data endpoint', {
+      error: error.message,
+      stack: error.stack,
+      userId: req.user?.id
+    });
+
+    res.status(500).json({
+      error: 'Internal server error',
+      message: 'An unexpected error occurred during data deletion'
+    });
+  }
+});
+
+/**
  * Error handling middleware
  */
 router.use((error, req, res, next) => {
