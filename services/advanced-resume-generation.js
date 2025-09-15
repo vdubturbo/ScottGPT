@@ -330,7 +330,7 @@ Return JSON with this exact structure:
           { role: 'system', content: systemPrompt },
           { role: 'user', content: `Extract requirements from: ${jobDescription}` }
         ],
-        max_tokens: 1200, // Increased for comprehensive analysis
+        max_tokens: 2500, // Expanded for comprehensive 2-page resume generation
         temperature: 0.0 // Fixed: Use 0.0 for maximum determinism in requirement extraction
       });
 
@@ -468,7 +468,7 @@ Return JSON with this exact structure:
       for (const query of searchQueries) {
         try {
           const results = await retrieval.retrieveContext(query, {
-            maxResults: 8, // Even more results per query to find achievements
+            maxResults: 12, // Expanded results per query for comprehensive resume generation
             userFilter: userId,
             threshold: 0.15 // Much lower threshold to capture achievement-rich content
           });
@@ -503,7 +503,7 @@ Return JSON with this exact structure:
       // Deduplicate by ID and sort by relevance score
       const uniqueEvidence = Array.from(
         new Map(allEvidence.map(item => [item.chunk.id, item])).values()
-      ).sort((a, b) => b.score - a.score).slice(0, 15); // Top 15 most relevant pieces
+      ).sort((a, b) => b.score - a.score).slice(0, 20); // Top 20 most relevant pieces for comprehensive resumes
 
       console.log('🔍 [ADVANCED] Final evidence count after dedup:', uniqueEvidence.length);
       console.log('🔍 [ADVANCED] Evidence score range:', 
@@ -537,17 +537,17 @@ Return JSON with this exact structure:
         throw new Error('No evidence found - cannot generate personalized resume without professional data');
       }
 
-      // Smart token budgeting for 8192 context window
+      // Smart token budgeting for 8192 context window - expanded for comprehensive resumes
       const maxContextTokens = 8192;
-      const responseTokens = 2500; // Reduced from 3500 but still generous
+      const responseTokens = 3000; // Increased for comprehensive 2-page resume generation
       const systemPromptTokens = 800; // Estimated
       const availableTokens = maxContextTokens - responseTokens - systemPromptTokens - 200; // 200 buffer
       
       console.log('🧮 [TOKEN BUDGET] Available for evidence + user prompt:', availableTokens, 'tokens');
       
-      // Prioritize and truncate evidence to fit budget
-      const optimizedEvidence = this._optimizeEvidenceForTokenBudget(evidence, jdAnalysis, availableTokens * 0.7); // 70% for evidence
-      const compactJDSummary = this._createCompactJDSummary(jdAnalysis, availableTokens * 0.3); // 30% for JD summary
+      // Prioritize and truncate evidence to fit expanded budget for comprehensive resumes
+      const optimizedEvidence = this._optimizeEvidenceForTokenBudget(evidence, jdAnalysis, availableTokens * 0.75); // 75% for evidence (increased)
+      const compactJDSummary = this._createCompactJDSummary(jdAnalysis, availableTokens * 0.25); // 25% for JD summary
       
       console.log('🧮 [TOKEN BUDGET] Using', optimizedEvidence.pieces, 'evidence pieces,', compactJDSummary.length, 'char JD summary');
       
@@ -588,7 +588,7 @@ Use ONLY evidence provided. No placeholders, no generic content, no contact info
           { role: 'system', content: systemPrompt },
           { role: 'user', content: userPrompt }
         ],
-        max_tokens: 2500, // Optimized for context window management
+        max_tokens: 3000, // Expanded for comprehensive resume generation
         temperature: 0.1
       });
       
@@ -1007,9 +1007,9 @@ RELEVANCE SCORE: ${item.qualityScore.toFixed(2)}`;
       console.log('🎯 [ADVANCED RAG] Using direct RAG service integration');
       
       const ragResult = await ragService.answerQuestion(ragQuery, {
-        maxChunks: 5, // Further reduced chunks to save tokens
+        maxChunks: 8, // Expanded chunks for comprehensive resume generation
         includeMetadata: true,
-        maxTokens: 1500, // Reduce completion tokens further to fit budget
+        maxTokens: 2500, // Expanded for comprehensive resume generation
         userFilter: userId // Pass the user ID for proper content filtering
       });
       
@@ -1039,27 +1039,37 @@ RELEVANCE SCORE: ${item.qualityScore.toFixed(2)}`;
     try {
       console.log(`📝 [NARRATIVE→RESUME] Converting ${ragResponse.narrative.length} chars to resume format`);
       
-      const systemPrompt = `You are a professional resume writer. Convert the provided narrative about Scott's experience into a polished, ATS-optimized resume in HTML format.
+      const systemPrompt = `You are a professional resume writer creating comprehensive resumes that showcase measurable achievements and clear value proposition for any role level.
 
-REQUIREMENTS:
-- Create clean, scannable HTML using standard tags (h1, h2, ul, li, p, strong)
-- Focus on achievements with quantified results (numbers, percentages, dollar amounts)
-- Use bullet points for easy scanning
-- Include relevant keywords from the job description naturally
-- Prioritize the most relevant experience for this specific role
-- Keep total length under 2 pages when printed
+COMPREHENSIVE RESUME REQUIREMENTS:
+- Target 1,500-2,000 words for detailed 2-page format
+- Each professional role must include 5-7 quantified achievement bullets
+- Include specific metrics: percentages, dollar amounts, volumes, timeframes, team sizes, efficiency gains
+- Adapt language sophistication to match the target role level and industry
+- Transform narrative content into powerful, results-driven bullet points with measurable outcomes
 
-STRUCTURE:
-1. Professional Summary (2-3 sentences)
-2. Core Competencies (key skills as bullet points)
-3. Professional Experience (reverse chronological, 3-5 bullets per role)
-4. Education & Certifications (if relevant)
+CONTENT DEPTH STANDARDS:
+- Professional Summary: 100-120 words highlighting key strengths and quantified impact
+- Experience Bullets: 20-30 words each with specific numbers and measurable outcomes
+- Value Demonstration: Show clear problem-solving, innovation, and contribution to organizational goals
+- Growth Narrative: Demonstrate increasing responsibility and expanding scope of impact
 
-STYLE:
-- Professional, confident tone
-- Action verbs at start of bullets
-- Quantified achievements wherever possible
-- Industry-appropriate terminology from job description`;
+LANGUAGE AND TONE ADAPTATION:
+- Match sophistication level to target role (entry, mid, senior, executive)
+- Use industry-appropriate terminology from job requirements
+- Strong action verbs appropriate to role level and function
+- Quantified achievements with before/after scenarios where possible
+- Focus on value creation, problem-solving, and measurable contributions
+- Show collaboration, initiative, and professional growth
+
+UNIVERSAL QUALITY STANDARDS:
+- Every bullet point should demonstrate clear value delivered
+- Include scale and scope indicators appropriate to role level
+- Show progression of skills and responsibilities
+- Emphasize both technical competencies and soft skills with concrete examples
+- Maintain professional tone while showcasing personality and drive
+
+OUTPUT FORMAT: Clean HTML with professional structure optimized for ATS scanning and human review.`;
 
       const userPrompt = `Based on this narrative about Scott's professional experience, create a tailored resume for this specific job opportunity:
 
@@ -1077,7 +1087,7 @@ Convert this narrative into a structured, ATS-optimized resume in HTML format. F
           { role: 'system', content: systemPrompt },
           { role: 'user', content: userPrompt }
         ],
-        max_tokens: 2500, // Focus on concise, impactful content
+        max_tokens: 3000, // Expanded for comprehensive, 2-page resume generation
         temperature: 0.1 // Slightly creative but consistent
       });
 
