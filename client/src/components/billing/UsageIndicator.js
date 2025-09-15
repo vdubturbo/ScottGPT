@@ -121,8 +121,8 @@ const UsageIndicator = ({
           gap: 8px;
           padding: 12px;
           border-radius: 8px;
-          background: #f8f9fa;
-          border: 1px solid #e9ecef;
+          background: #1a1a1a;
+          border: 1px solid #333;
         }
 
         .usage-indicator.compact {
@@ -146,22 +146,22 @@ const UsageIndicator = ({
         .progress-root {
           position: relative;
           overflow: hidden;
-          background: #e9ecef;
+          background: #333;
           border-radius: 6px;
           width: 100%;
           height: 8px;
         }
 
         .progress-root.success {
-          background: #e8f5e8;
+          background: #1e3a1e;
         }
 
         .progress-root.warning {
-          background: #fff3cd;
+          background: #3a3015;
         }
 
         .progress-root.danger {
-          background: #f8d7da;
+          background: #3a1e1e;
         }
 
         .progress-indicator {
@@ -195,12 +195,12 @@ const UsageIndicator = ({
         .usage-count {
           font-size: 1.125rem;
           font-weight: 600;
-          color: #212529;
+          color: #e0e0e0;
         }
 
         .usage-label {
           font-size: 0.875rem;
-          color: #6c757d;
+          color: #b0b0b0;
         }
 
         .usage-status {
@@ -212,18 +212,18 @@ const UsageIndicator = ({
 
         .status-message {
           font-size: 0.875rem;
-          color: #495057;
+          color: #c0c0c0;
           margin-bottom: 2px;
         }
 
         .status-message.at-limit {
-          color: #dc3545;
+          color: #ff6b6b;
           font-weight: 500;
         }
 
         .reset-date {
           font-size: 0.75rem;
-          color: #6c757d;
+          color: #b0b0b0;
         }
 
         .usage-compact {
@@ -236,7 +236,7 @@ const UsageIndicator = ({
         .usage-fraction {
           font-size: 0.875rem;
           font-weight: 500;
-          color: #495057;
+          color: #c0c0c0;
         }
 
         .limit-badge {
@@ -254,7 +254,7 @@ const UsageIndicator = ({
 
         .skeleton-bar {
           height: 8px;
-          background: #dee2e6;
+          background: #444;
           border-radius: 4px;
           margin-bottom: 8px;
         }
@@ -262,7 +262,7 @@ const UsageIndicator = ({
         .skeleton-text {
           height: 12px;
           width: 60%;
-          background: #dee2e6;
+          background: #444;
           border-radius: 4px;
         }
 

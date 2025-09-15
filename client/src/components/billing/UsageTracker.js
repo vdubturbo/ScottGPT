@@ -143,17 +143,17 @@ const UsageTracker = ({
           position: fixed;
           bottom: 20px;
           right: 20px;
-          background: white;
-          border: 1px solid #e9ecef;
+          background: #1a1a1a;
+          border: 1px solid #333;
           border-radius: 12px;
           padding: 16px;
-          box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+          box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
           z-index: 100;
           max-width: 300px;
         }
 
         .usage-tracker.header {
-          background: #f8f9fa;
+          background: #1a1a1a;
           border-radius: 8px;
           padding: 8px 12px;
         }
@@ -193,7 +193,7 @@ const UsageTracker = ({
         }
 
         .refresh-btn:hover {
-          background: #f8f9fa;
+          background: #333;
         }
 
         .action-buttons {
@@ -250,11 +250,11 @@ const UsageTracker = ({
           align-items: center;
           gap: 6px;
           padding: 8px 12px;
-          background: #e3f2fd;
-          border: 1px solid #bbdefb;
+          background: #1a2e3e;
+          border: 1px solid #2c5282;
           border-radius: 6px;
           font-size: 0.875rem;
-          color: #1976d2;
+          color: #63b3ed;
         }
 
         .usage-tracker.compact .upgrade-hint {
