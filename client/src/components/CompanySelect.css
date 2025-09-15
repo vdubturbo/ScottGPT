@@ -9,16 +9,17 @@
 
 .company-select input.dropdown-mode {
   cursor: pointer;
-  background-color: #f8f9fa;
-  background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 20 20'%3e%3cpath stroke='%236b7280' stroke-linecap='round' stroke-linejoin='round' stroke-width='1.5' d='m6 8 4 4 4-4'/%3e%3c/svg%3e");
+  background-color: rgba(15, 15, 20, 0.8);
+  background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 20 20'%3e%3cpath stroke='%23f0f0f0' stroke-linecap='round' stroke-linejoin='round' stroke-width='1.5' d='m6 8 4 4 4-4'/%3e%3c/svg%3e");
   background-position: right 8px center;
   background-repeat: no-repeat;
   background-size: 16px 12px;
   padding-right: 32px;
+  color: #f0f0f0;
 }
 
 .company-select input.dropdown-mode:focus {
-  background-color: white;
+  background-color: rgba(20, 20, 25, 0.9);
 }
 
 .company-dropdown {
@@ -26,22 +27,23 @@
   top: 100%;
   left: 0;
   right: 0;
-  background: white;
-  border: 1px solid #ddd;
+  background: rgba(20, 20, 25, 0.95);
+  border: 1px solid rgba(139, 92, 246, 0.2);
   border-top: none;
-  border-radius: 0 0 4px 4px;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  border-radius: 0 0 8px 8px;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.3);
   z-index: 1000;
   max-height: 200px;
   overflow-y: auto;
+  backdrop-filter: blur(10px);
 }
 
 .dropdown-header {
   padding: 8px 12px;
   font-size: 0.85em;
-  color: #666;
-  background-color: #f8f9fa;
-  border-bottom: 1px solid #eee;
+  color: #999;
+  background-color: rgba(15, 15, 20, 0.8);
+  border-bottom: 1px solid rgba(139, 92, 246, 0.2);
   font-weight: 500;
 }
 
@@ -54,12 +56,12 @@
 .company-option {
   padding: 10px 12px;
   cursor: pointer;
-  border-bottom: 1px solid #f0f0f0;
+  border-bottom: 1px solid rgba(139, 92, 246, 0.1);
   transition: background-color 0.15s ease;
 }
 
 .company-option:hover {
-  background-color: #f8f9fa;
+  background-color: rgba(139, 92, 246, 0.1);
 }
 
 .company-option:last-child {
@@ -68,13 +70,13 @@
 
 .company-name {
   font-weight: 500;
-  color: #333;
+  color: #f0f0f0;
   margin-bottom: 2px;
 }
 
 .company-meta {
   font-size: 0.8em;
-  color: #666;
+  color: #999;
   display: flex;
   align-items: center;
   gap: 8px;
@@ -87,19 +89,19 @@
 
 .no-companies-message {
   padding: 12px;
-  color: #666;
+  color: #999;
   font-size: 0.9em;
   font-style: italic;
   text-align: center;
-  border: 1px solid #e0e0e0;
+  border: 1px solid rgba(139, 92, 246, 0.2);
   border-top: none;
-  border-radius: 0 0 4px 4px;
-  background-color: #f9f9f9;
+  border-radius: 0 0 8px 8px;
+  background-color: rgba(15, 15, 20, 0.8);
 }
 
 .field-hint {
   font-size: 0.85em;
-  color: #666;
+  color: #999;
   margin-top: 4px;
   font-style: italic;
 }
