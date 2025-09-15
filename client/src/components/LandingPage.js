@@ -45,11 +45,11 @@ const LandingPage = () => {
           justifyContent: 'space-between',
           alignItems: 'center'
         }}>
-          <img 
-            src="/Logo3.png" 
-            alt="ScottGPT Logo" 
+          <img
+            src="/Logo3.png"
+            alt="ScottGPT Logo"
             style={{
-              height: '40px',
+              height: '80px',
               width: 'auto'
             }}
           />

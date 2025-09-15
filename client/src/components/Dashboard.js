@@ -9,6 +9,7 @@ import CompactUploadProcessor from './CompactUploadProcessor';
 import WorkHistoryManager from './WorkHistoryManager';
 import DocumentsModal from './DocumentsModal';
 import ResumeGenerator from './ResumeGenerator';
+import UserMenu from './UserMenu';
 
 const Dashboard = () => {
   const { user, logout, isAdmin } = useAuth();
@@ -57,11 +58,6 @@ const Dashboard = () => {
     }
   }, [user, loadDashboardStats]);
 
-  const handleLogout = async () => {
-    if (window.confirm('Are you sure you want to logout?')) {
-      await logout();
-    }
-  };
 
   if (!user) return null;
 
@@ -73,28 +69,19 @@ const Dashboard = () => {
       <header className="dashboard-header">
         <div className="header-content">
           <div className="user-info">
-            <h1>Welcome, {profile?.display_name || profile?.full_name || 'User'}!</h1>
-            <span className="role-badge role-{profile?.role}">{profile?.role?.replace('_', ' ')}</span>
+            <img
+              src="/logo3.png"
+              alt="SplitOut"
+              className="dashboard-logo"
+            />
           </div>
           <div className="header-actions">
-            {profile?.url_slug && (
-              <Link 
-                to={`/${profile.url_slug}`} 
-                className="btn btn-secondary"
-                target="_blank"
-                rel="noopener noreferrer"
-              >
-                View Public Profile
-              </Link>
-            )}
             {isAdmin() && (
               <Link to="/admin" className="btn btn-admin">
                 Admin Panel
               </Link>
             )}
-            <button onClick={handleLogout} className="btn btn-outline">
-              Logout
-            </button>
+            <UserMenu />
           </div>
         </div>
       </header>
@@ -125,9 +112,9 @@ const Dashboard = () => {
       <main className="dashboard-content">
         {activeTab === 'overview' && (
           <div className="overview-tab">
-            {/* Welcome Section */}
+            {/* Dashboard Overview Section */}
             <div className="welcome-section">
-              <h2>Welcome back, {profile?.display_name || profile?.full_name || 'User'}!</h2>
+              <h2>Professional Data Portfolio</h2>
               <p className="welcome-subtitle">Here's what's in your professional data portfolio</p>
             </div>
 
