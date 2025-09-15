@@ -7,6 +7,7 @@
 
 import { supabase } from '../config/database.js';
 import RAGService from './rag.js';
+import RetrievalService from './retrieval.js';
 import OpenAI from 'openai';
 import CONFIG from '../config/app-config.js';
 
@@ -54,35 +55,83 @@ const CHARS_PER_TOKEN = 4;
 export class ResumeGenerationService {
   constructor() {
     this.ragService = new RAGService();
+    this.retrievalService = new RetrievalService();
     this.openai = new OpenAI({ apiKey: CONFIG.ai.openai.apiKey });
   }
 
   /**
-   * Fit chunks to character budget with full content extraction
+   * Fit chunks to character budget with full content extraction, prioritizing metric-rich content
    */
   fitToBudget(chunks, systemPrompt, userPrompt) {
     const systemChars = systemPrompt.length;
     const userChars = userPrompt.length;
-    const budget = Math.max(8000, MAX_CONTEXT_CHARACTERS - systemChars - userChars - 1000);
+    const budget = Math.max(15000, MAX_CONTEXT_CHARACTERS - systemChars - userChars - 1000); // Increased budget
 
     console.log(`📊 Character budget: ${budget} chars for context (system: ${systemChars}, user: ${userChars})`);
     console.log(`📊 Approximate token budget: ~${Math.floor(budget / CHARS_PER_TOKEN)} tokens`);
 
-    // Sort chunks by similarity score descending
+    // Enhanced sorting: prioritize chunks with metrics AND high similarity
     const sortedChunks = chunks
       .filter(chunk => chunk && (chunk.content || chunk.title))
-      .sort((a, b) => (b.similarity || 0) - (a.similarity || 0));
+      .map(chunk => {
+        // Calculate metric richness score
+        const content = chunk.content || chunk.title || '';
+        const metricMatches = content.match(/\d+[%$]|\$\d+[kmb]?|\d+\s*(million|billion|team|people)/gi) || [];
+        const achievementWords = (content.match(/\b(achieved|delivered|improved|increased|reduced|saved|grew|scaled|managed|led)\b/gi) || []).length;
+
+        const metricScore = metricMatches.length * 2 + achievementWords * 0.5; // Heavily weight metrics
+        const combinedScore = (chunk.similarity || 0) + metricScore * 0.3; // Boost metric-rich content
+
+        return {
+          ...chunk,
+          metricScore,
+          combinedScore,
+          hasMetrics: metricMatches.length > 0
+        };
+      })
+      .sort((a, b) => b.combinedScore - a.combinedScore); // Sort by combined score
+
+    console.log(`🎯 Content prioritization: ${sortedChunks.filter(c => c.hasMetrics).length}/${sortedChunks.length} chunks have metrics`);
 
     const selectedChunks = [];
     let usedChars = 0;
 
     for (const chunk of sortedChunks) {
-      // Get full content from different possible chunk formats
+      // Get full content from different possible chunk formats with achievement prioritization
       let content = '';
       let source = '';
 
       if (chunk.content && chunk.content.trim().length > 0) {
         content = chunk.content.trim();
+
+        // If content is very long, prioritize sections with metrics and achievements
+        if (content.length > 1500) {
+          const lines = content.split('\n');
+          const priorityLines = [];
+          const regularLines = [];
+
+          lines.forEach(line => {
+            const hasMetrics = /\d+[%$]|\$\d+[kmb]?|\d+\s*(million|billion)/.test(line);
+            const hasAchievements = /\b(achieved|delivered|improved|increased|reduced|saved|grew|scaled|managed|led)\b/i.test(line);
+            const isBulletPoint = line.trim().startsWith('•') || line.trim().startsWith('-');
+
+            if (hasMetrics || (hasAchievements && isBulletPoint)) {
+              priorityLines.push(line);
+            } else {
+              regularLines.push(line);
+            }
+          });
+
+          // Combine priority content first, then fill with regular content
+          const priorityContent = priorityLines.join('\n');
+          const remainingBudget = Math.max(1000, 2000 - priorityContent.length);
+          const regularContent = regularLines.join('\n').substring(0, remainingBudget);
+
+          content = priorityContent + (priorityContent && regularContent ? '\n\n' : '') + regularContent;
+
+          console.log(`📊 Chunk prioritization: ${priorityLines.length} priority lines, ${regularLines.length} regular lines`);
+        }
+
       } else if (chunk.title && chunk.title.trim().length > 0) {
         content = chunk.title.trim();
       } else {
@@ -106,7 +155,9 @@ export class ResumeGenerationService {
       const chunkChars = chunkText.length;
 
       // Debug: Log chunk content to see what we're actually getting
-      console.log(`📄 Chunk ${selectedChunks.length + 1} (${chunkChars} chars): ${content.substring(0, 100)}...`);
+      const chunkHasMetrics = /\d+[%$]|\$\d+[kmb]?/.test(content);
+      const metricIndicator = chunkHasMetrics ? '📊' : '📄';
+      console.log(`${metricIndicator} Chunk ${selectedChunks.length + 1} (${chunkChars} chars): ${content.substring(0, 100)}...`);
 
       if (usedChars + chunkChars > budget) {
         // Try to fit a meaningful truncated version
@@ -131,8 +182,14 @@ export class ResumeGenerationService {
       }
     }
 
+    // Calculate final metrics coverage
+    const finalContent = selectedChunks.join('\n');
+    const finalMetrics = finalContent.match(/\d+[%$]|\$\d+[kmb]?/g) || [];
+    const metricsCount = finalMetrics.length;
+
     console.log(`✅ Selected ${selectedChunks.length} chunks using ${usedChars} chars (~${Math.floor(usedChars / CHARS_PER_TOKEN)} tokens)`);
     console.log(`📊 Budget utilization: ${Math.round((usedChars / budget) * 100)}%`);
+    console.log(`🎯 Metrics included: ${metricsCount} quantifiable results ${finalMetrics.length > 0 ? `[${finalMetrics.slice(0, 5).join(', ')}${finalMetrics.length > 5 ? ', ...' : ''}]` : ''}`);
 
     // Debug: Show first chunk content to verify we're getting real data
     if (selectedChunks.length > 0) {
@@ -499,11 +556,12 @@ export class ResumeGenerationService {
         ragOptions.userFilter = userId;
       }
 
-      const ragResult = await this.ragService.answerQuestion(ragQuery, ragOptions);
+      // Use retrieval service directly to get full chunks with content
+      const retrievalResult = await this.retrievalService.retrieveContext(ragQuery, ragOptions);
 
-      const chunks = ragResult.sources || [];
-      const avgSimilarity = ragResult.performance?.avgSimilarity || 0;
-      console.log(`📄 RAG returned ${chunks.length} chunks, avg similarity: ${avgSimilarity.toFixed(3)}`);
+      const chunks = retrievalResult.chunks || [];
+      const avgSimilarity = retrievalResult.avgSimilarity || 0;
+      console.log(`📄 Retrieved ${chunks.length} chunks with content, avg similarity: ${avgSimilarity.toFixed(3)}`);
 
       // Apply additional filtering for quality
       const filteredChunks = chunks
@@ -514,7 +572,7 @@ export class ResumeGenerationService {
 
       return {
         chunks: filteredChunks,
-        response: ragResult.answer || '',
+        response: '', // No answer needed for retrieval
         similarity: avgSimilarity
       };
     } catch (error) {
