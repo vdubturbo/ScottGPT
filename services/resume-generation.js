@@ -352,6 +352,133 @@ export class ResumeGenerationService {
   }
 
   /**
+   * Analyze evidence for examples, metrics, and specific achievements
+   */
+  analyzeEvidence(chunks) {
+    if (!chunks || chunks.length === 0) {
+      return {
+        hasQuantifiableMetrics: false,
+        hasSpecificProjects: false,
+        hasSpecificTechnologies: false,
+        hasLeadershipMetrics: false,
+        summary: 'No evidence available',
+        metrics: [],
+        projects: [],
+        technologies: []
+      };
+    }
+
+    let allContent = '';
+    const metrics = [];
+    const projects = [];
+    const technologies = [];
+
+    // Extract content from chunks
+    chunks.forEach(chunk => {
+      const content = chunk.content || chunk.title || '';
+      allContent += content + ' ';
+
+      // Extract quantifiable metrics
+      const metricPatterns = [
+        /\d+[%]/g, // percentages like 90%, 115%
+        /\$\d+[kmb]?/gi, // dollar amounts like $1M, $500K
+        /\d+\s*(million|billion|thousand)/gi, // written numbers
+        /\d+x\s/gi, // multipliers like 3x
+        /\d+\s*(months?|years?|weeks?)/gi, // time periods
+        /\d+\s*(team|people|members|employees)/gi, // team sizes
+        /reduced.*by.*\d+/gi, // reduction metrics
+        /increased.*by.*\d+/gi, // increase metrics
+        /improved.*by.*\d+/gi, // improvement metrics
+      ];
+
+      metricPatterns.forEach(pattern => {
+        const matches = content.match(pattern);
+        if (matches) {
+          metrics.push(...matches.map(match => match.trim()));
+        }
+      });
+
+      // Extract specific projects/initiatives
+      const projectPatterns = [
+        /project\s+[\w\s]{1,30}(?=\s|$|,|\.)/gi,
+        /initiative\s+[\w\s]{1,30}(?=\s|$|,|\.)/gi,
+        /program\s+[\w\s]{1,30}(?=\s|$|,|\.)/gi,
+        /system\s+[\w\s]{1,30}(?=\s|$|,|\.)/gi,
+        /platform\s+[\w\s]{1,30}(?=\s|$|,|\.)/gi
+      ];
+
+      projectPatterns.forEach(pattern => {
+        const matches = content.match(pattern);
+        if (matches) {
+          projects.push(...matches.map(match => match.trim()));
+        }
+      });
+
+      // Extract specific technologies
+      const techPatterns = [
+        /\b(AWS|Azure|GCP|Docker|Kubernetes|React|Node\.?js|Python|Java|JavaScript|TypeScript)\b/gi,
+        /\b(SQL|MongoDB|PostgreSQL|Redis|Elasticsearch)\b/gi,
+        /\b(Jenkins|GitHub\s*Actions|CI\/CD|Terraform|Ansible)\b/gi,
+        /\b(Agile|Scrum|Kanban|JIRA|Confluence)\b/gi
+      ];
+
+      techPatterns.forEach(pattern => {
+        const matches = content.match(pattern);
+        if (matches) {
+          technologies.push(...matches.map(match => match.trim()));
+        }
+      });
+    });
+
+    // Deduplicate arrays
+    const uniqueMetrics = [...new Set(metrics)];
+    const uniqueProjects = [...new Set(projects)];
+    const uniqueTechnologies = [...new Set(technologies)];
+
+    // Check for leadership-specific metrics
+    const hasLeadershipMetrics = allContent.toLowerCase().includes('team') ||
+                                allContent.toLowerCase().includes('budget') ||
+                                allContent.toLowerCase().includes('managed') ||
+                                uniqueMetrics.some(m => m.includes('team') || m.includes('people'));
+
+    const analysis = {
+      hasQuantifiableMetrics: uniqueMetrics.length > 0,
+      hasSpecificProjects: uniqueProjects.length > 0,
+      hasSpecificTechnologies: uniqueTechnologies.length > 0,
+      hasLeadershipMetrics: hasLeadershipMetrics,
+      metrics: uniqueMetrics,
+      projects: uniqueProjects,
+      technologies: uniqueTechnologies,
+      summary: this.generateEvidenceSummary(uniqueMetrics, uniqueProjects, uniqueTechnologies, hasLeadershipMetrics)
+    };
+
+    console.log(`📊 Evidence Analysis: ${JSON.stringify(analysis, null, 2)}`);
+    return analysis;
+  }
+
+  /**
+   * Generate a summary of available evidence
+   */
+  generateEvidenceSummary(metrics, projects, technologies, hasLeadershipMetrics) {
+    const parts = [];
+
+    if (metrics.length > 0) {
+      parts.push(`${metrics.length} quantifiable metrics available`);
+    }
+    if (projects.length > 0) {
+      parts.push(`${projects.length} specific projects/initiatives identified`);
+    }
+    if (technologies.length > 0) {
+      parts.push(`${technologies.length} technologies mentioned`);
+    }
+    if (hasLeadershipMetrics) {
+      parts.push('leadership/management metrics detected');
+    }
+
+    return parts.length > 0 ? parts.join('; ') : 'Limited specific evidence available';
+  }
+
+  /**
    * Get relevant context from RAG system with optimized settings
    */
   async getRagContext(jobDescription, userId) {
@@ -400,34 +527,49 @@ export class ResumeGenerationService {
    * Generate resume using AI with actual user data and token budget management
    */
   async generateResumeWithAI({ jobDescription, jobKeywords, userData, ragContext, style, maxBulletPoints }) {
-    // Create focused system prompt that handles limited evidence
-    const systemPrompt = `Professional resume writer creating comprehensive resumes based on available evidence.
+    // Analyze the available evidence for examples and metrics
+    const evidenceAnalysis = this.analyzeEvidence(ragContext.chunks);
+
+    // Create focused system prompt that prioritizes real examples when available
+    const systemPrompt = `Professional resume writer creating comprehensive resumes based ONLY on provided evidence.
+
+CRITICAL ANTI-FABRICATION RULES:
+- Use ONLY information that exists in the provided evidence
+- NEVER invent, estimate, or fabricate any metrics, percentages, dollar amounts, or quantifiable results
+- NEVER invent specific project names, initiatives, or accomplishments not in evidence
+- NEVER add time frames, percentages, team sizes, or cost savings not explicitly provided
+- If no specific achievements exist for a role, use only generic role responsibilities
+- When evidence lacks metrics, write impact statements WITHOUT numbers
 
 CONTENT REQUIREMENTS:
 - Generate 1,500-2,000 words using provided evidence and reasonable professional context
-- Create 5-7 bullets per job role based on evidence and standard responsibilities for similar positions
-- When detailed achievements are provided, feature them prominently
-- When evidence is limited to job titles and basic info, extrapolate reasonable responsibilities and impact based on:
-  * Industry standards for similar roles
-  * Professional progression shown in work history
-  * Skills and technologies mentioned in user profile
-  * Context from job descriptions and requirements
+- Create 5-7 bullets per job role, prioritizing evidence-based achievements
+${evidenceAnalysis.hasQuantifiableMetrics ? '- FEATURE quantifiable results prominently (percentages, costs, revenue, team sizes, etc.)' : ''}
+${evidenceAnalysis.hasSpecificProjects ? '- HIGHLIGHT specific projects and initiatives mentioned in evidence' : ''}
+${evidenceAnalysis.hasSpecificTechnologies ? '- EMPHASIZE specific technologies and methodologies from evidence' : ''}
 
-EVIDENCE-BASED ENHANCEMENT:
-- Use all specific achievements, technologies, and skills mentioned in evidence
-- For senior roles without detailed evidence, include appropriate leadership responsibilities
-- For technical roles, emphasize relevant technologies from user skills
-- Show logical career progression and increasing responsibility
-- Include industry-appropriate achievements for roles at this level
+EVIDENCE-BASED ENHANCEMENT PRIORITY:
+1. Specific achievements with metrics (highest priority)
+2. Named projects, initiatives, and technologies
+3. Leadership scope and team sizes
+4. Business impact and outcomes
+5. Skills and certifications mentioned
+6. Industry context and professional progression
+
+FALLBACK FOR LIMITED EVIDENCE:
+- When evidence is limited to job titles and basic info, use only:
+  * Generic industry-standard responsibilities WITHOUT specific metrics
+  * Skills and technologies explicitly mentioned in the evidence
+  * General role descriptions WITHOUT quantified outcomes
+  * NO invented performance metrics, percentages, or specific achievements
 
 PROFESSIONAL STANDARDS:
-- Write compelling, achievement-focused content appropriate for ${style} level
-- Include relevant keywords from job description when supported by role context
-- Use metrics when available in evidence, otherwise focus on scope and impact
-- Ensure content reflects the seniority and responsibility level of documented positions
+- Write compelling content appropriate for ${style} level using ONLY real evidence
+- Include relevant keywords from job description when supported by evidence
+- Use ONLY metrics that exist in evidence - never invent quantifiable results
+- Ensure content reflects documented positions WITHOUT adding fabricated achievements
 
-Transform limited evidence into a comprehensive professional narrative that accurately represents career progression and capabilities.
-
+Evidence Analysis: ${evidenceAnalysis.summary}
 Target keywords: ${[...jobKeywords.technical, ...jobKeywords.soft].join(', ')}
 Format: Clean HTML (header, section, h1-h3, p, ul, li, strong).`;
 

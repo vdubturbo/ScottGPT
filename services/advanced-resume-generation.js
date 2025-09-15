@@ -1008,6 +1008,133 @@ RELEVANCE SCORE: ${item.qualityScore.toFixed(2)}`;
   }
 
   /**
+   * Analyze narrative text for examples, metrics, and specific achievements
+   */
+  analyzeNarrativeEvidence(narrative) {
+    if (!narrative || narrative.length === 0) {
+      return {
+        hasQuantifiableMetrics: false,
+        hasSpecificProjects: false,
+        hasSpecificTechnologies: false,
+        hasLeadershipMetrics: false,
+        summary: 'No narrative available',
+        metrics: [],
+        projects: [],
+        technologies: []
+      };
+    }
+
+    const metrics = [];
+    const projects = [];
+    const technologies = [];
+
+    // Extract quantifiable metrics
+    const metricPatterns = [
+      /\d+[%]/g, // percentages like 90%, 115%
+      /\$\d+[kmb]?/gi, // dollar amounts like $1M, $500K
+      /\d+\s*(million|billion|thousand)/gi, // written numbers
+      /\d+x\s/gi, // multipliers like 3x
+      /\d+\s*(months?|years?|weeks?)/gi, // time periods
+      /\d+\s*(team|people|members|employees)/gi, // team sizes
+      /reduced.*by.*\d+/gi, // reduction metrics
+      /increased.*by.*\d+/gi, // increase metrics
+      /improved.*by.*\d+/gi, // improvement metrics
+      /saved.*\$?\d+/gi, // savings
+      /revenue.*\$?\d+/gi, // revenue
+      /budget.*\$?\d+/gi, // budget
+    ];
+
+    metricPatterns.forEach(pattern => {
+      const matches = narrative.match(pattern);
+      if (matches) {
+        metrics.push(...matches.map(match => match.trim()));
+      }
+    });
+
+    // Extract specific projects/initiatives
+    const projectPatterns = [
+      /project\s+[\w\s]{1,30}(?=\s|$|,|\.)/gi,
+      /initiative\s+[\w\s]{1,30}(?=\s|$|,|\.)/gi,
+      /program\s+[\w\s]{1,30}(?=\s|$|,|\.)/gi,
+      /system\s+[\w\s]{1,30}(?=\s|$|,|\.)/gi,
+      /platform\s+[\w\s]{1,30}(?=\s|$|,|\.)/gi,
+      /transformation\s+[\w\s]{1,30}(?=\s|$|,|\.)/gi
+    ];
+
+    projectPatterns.forEach(pattern => {
+      const matches = narrative.match(pattern);
+      if (matches) {
+        projects.push(...matches.map(match => match.trim()));
+      }
+    });
+
+    // Extract specific technologies
+    const techPatterns = [
+      /\b(AWS|Azure|GCP|Docker|Kubernetes|React|Node\.?js|Python|Java|JavaScript|TypeScript)\b/gi,
+      /\b(SQL|MongoDB|PostgreSQL|Redis|Elasticsearch)\b/gi,
+      /\b(Jenkins|GitHub\s*Actions|CI\/CD|Terraform|Ansible)\b/gi,
+      /\b(Agile|Scrum|Kanban|JIRA|Confluence)\b/gi,
+      /\b(SAP|Oracle|Salesforce|SharePoint|PowerBI)\b/gi,
+      /\b(PMI|PMP|ITIL|Six\s*Sigma|Lean)\b/gi
+    ];
+
+    techPatterns.forEach(pattern => {
+      const matches = narrative.match(pattern);
+      if (matches) {
+        technologies.push(...matches.map(match => match.trim()));
+      }
+    });
+
+    // Deduplicate arrays
+    const uniqueMetrics = [...new Set(metrics)];
+    const uniqueProjects = [...new Set(projects)];
+    const uniqueTechnologies = [...new Set(technologies)];
+
+    // Check for leadership-specific metrics
+    const hasLeadershipMetrics = narrative.toLowerCase().includes('team') ||
+                                narrative.toLowerCase().includes('budget') ||
+                                narrative.toLowerCase().includes('managed') ||
+                                narrative.toLowerCase().includes('led') ||
+                                uniqueMetrics.some(m => m.includes('team') || m.includes('people'));
+
+    const analysis = {
+      hasQuantifiableMetrics: uniqueMetrics.length > 0,
+      hasSpecificProjects: uniqueProjects.length > 0,
+      hasSpecificTechnologies: uniqueTechnologies.length > 0,
+      hasLeadershipMetrics: hasLeadershipMetrics,
+      metrics: uniqueMetrics,
+      projects: uniqueProjects,
+      technologies: uniqueTechnologies,
+      summary: this.generateNarrativeEvidenceSummary(uniqueMetrics, uniqueProjects, uniqueTechnologies, hasLeadershipMetrics)
+    };
+
+    console.log(`📊 [ADVANCED] Narrative Evidence Analysis: ${JSON.stringify(analysis, null, 2)}`);
+    return analysis;
+  }
+
+  /**
+   * Generate a summary of available evidence from narrative
+   */
+  generateNarrativeEvidenceSummary(metrics, projects, technologies, hasLeadershipMetrics) {
+    const parts = [];
+
+    if (metrics.length > 0) {
+      parts.push(`${metrics.length} quantifiable metrics found`);
+    }
+    if (projects.length > 0) {
+      parts.push(`${projects.length} specific projects/initiatives identified`);
+    }
+    if (technologies.length > 0) {
+      parts.push(`${technologies.length} technologies mentioned`);
+    }
+    if (hasLeadershipMetrics) {
+      parts.push('leadership/management evidence detected');
+    }
+
+    return parts.length > 0 ? parts.join('; ') : 'Limited specific evidence in narrative';
+  }
+
+  /**
    * Get rich RAG response using JD summary for targeted queries
    */
   async getRichRAGResponse(jdSummary, userId) {
@@ -1064,29 +1191,48 @@ RELEVANCE SCORE: ${item.qualityScore.toFixed(2)}`;
       console.log(`📊 Total narrative length: ${ragResponse.narrative.length} characters`);
       console.log(`📊 Source count: ${ragResponse.sources.length} sources`);
       
+      // Analyze the RAG response narrative for examples and metrics
+      const evidenceAnalysis = this.analyzeNarrativeEvidence(ragResponse.narrative);
+
       const systemPrompt = `Professional resume writer creating comprehensive, executive-level resumes.
+
+CRITICAL ANTI-FABRICATION RULES:
+- Use ONLY information that exists in the provided narrative
+- NEVER invent, estimate, or fabricate any metrics, percentages, dollar amounts, or quantifiable results
+- NEVER invent specific project names, initiatives, or accomplishments not in narrative
+- NEVER add time frames, percentages, team sizes, or cost savings not explicitly provided
+- If no specific achievements exist for a role, use only generic role responsibilities
+- When narrative lacks metrics, write impact statements WITHOUT numbers
 
 REQUIREMENTS:
 - Generate 1,500-2,000 words using the provided narrative and evidence
-- Create 5-7 compelling bullets per role
-- Use executive language appropriate for senior positions
-- Include specific achievements and technologies mentioned in the narrative
-- When narrative includes metrics, feature them prominently
-- When narrative lacks specific numbers, focus on impact, scope, and leadership
+- Create 5-7 compelling bullets per role, prioritizing evidence-based achievements
+${evidenceAnalysis.hasQuantifiableMetrics ? '- FEATURE quantifiable results prominently (percentages, costs, revenue, team sizes, etc.)' : ''}
+${evidenceAnalysis.hasSpecificProjects ? '- HIGHLIGHT specific projects and initiatives mentioned in narrative' : ''}
+${evidenceAnalysis.hasSpecificTechnologies ? '- EMPHASIZE specific technologies and methodologies from narrative' : ''}
+
+EVIDENCE-BASED ENHANCEMENT PRIORITY:
+1. Specific achievements with metrics (highest priority)
+2. Named projects, initiatives, and technologies
+3. Leadership scope and team sizes
+4. Business impact and outcomes
+5. Skills and certifications mentioned
+6. Industry context and professional progression
 
 NARRATIVE USAGE:
-- Transform narrative content into polished professional statements
-- Extrapolate reasonable context from documented experience
-- Use sophisticated vocabulary while staying truthful to the source material
-- Show career progression and increasing executive responsibility
-- Emphasize strategic thinking, leadership, and business impact
+- Transform narrative content into polished professional statements using ONLY provided information
+- Use sophisticated vocabulary while staying completely truthful to the source material
+- Show career progression using only documented information
+- Emphasize leadership and impact using ONLY evidence-based examples
+- Use ONLY metrics that exist in narrative - never invent quantifiable results
 
 STRUCTURE:
 - Professional Summary: Executive-level positioning statement
 - Core Competencies: Leadership and technical skills from narrative
-- Professional Experience: Achievement-focused executive bullets
+- Professional Experience: Achievement-focused executive bullets with metrics
 - Focus on strategic value delivered and organizational impact
 
+Evidence Analysis: ${evidenceAnalysis.summary}
 OUTPUT FORMAT: Clean HTML presenting a compelling executive resume based on provided narrative content.`;
 
       const userPrompt = `Based on this narrative about Scott's professional experience, create a tailored resume for this specific job opportunity:

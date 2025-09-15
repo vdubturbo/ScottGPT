@@ -665,6 +665,7 @@ async function upsertSource(data) {
           industry_tags: data.industry_tags,
           skills: data.skills,
           summary: data.summary,
+          outcomes: data.outcomes, // Add outcomes field
           url: data.url,
           updated_at: new Date().toISOString()
         })
@@ -687,6 +688,7 @@ async function upsertSource(data) {
         industry_tags: data.industry_tags,
         skills: data.skills,
         summary: data.summary,
+        outcomes: data.outcomes, // Add outcomes field
         url: data.url
       });
       return newSource.id;

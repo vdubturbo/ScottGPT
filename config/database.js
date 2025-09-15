@@ -193,7 +193,8 @@ class VectorDatabase {
         date_end: sourceData.date_end,
         industry_tags: sourceData.industry_tags,
         skills: sourceData.skills,
-        summary: sourceData.summary
+        summary: sourceData.summary,
+        outcomes: sourceData.outcomes // Add outcomes field
       })
       .select('id')
       .single();
