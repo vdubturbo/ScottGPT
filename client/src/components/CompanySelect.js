@@ -7,10 +7,10 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { useUserDataAPI } from '../hooks/useUserDataAPI';
 import './CompanySelect.css';
 
-const CompanySelect = ({ 
-  value, 
-  onChange, 
-  isEditing = false, 
+const CompanySelect = ({
+  value,
+  onChange,
+  isEditingMode = false,
   placeholder = "e.g., Tech Corp Inc.",
   className = "",
   required = false,
@@ -21,6 +21,8 @@ const CompanySelect = ({
   const [showDropdown, setShowDropdown] = useState(false);
   const [filteredCompanies, setFilteredCompanies] = useState([]);
   const [loading, setLoading] = useState(false);
+  const [isEditing, setIsEditing] = useState(false);
+  const [originalValue, setOriginalValue] = useState('');
 
   // Load existing companies (now always load, not just for editing)
   const loadCompanies = useCallback(async () => {
@@ -57,10 +59,17 @@ const CompanySelect = ({
     loadCompanies();
   }, [loadCompanies]);
 
+  // Track original value changes
+  useEffect(() => {
+    if (!isEditing) {
+      setOriginalValue(value);
+    }
+  }, [value, isEditing]);
+
   // Enhanced filtering with search and sections
   useEffect(() => {
-    if (!value || value.trim() === '') {
-      // Show all companies when no search term
+    if (!value || value.trim() === '' || !isEditing) {
+      // Show all companies when no search term or not actively editing
       setFilteredCompanies(companies);
       return;
     }
@@ -75,7 +84,7 @@ const CompanySelect = ({
     );
 
     setFilteredCompanies(filtered);
-  }, [value, companies]);
+  }, [value, companies, isEditing]);
 
   // Determine if we should show the "Create new company" option
   const shouldShowCreateNew = () => {
@@ -93,23 +102,31 @@ const CompanySelect = ({
 
   const handleInputChange = (e) => {
     const newValue = e.target.value;
+    setIsEditing(true);
     onChange(newValue);
     setShowDropdown(true);
   };
 
   const handleInputClick = () => {
     if (companies.length > 0) {
-      setShowDropdown(!showDropdown);
+      // If clicking when not editing, clear the field to show all options
+      if (!isEditing && value) {
+        setIsEditing(true);
+        onChange('');
+      }
+      setShowDropdown(true);
     }
   };
 
   const handleCompanySelect = (company) => {
+    setIsEditing(false);
     onChange(company.name);
     setShowDropdown(false);
   };
 
   const handleCreateNew = () => {
     // Keep current value as new company name
+    setIsEditing(false);
     setShowDropdown(false);
   };
 
@@ -120,8 +137,19 @@ const CompanySelect = ({
   };
 
   const handleInputBlur = () => {
+    // Reset editing state when leaving the field
+    setIsEditing(false);
     // Delay closing dropdown to allow for selection
     setTimeout(() => setShowDropdown(false), 200);
+  };
+
+  // Handle escape key to cancel editing
+  const handleKeyDown = (e) => {
+    if (e.key === 'Escape') {
+      setIsEditing(false);
+      onChange(originalValue);
+      setShowDropdown(false);
+    }
   };
 
   // Enhanced component with sections and grouping
@@ -135,8 +163,9 @@ const CompanySelect = ({
         onClick={handleInputClick}
         onFocus={handleInputFocus}
         onBlur={handleInputBlur}
-        placeholder={loading ? "Loading companies..." : placeholder}
-        className={`${className} ${companies.length > 0 ? 'dropdown-mode' : ''}`}
+        onKeyDown={handleKeyDown}
+        placeholder={loading ? "Loading companies..." : (isEditing ? "Search companies or type new name..." : placeholder)}
+        className={`${className} ${companies.length > 0 ? 'dropdown-mode' : ''} ${isEditing ? 'editing' : ''}`}
         required={required}
         disabled={loading}
         autoComplete="organization"
@@ -164,7 +193,9 @@ const CompanySelect = ({
           {filteredCompanies.length > 0 && (
             <>
               <div className="dropdown-header">
-                {shouldShowCreateNew() ? 'Or Select Existing Company' : 'Select from Your Companies'}
+                {shouldShowCreateNew() ? 'Or Select Existing Company' :
+                 isEditing && value ? 'Matching Companies' :
+                 'Select from Your Companies'}
               </div>
               <ul className="company-list">
                 {filteredCompanies.map((company, index) => (

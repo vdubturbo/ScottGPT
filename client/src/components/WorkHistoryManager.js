@@ -4,8 +4,12 @@
 
 import React, { useState, useEffect, useCallback } from 'react';
 import { useUserDataAPI } from '../hooks/useUserDataAPI';
+import { useCompanyOperations } from '../hooks/useCompanyOperations';
 import JobEditor from './JobEditor';
 import DuplicateAlert from './DuplicateAlert';
+import CompanySelect from './CompanySelect';
+import CompanyGroupingService from '../utils/company-grouping';
+import { CompanyAPIUtils } from '../services/companyApi';
 import './WorkHistoryManager.css';
 
 const WorkHistoryManager = ({ onViewDuplicates }) => {
@@ -20,11 +24,29 @@ const WorkHistoryManager = ({ onViewDuplicates }) => {
     deleteAllUserData
   } = useUserDataAPI();
 
+  // Company operations hook
+  const {
+    loading: companyLoading,
+    error: companyError,
+    operationStatus,
+    reassignJob,
+    bulkReassignJobs,
+    mergeCompanies,
+    splitCompany,
+    renameCompany,
+    validateCompanyName,
+    clearError: clearCompanyError,
+    clearStatus: clearOperationStatus,
+    formatResults,
+    getAllOptimisticUpdates
+  } = useCompanyOperations();
+
   const [jobs, setJobs] = useState([]);
   const [duplicatesSummary, setDuplicatesSummary] = useState(null);
   const [selectedJob, setSelectedJob] = useState(null);
   const [showEditor, setShowEditor] = useState(false);
   const [view, setView] = useState('grid'); // grid, list, company
+  const [groupByCompany, setGroupByCompany] = useState(true);
   const [sortBy, setSortBy] = useState('date_start');
   const [sortOrder, setSortOrder] = useState('desc');
   const [searchTerm, setSearchTerm] = useState('');
@@ -32,6 +54,19 @@ const WorkHistoryManager = ({ onViewDuplicates }) => {
   const [showBulkActions, setShowBulkActions] = useState(false);
   const [showDeleteAllDialog, setShowDeleteAllDialog] = useState(false);
   const [deleteConfirmText, setDeleteConfirmText] = useState('');
+
+  // Company grouping state
+  const [selectedCompany, setSelectedCompany] = useState(null);
+  const [showCompanyActions, setShowCompanyActions] = useState(false);
+  const [companyActionType, setCompanyActionType] = useState(null);
+  const [companyActionTarget, setCompanyActionTarget] = useState(null);
+
+  // Success/feedback state
+  const [successMessage, setSuccessMessage] = useState(null);
+  const [showConfirmDialog, setShowConfirmDialog] = useState(false);
+  const [confirmDialogData, setConfirmDialogData] = useState(null);
+  const [companyActionData, setCompanyActionData] = useState(null);
+  const [confirmDialogConfig, setConfirmDialogConfig] = useState(null);
 
   // Load work history data
   const loadWorkHistory = useCallback(async () => {
@@ -44,7 +79,7 @@ const WorkHistoryManager = ({ onViewDuplicates }) => {
     } catch (err) {
       console.error('Failed to load work history:', err);
     }
-  }, [getWorkHistory]);
+  }, []); // Remove getWorkHistory dependency to prevent recreation
 
   // Load duplicates summary
   const loadDuplicatesSummary = useCallback(async () => {
@@ -57,13 +92,19 @@ const WorkHistoryManager = ({ onViewDuplicates }) => {
       console.error('Failed to load duplicates summary:', err);
       // Don't set duplicates summary if it fails - it's not critical
     }
-  }, [getDuplicatesSummary]);
+  }, []); // Remove getDuplicatesSummary dependency to prevent recreation
 
-  // Initial data loading
+  // Initial data loading - only run once on mount to avoid rate limiting
   useEffect(() => {
     loadWorkHistory();
-    loadDuplicatesSummary();
-  }, [loadWorkHistory, loadDuplicatesSummary]);
+
+    // Debounce duplicates summary to avoid rate limiting in development
+    const timer = setTimeout(() => {
+      loadDuplicatesSummary();
+    }, 2000); // 2 second delay to avoid rapid successive calls
+
+    return () => clearTimeout(timer);
+  }, []); // Empty dependency array - only run on mount
 
   // Filter and sort jobs
   const processedJobs = React.useMemo(() => {
@@ -243,6 +284,150 @@ const WorkHistoryManager = ({ onViewDuplicates }) => {
         console.error('Failed to bulk delete jobs:', err);
         // Error will be handled by the useUserDataAPI hook and displayed in the error banner
       }
+    }
+  };
+
+  // Company action handlers
+  const handleCompanyRename = (company) => {
+    setCompanyActionType('rename');
+    setCompanyActionData(company);
+    setShowCompanyActions(true);
+  };
+
+  const handleCompanyMerge = (company) => {
+    setCompanyActionType('merge');
+    setCompanyActionData(company);
+    setShowCompanyActions(true);
+  };
+
+  const handleCompanySplit = (company) => {
+    setConfirmDialogConfig({
+      title: 'Split Company Positions',
+      message: `Split "${company.name}" into separate companies? Each position will become its own company.`,
+      confirmText: 'Split Company',
+      onConfirm: () => performCompanySplit(company),
+      onCancel: () => setShowConfirmDialog(false)
+    });
+    setShowConfirmDialog(true);
+  };
+
+
+  // Company operation implementations with real API calls
+  const performCompanySplit = async (company) => {
+    try {
+      // For split, we'll create individual companies for each position
+      const positionIds = company.jobs.map(job => job.id);
+      const splitPromises = company.jobs.map(async (job, index) => {
+        const newCompanyName = `${company.name} - ${job.title}`;
+        return await reassignJob(job.id, newCompanyName, {
+          enableOptimistic: true,
+          oldCompany: company.name
+        });
+      });
+
+      const results = await Promise.all(splitPromises);
+      const successCount = results.filter(r => r.success).length;
+
+      setSuccessMessage(`Successfully split ${successCount} positions from ${company.name}`);
+      setShowConfirmDialog(false);
+
+      // Reload data to reflect changes
+      await loadWorkHistory();
+    } catch (error) {
+      console.error('Company split failed:', error);
+      setSuccessMessage(null);
+    }
+  };
+
+  const performCompanyMerge = async (sourceCompanies, targetCompany) => {
+    try {
+      const result = await mergeCompanies(sourceCompanies, targetCompany, {
+        enableOptimistic: true
+      });
+
+      if (result.success) {
+        const formatted = formatResults(result.data);
+        setSuccessMessage(`Merged companies: ${formatted.summary}`);
+        setShowCompanyActions(false);
+        await loadWorkHistory();
+      }
+    } catch (error) {
+      console.error('Company merge failed:', error);
+      setSuccessMessage(null);
+    }
+  };
+
+  const performCompanyRename = async (company, newName) => {
+    try {
+      // Validate the new company name first
+      const validation = await validateCompanyName(newName);
+      if (!validation.valid) {
+        setSuccessMessage(`Invalid company name: ${validation.message}`);
+        return;
+      }
+
+      const result = await renameCompany(company.name, newName, {
+        enableOptimistic: true
+      });
+
+      if (result.success) {
+        const formatted = formatResults(result.data);
+        setSuccessMessage(`Renamed ${company.name} to ${newName}: ${formatted.summary}`);
+        setShowCompanyActions(false);
+        await loadWorkHistory();
+      }
+    } catch (error) {
+      console.error('Company rename failed:', error);
+      setSuccessMessage(null);
+    }
+  };
+
+  const performMovePosition = async (job, newCompanyName) => {
+    try {
+      // Validate the target company name
+      const validation = await validateCompanyName(newCompanyName);
+      if (!validation.valid) {
+        setSuccessMessage(`Invalid company name: ${validation.message}`);
+        return;
+      }
+
+      const result = await reassignJob(job.id, newCompanyName, {
+        enableOptimistic: true,
+        oldCompany: job.org
+      });
+
+      if (result.success) {
+        setSuccessMessage(`Moved ${job.title} to ${newCompanyName}`);
+        setShowCompanyActions(false);
+        await loadWorkHistory();
+      }
+    } catch (error) {
+      console.error('Position move failed:', error);
+      setSuccessMessage(null);
+    }
+  };
+
+  const performCreateNewCompany = async (job, newCompanyName) => {
+    try {
+      const validation = await validateCompanyName(newCompanyName);
+      if (!validation.valid) {
+        setSuccessMessage(`Invalid company name: ${validation.message}`);
+        return;
+      }
+
+      const result = await reassignJob(job.id, newCompanyName, {
+        enableOptimistic: true,
+        oldCompany: job.org
+      });
+
+      if (result.success) {
+        setSuccessMessage(`Created new company "${newCompanyName}" for ${job.title}`);
+        setShowCompanyActions(false);
+        await loadWorkHistory();
+      }
+    } catch (error) {
+      console.error('New company creation failed:', error);
+      setSuccessMessage(null);
     }
   };
 
@@ -481,6 +666,32 @@ const WorkHistoryManager = ({ onViewDuplicates }) => {
                   </span>
                 </div>
               </div>
+
+              <div className="company-actions">
+                <button
+                  className="btn-company-action btn-rename"
+                  onClick={() => handleCompanyRename(company)}
+                  title="Rename company across all positions"
+                >
+                  ✏️ Rename
+                </button>
+                {company.jobs.length > 1 && (
+                  <button
+                    className="btn-company-action btn-split"
+                    onClick={() => handleCompanySplit(company)}
+                    title="Split into separate companies"
+                  >
+                    🗂️ Split
+                  </button>
+                )}
+                <button
+                  className="btn-company-action btn-merge"
+                  onClick={() => handleCompanyMerge(company)}
+                  title="Merge with another company"
+                >
+                  🔗 Merge
+                </button>
+              </div>
             </div>
             
             <div className="company-timeline">
@@ -518,17 +729,17 @@ const WorkHistoryManager = ({ onViewDuplicates }) => {
                           </div>
                         </div>
                         <div className="job-actions-compact">
-                          <button 
+                          <button
                             className="btn-edit-compact"
                             onClick={(e) => {
                               e.stopPropagation();
                               handleJobSelect(job);
                             }}
-                            title="Edit job"
+                            title="Edit position (change company, dates, etc.)"
                           >
-                            ✏️
+                            ✏️ Edit
                           </button>
-                          <button 
+                          <button
                             className="btn-delete-compact"
                             onClick={(e) => {
                               e.stopPropagation();
@@ -741,6 +952,27 @@ const WorkHistoryManager = ({ onViewDuplicates }) => {
         </div>
       )}
 
+      {companyError && (
+        <div className="error-banner company-error">
+          <span>Company Operation Error: {companyError}</span>
+          <button onClick={clearCompanyError} className="close-error">×</button>
+        </div>
+      )}
+
+      {successMessage && (
+        <div className="success-banner">
+          <span>{successMessage}</span>
+          <button onClick={() => setSuccessMessage(null)} className="close-success">×</button>
+        </div>
+      )}
+
+      {operationStatus && (
+        <div className={`operation-status ${operationStatus.type}`}>
+          <span>{operationStatus.message}</span>
+          <button onClick={clearOperationStatus} className="close-status">×</button>
+        </div>
+      )}
+
       {duplicatesSummary && duplicatesSummary.estimatedDuplicates > 0 && (
         <DuplicateAlert summary={duplicatesSummary} onDismiss={() => setDuplicatesSummary(null)} />
       )}
@@ -845,28 +1077,41 @@ const WorkHistoryManager = ({ onViewDuplicates }) => {
         </div>
 
         <div className="view-controls">
-          <div className="view-toggle">
-            <button
-              className={view === 'grid' ? 'active' : ''}
-              onClick={() => setView('grid')}
-            >
-              Grid
-            </button>
-            <button
-              className={view === 'list' ? 'active' : ''}
-              onClick={() => setView('list')}
-            >
-              List
-            </button>
-            <button
-              className={view === 'company' ? 'active' : ''}
-              onClick={() => setView('company')}
-            >
-              Company
-            </button>
+          <div className="grouping-toggle">
+            <label className="toggle-container">
+              <span className="toggle-label">
+                {groupByCompany ? 'Group by Company' : 'Individual Positions'}
+              </span>
+              <div className={`toggle-switch ${groupByCompany ? 'active' : ''}`}>
+                <input
+                  type="checkbox"
+                  checked={groupByCompany}
+                  onChange={(e) => setGroupByCompany(e.target.checked)}
+                  style={{ display: 'none' }}
+                />
+              </div>
+            </label>
           </div>
 
-          <div className="sort-controls">
+          {!groupByCompany && (
+            <div className="view-toggle">
+              <button
+                className={view === 'grid' ? 'active' : ''}
+                onClick={() => setView('grid')}
+              >
+                Grid
+              </button>
+              <button
+                className={view === 'list' ? 'active' : ''}
+                onClick={() => setView('list')}
+              >
+                List
+              </button>
+            </div>
+          )}
+        </div>
+
+        <div className="sort-controls">
             <select
               value={sortBy}
               onChange={(e) => setSortBy(e.target.value)}
@@ -885,7 +1130,6 @@ const WorkHistoryManager = ({ onViewDuplicates }) => {
               {sortOrder === 'asc' ? '↑' : '↓'}
             </button>
           </div>
-        </div>
       </div>
 
       <div className="manager-content">
@@ -912,9 +1156,14 @@ const WorkHistoryManager = ({ onViewDuplicates }) => {
           </div>
         ) : (
           <>
-            {view === 'grid' && renderGridView()}
-            {view === 'list' && renderListView()}
-            {view === 'company' && renderCompanyView()}
+            {groupByCompany ? (
+              renderCompanyView()
+            ) : (
+              <>
+                {view === 'grid' && renderGridView()}
+                {view === 'list' && renderListView()}
+              </>
+            )}
           </>
         )}
       </div>

@@ -5,6 +5,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import ReactDOM from 'react-dom';
 import { useUserDataAPI } from '../hooks/useUserDataAPI';
+import { useCompanyOperations } from '../hooks/useCompanyOperations';
 import SkillsInput from './SkillsInput';
 import DateInput from './DateInput';
 import ValidationMessage from './ValidationMessage';
@@ -20,6 +21,13 @@ const JobEditor = ({ job, onSave, onCancel }) => {
     deleteJob,
     validateData
   } = useUserDataAPI();
+
+  // Company operations for reassignment
+  const {
+    loading: companyLoading,
+    reassignJob,
+    validateCompanyName
+  } = useCompanyOperations();
 
   const [formData, setFormData] = useState({
     title: '',
@@ -41,6 +49,8 @@ const JobEditor = ({ job, onSave, onCancel }) => {
   const [isSaving, setIsSaving] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [autoSaveTimeout, setAutoSaveTimeout] = useState(null);
+  const [originalCompany, setOriginalCompany] = useState(null);
+  const [companyChanged, setCompanyChanged] = useState(false);
 
   // Initialize form data
   useEffect(() => {
@@ -54,6 +64,7 @@ const JobEditor = ({ job, onSave, onCancel }) => {
         skills: job.skills || [],
         type: job.type || 'job'
       });
+      setOriginalCompany(job.org || '');
     } else {
       // Reset for new job
       setFormData({
@@ -65,8 +76,10 @@ const JobEditor = ({ job, onSave, onCancel }) => {
         skills: [],
         type: 'job'
       });
+      setOriginalCompany(null);
     }
     setIsDirty(false);
+    setCompanyChanged(false);
     setValidation({ isValid: true, errors: [], warnings: [] });
   }, [job]);
 
@@ -125,6 +138,11 @@ const JobEditor = ({ job, onSave, onCancel }) => {
     }));
     setIsDirty(true);
     clearError();
+
+    // Track company changes for existing jobs
+    if (field === 'org' && job && originalCompany) {
+      setCompanyChanged(value !== originalCompany);
+    }
   };
 
   // Handle skills change
@@ -138,20 +156,55 @@ const JobEditor = ({ job, onSave, onCancel }) => {
     try {
       // Perform final validation
       await performValidation();
-      
+
       if (!validation.isValid) {
         setIsSaving(false);
         return;
       }
 
       if (job) {
-        await updateJob(job.id, formData);
+        // If company changed, use reassignment API, otherwise use regular update
+        if (companyChanged && formData.org !== originalCompany) {
+          console.log(`Reassigning job ${job.id} from "${originalCompany}" to "${formData.org}"`);
+
+          // Validate the new company name first
+          const validation = await validateCompanyName(formData.org);
+          if (!validation.valid) {
+            throw new Error(validation.message || 'Invalid company name');
+          }
+
+          // Use company reassignment API
+          await reassignJob(job.id, formData.org, {
+            preserveEmbeddings: false, // Regenerate embeddings for better search
+            validateCompanyName: true
+          });
+
+          // Update other fields with regular API if needed
+          const otherFieldsChanged = Object.keys(formData).some(key =>
+            key !== 'org' && formData[key] !== (job[key] || '')
+          );
+
+          if (otherFieldsChanged) {
+            await updateJob(job.id, {
+              title: formData.title,
+              location: formData.location,
+              date_start: formData.date_start,
+              date_end: formData.date_end,
+              skills: formData.skills,
+              type: formData.type
+            });
+          }
+        } else {
+          // Regular update for non-company changes
+          await updateJob(job.id, formData);
+        }
       } else {
         // Handle new job creation - this would need to be added to the API
         console.log('Creating new job:', formData);
       }
-      
+
       setIsDirty(false);
+      setCompanyChanged(false);
       onSave();
     } catch (err) {
       console.error('Save failed:', err);
@@ -193,6 +246,9 @@ const JobEditor = ({ job, onSave, onCancel }) => {
   // Check if form has required fields
   const hasRequiredFields = formData.title.trim() && formData.org.trim();
 
+  // Combined loading state
+  const isLoading = loading || companyLoading || isSaving;
+
   return ReactDOM.createPortal(
     <div className="job-editor-overlay">
       <div className="job-editor">
@@ -208,6 +264,19 @@ const JobEditor = ({ job, onSave, onCancel }) => {
           <div className="error-message">
             <span>{error}</span>
             <button onClick={clearError}>×</button>
+          </div>
+        )}
+
+        {/* Company Change Notification */}
+        {companyChanged && job && (
+          <div className="company-change-notice">
+            <div className="notice-content">
+              <span className="notice-icon">📦</span>
+              <div className="notice-text">
+                <strong>Company Change Detected</strong>
+                <p>This position will be moved from "{originalCompany}" to "{formData.org}" when saved.</p>
+              </div>
+            </div>
           </div>
         )}
 
@@ -241,7 +310,7 @@ const JobEditor = ({ job, onSave, onCancel }) => {
                     id="org"
                     value={formData.org}
                     onChange={(value) => handleFieldChange('org', value)}
-                    isEditing={!!job}
+                    isEditingMode={!!job}
                     placeholder="e.g., Tech Corp Inc."
                     className={validation.errors?.some(e => e.field === 'org') ? 'error' : ''}
                     required={true}
@@ -373,7 +442,7 @@ const JobEditor = ({ job, onSave, onCancel }) => {
                 type="button"
                 className="btn-delete"
                 onClick={() => setShowDeleteConfirm(true)}
-                disabled={loading}
+                disabled={isLoading}
               >
                 Delete Position
               </button>
@@ -385,17 +454,22 @@ const JobEditor = ({ job, onSave, onCancel }) => {
               type="button"
               className="btn-secondary"
               onClick={onCancel}
-              disabled={loading}
+              disabled={isLoading}
             >
               Cancel
             </button>
             <button
               type="button"
-              className="btn-primary"
+              className={`btn-primary ${companyChanged ? 'company-reassignment' : ''}`}
               onClick={handleSave}
-              disabled={loading || isSaving || !hasRequiredFields || !validation.isValid}
+              disabled={isLoading || !hasRequiredFields || !validation.isValid}
             >
-              {isSaving ? 'Saving...' : job ? 'Save Changes' : 'Add Position'}
+              {isLoading ?
+                (companyChanged ? 'Reassigning Company...' : 'Saving...') :
+                job ?
+                  (companyChanged ? `Move to "${formData.org}"` : 'Save Changes') :
+                  'Add Position'
+              }
             </button>
           </div>
         </div>
@@ -419,9 +493,9 @@ const JobEditor = ({ job, onSave, onCancel }) => {
                 <button
                   className="btn-delete"
                   onClick={handleDelete}
-                  disabled={loading}
+                  disabled={isLoading}
                 >
-                  {loading ? 'Deleting...' : 'Delete'}
+                  {isLoading ? 'Deleting...' : 'Delete'}
                 </button>
               </div>
             </div>

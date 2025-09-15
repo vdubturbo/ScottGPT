@@ -164,9 +164,9 @@ export const APP_CONFIG = {
     
     // CORS Configuration
     cors: {
-      origin: IS_PRODUCTION 
+      origin: IS_PRODUCTION
         ? ['https://scottgpt.netlify.app', 'https://www.scottgpt.com']
-        : ['http://localhost:3000', 'http://localhost:3001'],
+        : ['http://localhost:3000', 'http://localhost:3001', 'http://localhost:3004'],
       credentials: true
     },
     

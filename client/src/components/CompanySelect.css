@@ -153,3 +153,38 @@
     font-size: 0.75em;
   }
 }
+
+/* Editing state styles */
+.company-select input.editing {
+  border-color: rgba(139, 92, 246, 0.5);
+  background-color: rgba(20, 20, 25, 0.9);
+  box-shadow: 0 0 0 1px rgba(139, 92, 246, 0.2);
+}
+
+.company-select input.editing::placeholder {
+  color: #8b5cf6;
+  opacity: 0.7;
+}
+
+/* Clear visual indicator */
+.company-select.editing .company-dropdown .dropdown-header {
+  background-color: rgba(139, 92, 246, 0.1);
+  color: #8b5cf6;
+}
+
+/* Enhanced hover states for better discoverability */
+.company-select input.dropdown-mode:not(.editing):hover {
+  background-color: rgba(25, 25, 30, 0.9);
+  border-color: rgba(139, 92, 246, 0.3);
+  cursor: text;
+}
+
+.company-select input.dropdown-mode:not(.editing):hover::after {
+  content: " (click to change)";
+  position: absolute;
+  right: 40px;
+  color: #8b5cf6;
+  font-size: 0.8em;
+  opacity: 0.7;
+  pointer-events: none;
+}
