@@ -1431,6 +1431,240 @@ router.delete('/delete-all-data', deleteLimiter, async (req, res) => {
 });
 
 /**
+ * PUT /api/user/sources/:id/reassign-company
+ * Reassign job position to different company with embedding regeneration
+ */
+router.put('/sources/:id/reassign-company', updateLimiter, async (req, res) => {
+  const supabaseTransaction = supabase;
+
+  try {
+    const { id } = req.params;
+    const { newCompanyName } = req.body;
+
+    // Validate input parameters
+    if (!id || id.trim() === '') {
+      return res.status(400).json({
+        error: 'Invalid source ID',
+        message: 'Source ID is required'
+      });
+    }
+
+    if (!newCompanyName || typeof newCompanyName !== 'string' || newCompanyName.trim() === '') {
+      return res.status(400).json({
+        error: 'Invalid company name',
+        message: 'New company name is required and must be a non-empty string'
+      });
+    }
+
+    const sanitizedCompanyName = newCompanyName.trim();
+
+    logger.info('Reassigning job position to new company', {
+      sourceId: id,
+      newCompanyName: sanitizedCompanyName,
+      userId: req.user.id,
+      ip: req.ip
+    });
+
+    // Get existing source and validate ownership
+    const { data: existingSource, error: fetchError } = await supabaseTransaction
+      .from('sources')
+      .select('*')
+      .eq('id', id)
+      .eq('type', 'job')
+      .eq('user_id', req.user.id)
+      .single();
+
+    if (fetchError) {
+      if (fetchError.code === 'PGRST116') {
+        return res.status(404).json({
+          error: 'Source not found',
+          message: 'No job source found with the specified ID'
+        });
+      }
+      throw fetchError;
+    }
+
+    // Check if company name is actually changing
+    if (existingSource.org === sanitizedCompanyName) {
+      logger.info('Company name unchanged, no update needed', {
+        sourceId: id,
+        currentCompany: existingSource.org
+      });
+
+      return res.status(200).json({
+        success: true,
+        message: 'Company name is already set to the specified value',
+        source: existingSource,
+        changes: {
+          companyChanged: false,
+          previousCompany: existingSource.org,
+          newCompany: sanitizedCompanyName
+        },
+        embeddings: {
+          regenerated: false,
+          reason: 'No change required'
+        },
+        timestamp: new Date().toISOString()
+      });
+    }
+
+    // Update the source with new company name
+    const { data: updatedSource, error: updateError } = await supabaseTransaction
+      .from('sources')
+      .update({
+        org: sanitizedCompanyName,
+        updated_at: new Date().toISOString()
+      })
+      .eq('id', id)
+      .select()
+      .single();
+
+    if (updateError) {
+      throw updateError;
+    }
+
+    // Since company name affects how content is embedded, regenerate embeddings
+    let embeddingResults = { regenerated: false, affectedChunks: 0 };
+
+    try {
+      logger.info('Company changed, regenerating embeddings', {
+        sourceId: id,
+        previousCompany: existingSource.org,
+        newCompany: sanitizedCompanyName
+      });
+
+      // Get chunks that need embedding updates
+      const { data: chunks, error: chunksError } = await supabaseTransaction
+        .from('content_chunks')
+        .select('id, title, content, skills')
+        .eq('source_id', id);
+
+      if (chunksError) {
+        throw chunksError;
+      }
+
+      if (chunks && chunks.length > 0) {
+        // Regenerate embeddings for affected chunks
+        const embeddingPromises = chunks.map(async (chunk) => {
+          try {
+            // Create updated content for embedding (include new company name context)
+            const embeddingContent = [
+              updatedSource.title,
+              updatedSource.org, // New company name
+              chunk.title,
+              chunk.content,
+              updatedSource.skills?.join(', ')
+            ].filter(Boolean).join(' ');
+
+            const embedding = await embeddingService.embedText(embeddingContent, 'search_document');
+
+            if (embedding) {
+              const { error: embeddingUpdateError } = await supabaseTransaction
+                .from('content_chunks')
+                .update({
+                  embedding,
+                  updated_at: new Date().toISOString()
+                })
+                .eq('id', chunk.id);
+
+              if (embeddingUpdateError) {
+                logger.error('Failed to update chunk embedding during company reassignment', {
+                  chunkId: chunk.id,
+                  sourceId: id,
+                  error: embeddingUpdateError.message
+                });
+                return false;
+              }
+              return true;
+            }
+            return false;
+          } catch (error) {
+            logger.error('Error regenerating embedding for chunk during company reassignment', {
+              chunkId: chunk.id,
+              sourceId: id,
+              error: error.message
+            });
+            return false;
+          }
+        });
+
+        const results = await Promise.all(embeddingPromises);
+        const successCount = results.filter(Boolean).length;
+
+        embeddingResults = {
+          regenerated: true,
+          affectedChunks: successCount,
+          totalChunks: chunks.length,
+          success: successCount === chunks.length
+        };
+
+        logger.info('Embedding regeneration completed for company reassignment', {
+          sourceId: id,
+          totalChunks: chunks.length,
+          successfulChunks: successCount,
+          allSuccessful: successCount === chunks.length
+        });
+      } else {
+        logger.info('No chunks found for embedding regeneration', { sourceId: id });
+        embeddingResults = {
+          regenerated: false,
+          reason: 'No chunks found',
+          affectedChunks: 0
+        };
+      }
+    } catch (embeddingError) {
+      logger.error('Non-fatal error during embedding regeneration', {
+        sourceId: id,
+        error: embeddingError.message,
+        stack: embeddingError.stack
+      });
+
+      embeddingResults = {
+        regenerated: false,
+        error: embeddingError.message,
+        affectedChunks: 0
+      };
+    }
+
+    logger.info('Company reassignment completed successfully', {
+      sourceId: id,
+      previousCompany: existingSource.org,
+      newCompany: sanitizedCompanyName,
+      embeddingsRegenerated: embeddingResults.regenerated,
+      userId: req.user.id
+    });
+
+    // Return success response
+    res.status(200).json({
+      success: true,
+      message: `Job position successfully reassigned to ${sanitizedCompanyName}`,
+      source: updatedSource,
+      changes: {
+        companyChanged: true,
+        previousCompany: existingSource.org,
+        newCompany: sanitizedCompanyName
+      },
+      embeddings: embeddingResults,
+      timestamp: new Date().toISOString()
+    });
+
+  } catch (error) {
+    logger.error('Unexpected error in company reassignment endpoint', {
+      sourceId: req.params.id,
+      newCompanyName: req.body?.newCompanyName,
+      error: error.message,
+      stack: error.stack,
+      userId: req.user?.id
+    });
+
+    res.status(500).json({
+      error: 'Internal server error',
+      message: 'An unexpected error occurred while reassigning the job position'
+    });
+  }
+});
+
+/**
  * Error handling middleware
  */
 router.use((error, req, res, next) => {
