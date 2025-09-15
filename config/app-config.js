@@ -63,14 +63,14 @@ const ENV_CONFIG = {
     error: 'COHERE_API_KEY must be provided and be at least 10 characters'
   },
 
-  // Stripe Configuration (optional in development)
+  // Stripe Configuration (optional until ready)
   STRIPE_SECRET_KEY: {
-    required: IS_PRODUCTION,
+    required: false, // Temporarily optional until Stripe is configured
     validator: (value) => !value || (value.startsWith('sk_test_') || value.startsWith('sk_live_')),
     error: 'STRIPE_SECRET_KEY must start with "sk_test_" or "sk_live_" if provided'
   },
   STRIPE_PUBLISHABLE_KEY: {
-    required: IS_PRODUCTION,
+    required: false, // Temporarily optional until Stripe is configured
     validator: (value) => !value || (value.startsWith('pk_test_') || value.startsWith('pk_live_')),
     error: 'STRIPE_PUBLISHABLE_KEY must start with "pk_test_" or "pk_live_" if provided'
   },
