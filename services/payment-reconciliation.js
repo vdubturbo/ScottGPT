@@ -13,8 +13,8 @@ import CONFIG from '../config/app-config.js';
 import EmailService from './email-service.js';
 import ErrorRecoveryService from './error-recovery.js';
 
-const stripe = new Stripe(CONFIG.billing.stripe.secretKey);
-const supabase = createClient(CONFIG.database.supabase.url, CONFIG.database.supabase.anonKey);
+const stripe = CONFIG.billing.stripe.secretKey ? new Stripe(CONFIG.billing.stripe.secretKey) : null;
+const supabase = createClient(CONFIG.database.supabaseUrl, CONFIG.database.supabaseAnonKey);
 
 class PaymentReconciliationService {
   constructor() {

@@ -12,7 +12,7 @@ import winston from 'winston';
 import CONFIG from '../config/app-config.js';
 import EmailService from './email-service.js';
 
-const supabase = createClient(CONFIG.database.supabase.url, CONFIG.database.supabase.anonKey);
+const supabase = createClient(CONFIG.database.supabaseUrl, CONFIG.database.supabaseAnonKey);
 
 class ErrorRecoveryService {
   constructor() {
