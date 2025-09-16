@@ -73,7 +73,7 @@ const Dashboard = () => {
         <div className="header-content">
           <div className="user-info">
             <img
-              src="/logo3.png"
+              src="/Logo3.png"
               alt="SplitOut"
               className="dashboard-logo"
             />
