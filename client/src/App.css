@@ -2039,6 +2039,15 @@
   padding: 2rem;
 }
 
+/* Reduce padding specifically for resumes tab to minimize gap */
+.resumes-tab {
+  margin-top: -8rem;
+  margin-left: -2rem;
+  margin-right: -2rem;
+  margin-bottom: 0;
+  padding: 0rem 2rem 2rem;
+}
+
 .overview-tab, .profile-tab, .content-tab, .analytics-tab {
   animation: fadeIn 0.3s ease-in;
 }
