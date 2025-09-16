@@ -79,7 +79,7 @@ const Dashboard = () => {
             />
           </div>
           <div className="header-actions">
-            {/* Usage Tracker */}
+            {/* Usage Tracker - Left Side */}
             <div className="header-usage">
               <UsageTracker
                 position="header"
@@ -89,12 +89,15 @@ const Dashboard = () => {
               />
             </div>
 
-            {isAdmin() && (
-              <Link to="/admin" className="btn btn-admin">
-                Admin Panel
-              </Link>
-            )}
-            <UserMenu />
+            {/* Right Side - Admin Link and User Menu */}
+            <div className="header-right">
+              {isAdmin() && (
+                <Link to="/admin" className="btn btn-admin">
+                  Admin Panel
+                </Link>
+              )}
+              <UserMenu />
+            </div>
           </div>
         </div>
       </header>

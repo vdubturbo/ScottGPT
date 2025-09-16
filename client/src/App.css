@@ -1964,8 +1964,21 @@
 .header-actions {
   display: flex;
   align-items: center;
+  justify-content: space-between;
   gap: 1rem;
-  flex-wrap: wrap;
+  width: 100%;
+  min-height: 50px;
+}
+
+.header-usage {
+  flex: 0 0 auto; /* Don't grow or shrink */
+}
+
+.header-right {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  flex: 0 0 auto; /* Don't grow or shrink */
 }
 
 .btn-admin {
@@ -3748,5 +3761,218 @@
   .nav-item {
     padding: 0.75rem 1rem;
     font-size: 0.85rem;
+  }
+}
+
+/* Mobile fixes for Usage Counter */
+@media (max-width: 768px) {
+  .header-actions {
+    width: 100%;
+    justify-content: space-between;
+    margin-top: 0.5rem;
+    flex-wrap: nowrap;
+  }
+
+  .header-usage {
+    flex: 0 0 auto;
+    min-width: auto;
+  }
+
+  .header-right {
+    flex: 0 0 auto;
+  }
+
+  /* Ensure usage tracker is visible on mobile */
+  .usage-tracker.header {
+    display: block !important;
+    width: 100%;
+    padding: 0.5rem;
+  }
+
+  /* Make compact usage counter more mobile-friendly */
+  .usage-tracker.compact {
+    font-size: 0.9rem;
+  }
+
+  /* Dashboard mobile improvements */
+  .dashboard-header {
+    padding: 1rem;
+    margin-bottom: 0;
+  }
+
+  .dashboard-content {
+    padding: 1rem;
+    margin: 0;
+  }
+
+  /* Form improvements for mobile */
+  .form-container {
+    padding: 1rem;
+    margin: 0.5rem;
+  }
+
+  .form-group {
+    margin-bottom: 1rem;
+  }
+
+  .form-group input,
+  .form-group select,
+  .form-group textarea {
+    font-size: 1rem; /* Prevent iOS zoom */
+    padding: 0.75rem;
+  }
+
+  /* Button improvements for mobile */
+  .btn {
+    padding: 0.75rem 1rem;
+    font-size: 1rem;
+    min-height: 44px; /* iOS touch target size */
+  }
+
+  /* Modal improvements for mobile */
+  .modal-dialog {
+    margin: 1rem;
+    width: calc(100% - 2rem);
+    max-width: none;
+  }
+
+  .modal-content {
+    border-radius: 12px;
+    max-height: 90vh;
+    overflow-y: auto;
+  }
+
+  /* Welcome section mobile fixes */
+  .welcome-section {
+    padding: 1.5rem;
+    margin: 1rem;
+  }
+
+  /* Metrics grid mobile improvements */
+  .metric-card {
+    padding: 1.5rem;
+    min-height: auto;
+  }
+
+  .metric-value {
+    font-size: 2rem;
+  }
+
+  .metric-label {
+    font-size: 0.9rem;
+  }
+
+  /* Tab navigation mobile improvements */
+  .nav-tabs {
+    padding: 0.5rem;
+    margin: 0;
+    gap: 0.5rem;
+    grid-template-columns: 1fr; /* Stack tabs vertically on very small screens */
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .nav-tab {
+    padding: 1rem 0.75rem;
+    min-height: 60px;
+    font-size: 0.9rem;
+    text-align: center;
+    border-radius: 12px;
+    white-space: nowrap;
+  }
+
+  .tab-icon {
+    font-size: 1.5rem;
+    margin-bottom: 0.25rem;
+    display: block;
+  }
+
+  .tab-name {
+    display: block;
+    font-size: 0.8rem;
+    font-weight: 500;
+  }
+
+  /* For slightly larger mobile screens, show horizontal tabs */
+  @media (min-width: 480px) {
+    .nav-tabs {
+      grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+    }
+  }
+
+  /* Login form mobile improvements */
+  .login-container {
+    padding: 1rem;
+    margin: 1rem;
+    width: calc(100% - 2rem);
+  }
+
+  .login-form {
+    padding: 1.5rem;
+  }
+
+  .login-form input {
+    font-size: 1rem;
+    padding: 1rem;
+    border-radius: 8px;
+  }
+
+  .login-form button {
+    font-size: 1rem;
+    padding: 1rem;
+    min-height: 50px;
+  }
+
+  /* Responsive text sizing */
+  h1 {
+    font-size: 2rem;
+  }
+
+  h2 {
+    font-size: 1.5rem;
+  }
+
+  h3 {
+    font-size: 1.25rem;
+  }
+
+  /* Profile header mobile improvements */
+  .profile-header {
+    padding: 1rem;
+    text-align: center;
+  }
+
+  .profile-title {
+    font-size: 1.75rem;
+    line-height: 1.2;
+  }
+
+  .profile-subtitle {
+    font-size: 1rem;
+    margin-top: 0.5rem;
+  }
+
+  /* Better spacing for mobile content */
+  .section {
+    margin: 1rem 0;
+    padding: 1rem;
+  }
+
+  .section-header {
+    margin-bottom: 1rem;
+  }
+
+  /* Mobile-friendly action buttons */
+  .action-buttons {
+    flex-direction: column;
+    gap: 0.75rem;
+    margin-top: 1rem;
+  }
+
+  .action-button {
+    width: 100%;
+    padding: 1rem;
+    font-size: 1rem;
+    min-height: 50px;
   }
 }

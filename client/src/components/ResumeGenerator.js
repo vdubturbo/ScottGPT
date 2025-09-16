@@ -46,15 +46,6 @@ const ResumeGenerator = () => {
     }
   }, []);
 
-  const handlePasteFromClipboard = useCallback(async () => {
-    try {
-      const text = await navigator.clipboard.readText();
-      setJobDescription(text);
-      setLocalError('');
-    } catch (err) {
-      setLocalError('Unable to access clipboard. Please paste manually.');
-    }
-  }, []);
 
   const handleJobDescriptionSubmit = useCallback(async (e) => {
     e.preventDefault();
@@ -228,16 +219,6 @@ The more detailed the job posting, the better your resume match!"
                   disabled={isGenerating}
                   rows="18"
                 />
-                
-                <button
-                  type="button"
-                  onClick={handlePasteFromClipboard}
-                  className="paste-btn"
-                  disabled={isGenerating}
-                  title="Paste from clipboard"
-                >
-                  📋 Paste
-                </button>
               </div>
 
               {displayError && (
@@ -301,15 +282,6 @@ The more detailed the job posting, the better your resume match!"
         </motion.div>
       )}
 
-      {/* Usage Tracker - Always show in header */}
-      <div className="usage-tracker-container">
-        <UsageTracker
-          position="header"
-          compact={true}
-          showUpgradePrompts={true}
-          autoShowUpgrade={false}
-        />
-      </div>
 
       {/* Billing Modals */}
       <UpgradePrompt
