@@ -3,7 +3,7 @@
 
 .resume-generator {
   min-height: 100vh;
-  padding: 1rem 2rem 2rem;
+  padding: 0.25rem 2rem 2rem;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -26,7 +26,7 @@
 
 .phase-header {
   text-align: center;
-  padding: 1rem 2rem 2rem;
+  padding: 0.5rem 2rem 1.5rem;
   background: linear-gradient(135deg, #1e293b 0%, #334155 100%);
   color: white;
   margin-bottom: 0;
