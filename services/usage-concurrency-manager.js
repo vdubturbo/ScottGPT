@@ -221,15 +221,21 @@ export class UsageConcurrencyManager {
    */
   async getUsageStatusWithConcurrency(userId) {
     try {
-      // Get usage status from database
+      // Try to get usage status from database function
       const { data, error } = await supabase
         .rpc('get_user_usage_status', { user_id: userId });
 
-      if (error) {
-        throw new Error(`Failed to get usage status: ${error.message}`);
-      }
+      let usageStatus;
 
-      const usageStatus = JSON.parse(data);
+      if (error && (error.message.includes('Could not find the function') || error.message.includes('function round(double precision, integer) does not exist'))) {
+        // Fallback: query user_profiles directly if function doesn't exist or has errors
+        console.warn('Database function get_user_usage_status not found or has errors, using fallback method');
+        usageStatus = await this.getFallbackUsageStatus(userId);
+      } else if (error) {
+        throw new Error(`Failed to get usage status: ${error.message}`);
+      } else {
+        usageStatus = JSON.parse(data);
+      }
 
       // Add concurrency information
       const sessionInfo = this.getSessionInfo(userId);
@@ -257,6 +263,63 @@ export class UsageConcurrencyManager {
    */
   generateRequestId() {
     return `req_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+  }
+
+  /**
+   * Fallback method to get usage status when database function is missing
+   */
+  async getFallbackUsageStatus(userId) {
+    const { data: profile, error } = await supabase
+      .from('user_profiles')
+      .select(`
+        subscription_tier,
+        subscription_status,
+        resume_count_used,
+        resume_count_limit,
+        resume_count_reset_date,
+        total_lifetime_resumes,
+        subscription_start_date,
+        subscription_end_date,
+        subscription_cancel_at_period_end
+      `)
+      .eq('id', userId)
+      .single();
+
+    if (error) {
+      throw new Error(`Failed to get user profile: ${error.message}`);
+    }
+
+    if (!profile) {
+      throw new Error(`User not found: ${userId}`);
+    }
+
+    // Create default values if columns don't exist
+    const subscription_tier = profile.subscription_tier || 'free';
+    const subscription_status = profile.subscription_status || 'inactive';
+    const resume_count_used = profile.resume_count_used || 0;
+    const resume_count_limit = profile.resume_count_limit || 3;
+    const total_lifetime_resumes = profile.total_lifetime_resumes || 0;
+    const resume_count_remaining = resume_count_limit - resume_count_used;
+    const can_generate = resume_count_used < resume_count_limit;
+
+    return {
+      subscription: {
+        tier: subscription_tier,
+        status: subscription_status,
+        startDate: profile.subscription_start_date,
+        endDate: profile.subscription_end_date,
+        cancelAtPeriodEnd: profile.subscription_cancel_at_period_end || false
+      },
+      usage: {
+        resumeCountUsed: resume_count_used,
+        resumeCountLimit: resume_count_limit,
+        resumeCountRemaining: resume_count_remaining,
+        resetDate: profile.resume_count_reset_date,
+        canGenerateResume: can_generate,
+        totalLifetimeResumes: total_lifetime_resumes,
+        utilizationPercent: Math.round((resume_count_used / resume_count_limit) * 100)
+      }
+    };
   }
 
   /**

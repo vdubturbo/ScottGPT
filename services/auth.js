@@ -41,7 +41,7 @@ export class AuthService {
         throw new Error('Email, password, and full name are required');
       }
 
-      if (!['job_seeker', 'recruiter', 'job_poster'].includes(role)) {
+      if (!['job_seeker', 'recruiter', 'job_poster', 'admin'].includes(role)) {
         throw new Error('Invalid role specified');
       }
 

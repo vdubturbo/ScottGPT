@@ -96,7 +96,7 @@ const UsageTracker = ({
             onClick={refreshUsage}
             title="Refresh usage data"
           >
-            🔄
+            Refresh
           </button>
         </div>
 

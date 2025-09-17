@@ -322,8 +322,8 @@ export function BillingProvider({ children }) {
     if (!user) return;
 
     try {
-      const response = await fetch(`${API_BASE}/check-usage`, {
-        method: 'POST',
+      const response = await fetch(`${API_BASE}/status`, {
+        method: 'GET',
         headers: {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${user.token}`
@@ -336,12 +336,18 @@ export function BillingProvider({ children }) {
 
       const data = await response.json();
 
+      // Update both subscription and usage data
       dispatch({
-        type: BILLING_ACTIONS.SET_USAGE,
-        payload: data.data
+        type: BILLING_ACTIONS.SET_SUBSCRIPTION,
+        payload: data.data.subscription
       });
 
-      return data.data;
+      dispatch({
+        type: BILLING_ACTIONS.SET_USAGE,
+        payload: data.data.usage
+      });
+
+      return data.data.usage;
 
     } catch (error) {
       console.error('Error checking usage:', error);
@@ -382,9 +388,39 @@ export function BillingProvider({ children }) {
     }
   };
 
-  // Update usage locally (optimistic update)
-  const incrementUsage = (count = 1) => {
-    dispatch({ type: BILLING_ACTIONS.UPDATE_USAGE, payload: count });
+  // Increment usage on server and update locally
+  const incrementUsage = async (count = 1) => {
+    if (!user) return;
+
+    try {
+      const response = await fetch(`${API_BASE}/increment-usage`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${user.token}`
+        },
+        body: JSON.stringify({ count })
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to increment usage');
+      }
+
+      const data = await response.json();
+
+      // Update state with server response
+      dispatch({
+        type: BILLING_ACTIONS.SET_USAGE,
+        payload: data.data
+      });
+
+      return data.data;
+    } catch (error) {
+      console.error('Error incrementing usage:', error);
+      // Fallback to optimistic update if server call fails
+      dispatch({ type: BILLING_ACTIONS.UPDATE_USAGE, payload: count });
+      return null;
+    }
   };
 
   // Clear errors

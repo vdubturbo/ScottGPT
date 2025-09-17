@@ -41,10 +41,12 @@ router.post('/resume', async (req, res) => {
       
     } else if (format === 'pdf') {
       const pdfBuffer = await generatePDF(content, options);
-      
+
       res.setHeader('Content-Type', 'application/pdf');
       res.setHeader('Content-Disposition', `attachment; filename="${options.fileName || 'resume'}.pdf"`);
-      res.send(pdfBuffer);
+      res.setHeader('Content-Length', pdfBuffer.length);
+      res.setHeader('Cache-Control', 'no-cache');
+      res.end(pdfBuffer, 'binary');
     }
 
   } catch (error) {
@@ -185,7 +187,10 @@ async function generateDOCX(htmlContent, options = {}) {
 // Generate PDF document
 async function generatePDF(htmlContent, options = {}) {
   const { fontSize = 11, margin = 'normal', includeHeader = true } = options;
-  
+
+  console.log('PDF generation started:', { fontSize, margin, includeHeader });
+  console.log('HTML content length:', htmlContent.length);
+
   // Convert margin setting to CSS
   const marginMap = {
     narrow: '0.5in',
@@ -271,25 +276,48 @@ async function generatePDF(htmlContent, options = {}) {
   // Launch Puppeteer and generate PDF
   const browser = await puppeteer.launch({
     headless: 'new',
-    args: ['--no-sandbox', '--disable-setuid-sandbox']
+    args: [
+      '--no-sandbox',
+      '--disable-setuid-sandbox',
+      '--disable-dev-shm-usage',
+      '--disable-accelerated-2d-canvas',
+      '--no-first-run',
+      '--no-zygote',
+      '--disable-gpu'
+    ]
   });
   
   try {
     const page = await browser.newPage();
-    await page.setContent(styledHTML, { waitUntil: 'networkidle0' });
-    
+
+    // Set viewport and content
+    await page.setViewport({ width: 1200, height: 1600 });
+    await page.setContent(styledHTML, { waitUntil: 'domcontentloaded', timeout: 30000 });
+
+    // Wait a bit for content to stabilize
+    await page.evaluate(() => {
+      return new Promise(resolve => setTimeout(resolve, 500));
+    });
+
+    console.log('Generating PDF with Puppeteer...');
     const pdfBuffer = await page.pdf({
       format: 'A4',
       printBackground: false,
+      displayHeaderFooter: false,
       margin: {
         top: marginMap[margin],
         right: marginMap[margin],
         bottom: marginMap[margin],
         left: marginMap[margin]
-      }
+      },
+      preferCSSPageSize: true
     });
-    
+
+    console.log(`PDF generated successfully, buffer size: ${pdfBuffer.length} bytes`);
     return pdfBuffer;
+  } catch (error) {
+    console.error('PDF generation error:', error);
+    throw error;
   } finally {
     await browser.close();
   }

@@ -49,11 +49,11 @@ const upload = multer({
   storage: multer.memoryStorage(),
   fileFilter: function (req, file, cb) {
     // Allow only specific file types
-    const allowedTypes = /\.(pdf|docx|doc|txt|md)$/i;
+    const allowedTypes = /\.(docx|rtf)$/i;
     if (allowedTypes.test(file.originalname)) {
       cb(null, true);
     } else {
-      cb(new Error('Invalid file type. Only PDF, DOCX, DOC, TXT, and MD files are allowed.'));
+      cb(new Error('Invalid file type. Only DOCX and RTF files are allowed. PDF support coming soon.'));
     }
   },
   limits: {

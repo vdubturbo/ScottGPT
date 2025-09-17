@@ -68,7 +68,7 @@ const UsageIndicator = ({
       {/* Simple Box Format */}
       <div className="usage-box">
         <span className="usage-text">
-          [{usage.resumeCountUsed}/{usage.resumeCountLimit}]
+          {usage.resumeCountRemaining} remaining resume generations
         </span>
       </div>
 

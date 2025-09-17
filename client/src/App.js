@@ -9,7 +9,10 @@ import LoginForm from './components/auth/LoginForm';
 import RegisterForm from './components/auth/RegisterForm';
 import Dashboard from './components/Dashboard';
 import PublicProfile from './components/PublicProfile';
-import AdminDashboard from './components/AdminDashboard';
+import AdminRoute from './components/admin/AdminRoute';
+import AdminDashboard from './components/admin/AdminDashboard';
+import UserManagement from './components/admin/UserManagement';
+import ComingSoon from './components/admin/ComingSoon';
 import LandingPage from './components/LandingPage';
 import DiagnosticTest from './components/DiagnosticTest';
 import LandingPageNoModal from './components/LandingPageNoModal';
@@ -114,9 +117,9 @@ const AppContent = () => {
         <Route
           path="/admin"
           element={
-            <ProtectedRoute requireRole="admin">
+            <AdminRoute>
               <AdminDashboard />
-            </ProtectedRoute>
+            </AdminRoute>
           }
         />
 
@@ -134,11 +137,108 @@ const AppContent = () => {
           element={<PricingTiers />}
         />
 
+        {/* Admin Routes - must come before profile slug routing */}
+        <Route
+          path="/vdubturboadmin"
+          element={
+            <AdminRoute>
+              <AdminDashboard />
+            </AdminRoute>
+          }
+        />
+        <Route
+          path="/vdubturboadmin/users"
+          element={
+            <AdminRoute>
+              <UserManagement />
+            </AdminRoute>
+          }
+        />
+        <Route
+          path="/vdubturboadmin/subscriptions"
+          element={
+            <AdminRoute>
+              <ComingSoon
+                title="Subscription Management"
+                description="Comprehensive billing and subscription management for the ScottGPT platform."
+                features={[
+                  'Revenue dashboard with key metrics',
+                  'Payment issue alerts and resolution',
+                  'Refund processing workflows',
+                  'Subscription analytics and reporting',
+                  'Individual subscription editing',
+                  'Churn analysis and retention tools'
+                ]}
+              />
+            </AdminRoute>
+          }
+        />
+        <Route
+          path="/vdubturboadmin/analytics"
+          element={
+            <AdminRoute>
+              <ComingSoon
+                title="Analytics Dashboard"
+                description="Advanced analytics and reporting for platform insights and business intelligence."
+                features={[
+                  'User growth and engagement charts',
+                  'Revenue metrics (MRR, ARR, conversion)',
+                  'Usage analytics and feature adoption',
+                  'Platform health and performance metrics',
+                  'Custom reports and data exports',
+                  'Real-time dashboard updates'
+                ]}
+              />
+            </AdminRoute>
+          }
+        />
+        <Route
+          path="/vdubturboadmin/audit"
+          element={
+            <AdminRoute>
+              <ComingSoon
+                title="Audit Logs"
+                description="Comprehensive audit trail and activity logging for security and compliance."
+                features={[
+                  'Searchable admin action history',
+                  'User activity timeline tracking',
+                  'Security event monitoring',
+                  'Compliance report generation',
+                  'Data export for auditing',
+                  'Real-time activity alerts'
+                ]}
+              />
+            </AdminRoute>
+          }
+        />
+        <Route
+          path="/vdubturboadmin/system"
+          element={
+            <AdminRoute>
+              <ComingSoon
+                title="System Health"
+                description="Platform monitoring, performance metrics, and system health dashboard."
+                features={[
+                  'Real-time performance monitoring',
+                  'Server health and uptime tracking',
+                  'Error rate and response time metrics',
+                  'Database performance insights',
+                  'API endpoint health checks',
+                  'Automated alert notifications'
+                ]}
+              />
+            </AdminRoute>
+          }
+        />
+
         {/* Public Profile Routes */}
         <Route path="/profile/:slug" element={<PublicProfile />} />
 
-        {/* Dynamic Profile Routes (URL slug routing) */}
-        <Route path="/:slug" element={<PublicProfile />} />
+        {/* Dynamic Profile Routes (URL slug routing) - exclude reserved paths */}
+        <Route
+          path="/:slug"
+          element={<PublicProfile />}
+        />
 
         {/* Default Route - Complete Landing Page */}
         <Route 

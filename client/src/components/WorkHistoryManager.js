@@ -675,22 +675,6 @@ const WorkHistoryManager = ({ onViewDuplicates }) => {
                 >
                   ✏️ Rename
                 </button>
-                {company.jobs.length > 1 && (
-                  <button
-                    className="btn-company-action btn-split"
-                    onClick={() => handleCompanySplit(company)}
-                    title="Split into separate companies"
-                  >
-                    🗂️ Split
-                  </button>
-                )}
-                <button
-                  className="btn-company-action btn-merge"
-                  onClick={() => handleCompanyMerge(company)}
-                  title="Merge with another company"
-                >
-                  🔗 Merge
-                </button>
               </div>
             </div>
             
@@ -707,16 +691,6 @@ const WorkHistoryManager = ({ onViewDuplicates }) => {
                   <div className="timeline-content">
                     <div className="job-card-compact">
                       <div className="job-header-compact">
-                        <label className="job-checkbox-compact">
-                          <input
-                            type="checkbox"
-                            checked={selectedJobs.has(job.id)}
-                            onChange={(e) => {
-                              e.stopPropagation();
-                              handleJobCheckbox(job.id, e.target.checked);
-                            }}
-                          />
-                        </label>
                         <div className="job-title-section-compact">
                           <h4 className="job-title-compact" onClick={() => handleJobSelect(job)}>
                             {job.title}
@@ -737,7 +711,7 @@ const WorkHistoryManager = ({ onViewDuplicates }) => {
                             }}
                             title="Edit position (change company, dates, etc.)"
                           >
-                            ✏️ Edit
+                            ✏️
                           </button>
                           <button
                             className="btn-delete-compact"
@@ -814,16 +788,6 @@ const WorkHistoryManager = ({ onViewDuplicates }) => {
         <div key={job.id} className="job-card">
           <div className="job-header">
             <div className="job-title-section">
-              <label className="job-checkbox">
-                <input
-                  type="checkbox"
-                  checked={selectedJobs.has(job.id)}
-                  onChange={(e) => {
-                    e.stopPropagation();
-                    handleJobCheckbox(job.id, e.target.checked);
-                  }}
-                />
-              </label>
               <div className="job-title-info">
                 <h3 className="job-title" onClick={() => handleJobSelect(job)}>{job.title}</h3>
                 <div className="job-company">{job.org}</div>
@@ -858,14 +822,14 @@ const WorkHistoryManager = ({ onViewDuplicates }) => {
             </div>
           )}
           <div className="job-actions">
-            <button 
+            <button
               className="btn-edit"
               onClick={(e) => {
                 e.stopPropagation();
                 handleJobSelect(job);
               }}
             >
-              Edit
+              ✏️
             </button>
             <button 
               className="btn-delete"
@@ -890,18 +854,6 @@ const WorkHistoryManager = ({ onViewDuplicates }) => {
       <div className="job-list">
         {processedJobs.map((job) => (
           <div key={job.id} className="job-list-item">
-            <div className="job-checkbox-section">
-              <label className="job-checkbox">
-                <input
-                  type="checkbox"
-                  checked={selectedJobs.has(job.id)}
-                  onChange={(e) => {
-                    e.stopPropagation();
-                    handleJobCheckbox(job.id, e.target.checked);
-                  }}
-                />
-              </label>
-            </div>
             <div className="job-info" onClick={() => handleJobSelect(job)}>
               <div className="job-title-org">
                 <h3>{job.title}</h3>
@@ -917,14 +869,14 @@ const WorkHistoryManager = ({ onViewDuplicates }) => {
               </div>
             </div>
             <div className="job-actions">
-              <button 
+              <button
                 className="btn-edit"
                 onClick={(e) => {
                   e.stopPropagation();
                   handleJobSelect(job);
                 }}
               >
-                Edit
+                ✏️
               </button>
               <button 
                 className="btn-delete"
@@ -1064,17 +1016,6 @@ const WorkHistoryManager = ({ onViewDuplicates }) => {
           />
         </div>
 
-        <div className="bulk-select-controls">
-          <label className="select-all-label">
-            <input
-              type="checkbox"
-              checked={selectedJobs.size > 0 && selectedJobs.size === processedJobs.length}
-              onChange={(e) => handleSelectAll(e.target.checked)}
-              className="select-all-checkbox"
-            />
-            <span>Select All ({processedJobs.length})</span>
-          </label>
-        </div>
 
         <div className="view-controls">
           <div className="grouping-toggle">
@@ -1225,6 +1166,70 @@ const WorkHistoryManager = ({ onViewDuplicates }) => {
                 disabled={deleteConfirmText !== 'DELETE ALL MY DATA' || loading}
               >
                 {loading ? 'Deleting...' : 'Delete All Data'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {showCompanyActions && companyActionType === 'rename' && companyActionData && (
+        <div className="modal-overlay">
+          <div className="modal-dialog company-rename-dialog">
+            <div className="modal-header">
+              <h3>✏️ Rename Company</h3>
+              <button
+                className="close-button"
+                onClick={() => setShowCompanyActions(false)}
+                title="Cancel"
+              >
+                ×
+              </button>
+            </div>
+
+            <div className="modal-body">
+              <p>Rename "{companyActionData.name}" across all {companyActionData.jobs.length} position{companyActionData.jobs.length !== 1 ? 's' : ''}:</p>
+
+              <div className="company-rename-form">
+                <label htmlFor="new-company-name">New Company Name:</label>
+                <input
+                  id="new-company-name"
+                  type="text"
+                  defaultValue={companyActionData.name}
+                  className="company-name-input"
+                  autoFocus
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') {
+                      const newName = e.target.value.trim();
+                      if (newName && newName !== companyActionData.name) {
+                        performCompanyRename(companyActionData, newName);
+                      }
+                    }
+                    if (e.key === 'Escape') {
+                      setShowCompanyActions(false);
+                    }
+                  }}
+                />
+              </div>
+            </div>
+
+            <div className="modal-footer">
+              <button
+                className="btn-secondary"
+                onClick={() => setShowCompanyActions(false)}
+              >
+                Cancel
+              </button>
+              <button
+                className="btn-primary"
+                onClick={() => {
+                  const input = document.getElementById('new-company-name');
+                  const newName = input.value.trim();
+                  if (newName && newName !== companyActionData.name) {
+                    performCompanyRename(companyActionData, newName);
+                  }
+                }}
+              >
+                Rename Company
               </button>
             </div>
           </div>

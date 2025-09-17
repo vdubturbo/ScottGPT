@@ -16,6 +16,7 @@
   background-size: 16px 12px;
   padding-right: 32px;
   color: #f0f0f0;
+  font-size: 0.9rem !important;
 }
 
 .company-select input.dropdown-mode:focus {

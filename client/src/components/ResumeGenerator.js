@@ -9,8 +9,6 @@ import { useBilling } from '../contexts/BillingContext';
 import { validateJobDescription } from '../lib/validations';
 import { extractKeywords } from '../lib/keywordExtraction';
 import UsageTracker from './billing/UsageTracker';
-import UpgradePrompt from './billing/UpgradePrompt';
-import PurchaseResumeModal from './billing/PurchaseResumeModal';
 import './ResumeGenerator.css';
 
 const ResumeGenerator = () => {
@@ -20,7 +18,8 @@ const ResumeGenerator = () => {
     isAtLimit,
     isPremium,
     usagePercentage,
-    checkUsage
+    checkUsage,
+    incrementUsage
   } = useBilling();
 
   const [jobDescription, setJobDescription] = useState('');
@@ -32,8 +31,6 @@ const ResumeGenerator = () => {
   const [localError, setLocalError] = useState('');
   const [isValidating, setIsValidating] = useState(false);
   const [currentPhase, setCurrentPhase] = useState('input'); // 'input' or 'editor'
-  const [showUpgradePrompt, setShowUpgradePrompt] = useState(false);
-  const [showPurchaseModal, setShowPurchaseModal] = useState(false);
 
   const handleJobDescriptionChange = useCallback((e) => {
     const value = e.target.value;
@@ -55,9 +52,8 @@ const ResumeGenerator = () => {
 
     // Check if user has reached their limit
     if (isAtLimit) {
-      setLocalError('You have reached your resume generation limit. Please upgrade or purchase additional credits.');
+      setLocalError('I\'m sorry, that\'s all the resumes for today. A subscription service is coming soon to provide more access!');
       setIsValidating(false);
-      setShowUpgradePrompt(true);
       return;
     }
 
@@ -116,8 +112,10 @@ const ResumeGenerator = () => {
         });
         setCurrentPhase('editor'); // Transition to editor phase
 
-        // Refresh usage data after successful generation
-        await checkUsage();
+        // Increment usage count for successful generation
+        await incrementUsage(1);
+
+        console.log('✅ [FRONTEND DEBUG] Usage incremented after successful resume generation');
       } else {
         console.error('❌ [FRONTEND DEBUG] Invalid response format detected');
         console.error('❌ [FRONTEND DEBUG] Full response:', JSON.stringify(response, null, 2));
@@ -128,8 +126,7 @@ const ResumeGenerator = () => {
 
       // Handle billing-specific errors
       if (err.response?.status === 429 && err.response?.data?.code === 'RESUME_LIMIT_EXCEEDED') {
-        setError('You have reached your resume generation limit.');
-        setShowUpgradePrompt(true);
+        setError('I\'m sorry, that\'s all the resumes for today. A subscription service is coming soon to provide more access!');
       } else {
         setError(err.message || apiError || 'An error occurred while generating the resume');
       }
@@ -144,6 +141,12 @@ const ResumeGenerator = () => {
     setResumeMetadata(null);
     setError('');
     setCurrentPhase('input'); // Return to input phase
+  }, []);
+
+  const handleBackToJobDescription = useCallback(() => {
+    // Keep resume data but go back to input phase
+    setError('');
+    setCurrentPhase('input'); // Return to input phase while preserving resume
   }, []);
 
   const handleRegenerate = useCallback(async () => {
@@ -178,8 +181,22 @@ const ResumeGenerator = () => {
         >
           {/* Header */}
           <div className="phase-header">
-            <h1>🎯 Generate ATS-Optimized Resume</h1>
-            <p>Paste a job description below and we'll create a tailored resume optimized for Applicant Tracking Systems.</p>
+            <div className="phase-header-content">
+              <h1>🎯 Generate ATS-Optimized Resume</h1>
+              <p>Paste a job description below and we'll create a tailored resume optimized for Applicant Tracking Systems.</p>
+              {hasGeneratedResume && (
+                <div className="resume-ready-notice">
+                  <span className="notice-icon">✅</span>
+                  <span>You have a generated resume ready!</span>
+                  <button
+                    className="btn-return-to-resume"
+                    onClick={() => setCurrentPhase('editor')}
+                  >
+                    View Resume →
+                  </button>
+                </div>
+              )}
+            </div>
           </div>
 
           {/* Main Input Form */}
@@ -276,6 +293,7 @@ The more detailed the job posting, the better your resume match!"
               metadata={resumeMetadata}
               onBack={handleClearResume}
               onRegenerate={handleRegenerate}
+              onBackToJobDescription={handleBackToJobDescription}
               isRegenerating={isGenerating}
             />
           </div>
@@ -283,20 +301,6 @@ The more detailed the job posting, the better your resume match!"
       )}
 
 
-      {/* Billing Modals */}
-      <UpgradePrompt
-        open={showUpgradePrompt}
-        onOpenChange={setShowUpgradePrompt}
-        trigger={isAtLimit ? 'limit' : 'custom'}
-        title={isAtLimit ? undefined : 'Almost at your limit'}
-        message={isAtLimit ? undefined : 'Upgrade now to avoid interruptions'}
-      />
-
-      <PurchaseResumeModal
-        open={showPurchaseModal}
-        onOpenChange={setShowPurchaseModal}
-        credits={1}
-      />
     </div>
   );
 };

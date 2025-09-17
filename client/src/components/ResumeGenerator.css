@@ -1,12 +1,13 @@
 /* client/src/components/ResumeGenerator.css */
-/* Modern phased Resume Generator styles */
+/* Modern phased Resume Generator styles - UPDATED v3 */
 
 .resume-generator {
   min-height: 100vh;
   padding: 0.25rem 2rem 2rem;
-  display: flex;
+  display: flex !important;
   align-items: center;
-  justify-content: center;
+  justify-content: stretch !important;
+  width: 100% !important;
 }
 
 /* ===============================
@@ -14,14 +15,14 @@
    =============================== */
 
 .input-phase {
-  width: 100%;
-  max-width: 900px;
+  width: 100% !important;
+  max-width: none !important;
   background: rgba(255, 255, 255, 0.95);
   backdrop-filter: blur(20px);
   border-radius: 20px;
   box-shadow: 0 20px 40px rgba(0, 0, 0, 0.1);
   overflow: hidden;
-  margin: 0 auto;
+  margin: 0 !important;
 }
 
 .phase-header {
@@ -232,7 +233,6 @@
   color: #b0b0b0;
   font-size: 0.875rem;
   justify-content: center;
-  max-width: 600px;
   margin: 0 auto;
   line-height: 1.5;
 }
@@ -242,13 +242,52 @@
   flex-shrink: 0;
 }
 
+/* Resume Ready Notice */
+.resume-ready-notice {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  background: linear-gradient(135deg, rgba(34, 197, 94, 0.1) 0%, rgba(16, 185, 129, 0.1) 100%);
+  border: 1px solid rgba(34, 197, 94, 0.3);
+  border-radius: 12px;
+  padding: 1rem 1.5rem;
+  margin-top: 1rem;
+  color: #10b981;
+  font-weight: 500;
+  font-size: 0.95rem;
+}
+
+.notice-icon {
+  font-size: 1.25rem;
+  flex-shrink: 0;
+}
+
+.btn-return-to-resume {
+  background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+  color: white;
+  border: none;
+  border-radius: 8px;
+  padding: 0.5rem 1rem;
+  font-size: 0.875rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  margin-left: auto;
+}
+
+.btn-return-to-resume:hover {
+  background: linear-gradient(135deg, #059669 0%, #047857 100%);
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(16, 185, 129, 0.3);
+}
+
 /* ===============================
    EDITOR PHASE STYLES
    =============================== */
 
 .editor-phase {
   width: 100%;
-  height: 100vh;
+  height: calc(100vh - 180px); /* Account for header and nav */
   display: flex;
   flex-direction: column;
   background: white;
@@ -370,7 +409,7 @@
   }
   
   .editor-phase {
-    height: calc(100vh - 2rem);
+    height: calc(100vh - 200px); /* Adjust for mobile */
     margin-top: 1rem;
   }
   

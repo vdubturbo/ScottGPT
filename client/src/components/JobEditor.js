@@ -19,7 +19,8 @@ const JobEditor = ({ job, onSave, onCancel }) => {
     clearError,
     updateJob,
     deleteJob,
-    validateData
+    validateData,
+    getWorkHistory
   } = useUserDataAPI();
 
   // Company operations for reassignment
@@ -51,6 +52,11 @@ const JobEditor = ({ job, onSave, onCancel }) => {
   const [autoSaveTimeout, setAutoSaveTimeout] = useState(null);
   const [originalCompany, setOriginalCompany] = useState(null);
   const [companyChanged, setCompanyChanged] = useState(false);
+
+  // Merge functionality state
+  const [showMergeConfirm, setShowMergeConfirm] = useState(false);
+  const [mergeTarget, setMergeTarget] = useState('');
+  const [sameCompanyPositions, setSameCompanyPositions] = useState([]);
 
   // Initialize form data
   useEffect(() => {
@@ -216,12 +222,103 @@ const JobEditor = ({ job, onSave, onCancel }) => {
   // Handle delete
   const handleDelete = async () => {
     if (!job) return;
-    
+
     try {
       await deleteJob(job.id);
       onSave(); // Refresh parent
     } catch (err) {
       console.error('Delete failed:', err);
+    }
+  };
+
+  // Load positions from the same company
+  const loadSameCompanyPositions = useCallback(async () => {
+    if (!job || !formData.org) {
+      setSameCompanyPositions([]);
+      return;
+    }
+
+    try {
+      const response = await getWorkHistory();
+      const allJobs = response?.data?.jobs || response?.jobs || [];
+
+      // Filter positions from the same company, excluding the current job
+      const sameCompany = allJobs.filter(position =>
+        position.org === formData.org && position.id !== job.id
+      );
+
+      setSameCompanyPositions(sameCompany);
+    } catch (err) {
+      console.error('Failed to load same company positions:', err);
+      setSameCompanyPositions([]);
+    }
+  }, [job, formData.org, getWorkHistory]);
+
+  // Load same company positions when company changes
+  useEffect(() => {
+    if (job && formData.org) {
+      loadSameCompanyPositions();
+    }
+  }, [loadSameCompanyPositions]);
+
+  // Handle merge position
+  const handleMergePosition = async (targetJobId) => {
+    if (!job || !targetJobId) return;
+
+    try {
+      setIsSaving(true);
+
+      // Find the target position
+      const targetPosition = sameCompanyPositions.find(pos => pos.id === targetJobId);
+      if (!targetPosition) {
+        throw new Error('Target position not found');
+      }
+
+      // Merge the data - combine all information
+      const mergedData = {
+        // Use current position's primary fields as base
+        title: formData.title,
+        org: formData.org,
+        location: formData.location || targetPosition.location, // Use target's location if current is empty
+        type: formData.type,
+
+        // Merge date ranges - use earliest start date and latest end date
+        date_start: formData.date_start && targetPosition.date_start
+          ? (new Date(formData.date_start) < new Date(targetPosition.date_start)
+              ? formData.date_start : targetPosition.date_start)
+          : formData.date_start || targetPosition.date_start,
+
+        date_end: formData.date_end || targetPosition.date_end
+          ? (formData.date_end && targetPosition.date_end
+              ? (new Date(formData.date_end) > new Date(targetPosition.date_end)
+                  ? formData.date_end : targetPosition.date_end)
+              : formData.date_end || targetPosition.date_end)
+          : null, // If either is current (null), result is current
+
+        // Merge skills - combine and deduplicate
+        skills: [...new Set([...(formData.skills || []), ...(targetPosition.skills || [])])],
+
+        // Combine descriptions if they exist (for future use)
+        description: [formData.description, targetPosition.description]
+          .filter(Boolean)
+          .join('\n\n--- Merged from separate position ---\n\n'),
+      };
+
+      // Update the current position with merged data
+      await updateJob(job.id, mergedData);
+
+      // Delete the target position
+      await deleteJob(targetJobId);
+
+      // Close dialogs and refresh
+      setShowMergeConfirm(false);
+      setMergeTarget('');
+      onSave(); // Refresh parent component
+
+    } catch (err) {
+      console.error('Merge failed:', err);
+    } finally {
+      setIsSaving(false);
     }
   };
 
@@ -350,9 +447,9 @@ const JobEditor = ({ job, onSave, onCancel }) => {
                 </div>
               </div>
 
-              <div className="form-section">
+              <div className="form-section form-section-right">
                 <h3>Employment Period</h3>
-                
+
                 <div className="date-range">
                   <div className="form-group">
                     <label htmlFor="date_start">Start Date *</label>
@@ -362,10 +459,10 @@ const JobEditor = ({ job, onSave, onCancel }) => {
                       onChange={(value) => handleFieldChange('date_start', value)}
                       className={validation.errors?.some(e => e.field === 'date_start') ? 'error' : ''}
                     />
-                    <ValidationMessage 
-                      field="date_start" 
-                      errors={validation.errors} 
-                      warnings={validation.warnings} 
+                    <ValidationMessage
+                      field="date_start"
+                      errors={validation.errors}
+                      warnings={validation.warnings}
                     />
                   </div>
 
@@ -378,18 +475,15 @@ const JobEditor = ({ job, onSave, onCancel }) => {
                       allowCurrent={true}
                       className={validation.errors?.some(e => e.field === 'date_end') ? 'error' : ''}
                     />
-                    <ValidationMessage 
-                      field="date_end" 
-                      errors={validation.errors} 
-                      warnings={validation.warnings} 
+                    <ValidationMessage
+                      field="date_end"
+                      errors={validation.errors}
+                      warnings={validation.warnings}
                     />
                     <span className="field-hint">Leave empty if current position</span>
                   </div>
                 </div>
-              </div>
 
-
-              <div className="form-section full-width">
                 <h3>Skills & Technologies</h3>
                 <div className="form-group">
                   <label>Skills</label>
@@ -398,13 +492,54 @@ const JobEditor = ({ job, onSave, onCancel }) => {
                     onChange={handleSkillsChange}
                     placeholder="Add skills used in this position..."
                   />
-                  <ValidationMessage 
-                    field="skills" 
-                    errors={validation.errors} 
-                    warnings={validation.warnings} 
+                  <ValidationMessage
+                    field="skills"
+                    errors={validation.errors}
+                    warnings={validation.warnings}
                   />
                 </div>
               </div>
+
+              {/* Merge Position Section - Only show for existing jobs with same-company positions */}
+              {job && sameCompanyPositions.length > 0 && (
+                <div className="form-section full-width merge-section">
+                  <h3>🔗 Merge INTO Another Position</h3>
+                  <div className="merge-info">
+                    <p>You can merge this position INTO another position from {formData.org}. This will combine all data from both positions.</p>
+                  </div>
+
+                  <div className="form-group">
+                    <label htmlFor="merge-target">Select position to merge with:</label>
+                    <select
+                      id="merge-target"
+                      value={mergeTarget}
+                      onChange={(e) => setMergeTarget(e.target.value)}
+                      className="merge-dropdown"
+                    >
+                      <option value="">Choose a position...</option>
+                      {sameCompanyPositions.map((position) => (
+                        <option key={position.id} value={position.id}>
+                          {position.title} ({position.date_start ? new Date(position.date_start).getFullYear() : 'Unknown'} - {position.date_end ? new Date(position.date_end).getFullYear() : 'Present'})
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+
+                  {mergeTarget && (
+                    <div className="merge-actions">
+                      <button
+                        type="button"
+                        className="btn-merge"
+                        onClick={() => setShowMergeConfirm(true)}
+                        disabled={isLoading}
+                      >
+                        🔗 Merge Positions
+                      </button>
+                      <span className="merge-warning">⚠️ This action cannot be undone</span>
+                    </div>
+                  )}
+                </div>
+              )}
             </div>
 
             {/* Validation Summary */}
@@ -496,6 +631,73 @@ const JobEditor = ({ job, onSave, onCancel }) => {
                   disabled={isLoading}
                 >
                   {isLoading ? 'Deleting...' : 'Delete'}
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Merge Confirmation Modal */}
+        {showMergeConfirm && mergeTarget && (
+          <div className="confirm-overlay">
+            <div className="confirm-dialog merge-confirm-dialog">
+              <h3>🔗 Merge Positions</h3>
+              <div className="merge-preview">
+                <div className="current-position">
+                  <h4>Current Position:</h4>
+                  <p><strong>{formData.title}</strong> at {formData.org}</p>
+                  <p>{formData.date_start ? new Date(formData.date_start).getFullYear() : 'Unknown'} - {formData.date_end ? new Date(formData.date_end).getFullYear() : 'Present'}</p>
+                  {formData.skills && formData.skills.length > 0 && (
+                    <p><strong>Skills:</strong> {formData.skills.slice(0, 3).join(', ')}{formData.skills.length > 3 ? '...' : ''}</p>
+                  )}
+                </div>
+
+                <div className="merge-arrow">➕</div>
+
+                <div className="target-position">
+                  <h4>Merging with:</h4>
+                  {(() => {
+                    const target = sameCompanyPositions.find(pos => pos.id === mergeTarget);
+                    return target ? (
+                      <>
+                        <p><strong>{target.title}</strong> at {target.org}</p>
+                        <p>{target.date_start ? new Date(target.date_start).getFullYear() : 'Unknown'} - {target.date_end ? new Date(target.date_end).getFullYear() : 'Present'}</p>
+                        {target.skills && target.skills.length > 0 && (
+                          <p><strong>Skills:</strong> {target.skills.slice(0, 3).join(', ')}{target.skills.length > 3 ? '...' : ''}</p>
+                        )}
+                      </>
+                    ) : <p>Position not found</p>;
+                  })()}
+                </div>
+              </div>
+
+              <div className="merge-details">
+                <h4>What will happen:</h4>
+                <ul>
+                  <li>📅 Date ranges will be combined (earliest start, latest end)</li>
+                  <li>🛠️ All skills from both positions will be merged</li>
+                  <li>📍 Location and other details will be preserved</li>
+                  <li>🗑️ The target position will be deleted</li>
+                  <li>⚠️ This action cannot be undone</li>
+                </ul>
+              </div>
+
+              <div className="confirm-actions">
+                <button
+                  className="btn-secondary"
+                  onClick={() => {
+                    setShowMergeConfirm(false);
+                    setMergeTarget('');
+                  }}
+                >
+                  Cancel
+                </button>
+                <button
+                  className="btn-primary"
+                  onClick={() => handleMergePosition(mergeTarget)}
+                  disabled={isLoading}
+                >
+                  {isLoading ? 'Merging...' : 'Merge Positions'}
                 </button>
               </div>
             </div>

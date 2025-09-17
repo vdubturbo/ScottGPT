@@ -503,14 +503,14 @@ const CompactUploadProcessor = () => {
             <div className="upload-icon">📁</div>
             <div className="upload-text">
               <p><strong>Drop files here or click to browse</strong></p>
-              <p className="upload-hint">Supported: PDF, DOCX, DOC, TXT, MD</p>
+              <p className="upload-hint">Supported: DOCX, RTF (PDF support coming soon)</p>
             </div>
             <input
               ref={fileInputRef}
               type="file"
               id="file-input"
               multiple
-              accept=".pdf,.docx,.doc,.txt,.md"
+              accept=".docx,.rtf"
               onChange={handleFileSelect}
               style={{ display: 'none' }}
             />

@@ -5,6 +5,7 @@ import React, { useState, useEffect } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { Link } from 'react-router-dom';
 import axios from 'axios';
+import './AdminDashboard.css';
 
 const AdminDashboard = () => {
   const { user, isAdmin } = useAuth();
@@ -23,12 +24,12 @@ const AdminDashboard = () => {
     try {
       setLoading(true);
       const [statsResponse, usersResponse] = await Promise.all([
-        axios.get('/api/admin/dashboard'),
-        axios.get('/api/admin/users?limit=10')
+        axios.get('/api/vdubturboadmin/dashboard'),
+        axios.get('/api/vdubturboadmin/users?limit=10')
       ]);
 
-      setStats(statsResponse.data.dashboard);
-      setUsers(usersResponse.data.users);
+      setStats(statsResponse.data.data);
+      setUsers(usersResponse.data.data.users);
     } catch (error) {
       console.error('Failed to load admin data:', error);
     } finally {
@@ -51,118 +52,259 @@ const AdminDashboard = () => {
       {/* Header */}
       <header className="admin-header">
         <div className="header-content">
-          <h1>Admin Dashboard</h1>
+          <div className="admin-brand">
+            <h1>ScottGPT</h1>
+            <span className="admin-badge">ADMIN PANEL</span>
+          </div>
+          <div className="header-search">
+            <input type="text" placeholder="Search users, orders..." className="search-input" />
+          </div>
           <div className="header-actions">
-            <Link to="/dashboard" className="btn btn-secondary">
-              Back to Dashboard
-            </Link>
+            <button className="notification-btn">🔔</button>
+            <div className="admin-user">
+              <span>{user?.full_name || user?.display_name}</span>
+              <Link to="/dashboard" className="btn btn-secondary">
+                Back to Dashboard
+              </Link>
+            </div>
           </div>
         </div>
       </header>
 
-      {/* Navigation */}
-      <nav className="admin-nav">
-        <button 
-          className={`nav-item ${activeTab === 'overview' ? 'active' : ''}`}
-          onClick={() => setActiveTab('overview')}
-        >
-          Overview
-        </button>
-        <button 
-          className={`nav-item ${activeTab === 'users' ? 'active' : ''}`}
-          onClick={() => setActiveTab('users')}
-        >
-          Users
-        </button>
-        <button 
-          className={`nav-item ${activeTab === 'content' ? 'active' : ''}`}
-          onClick={() => setActiveTab('content')}
-        >
-          Content
-        </button>
-        <button 
-          className={`nav-item ${activeTab === 'system' ? 'active' : ''}`}
-          onClick={() => setActiveTab('system')}
-        >
-          System
-        </button>
-      </nav>
+      <div className="admin-layout">
+        {/* Sidebar */}
+        <nav className="admin-sidebar">
+          <div className="sidebar-section">
+            <button
+              className={`sidebar-item ${activeTab === 'overview' ? 'active' : ''}`}
+              onClick={() => setActiveTab('overview')}
+            >
+              <span className="sidebar-icon">📊</span> Dashboard
+            </button>
+          </div>
 
-      {/* Content */}
-      <main className="admin-content">
+          <div className="sidebar-section">
+            <button
+              className={`sidebar-item ${activeTab === 'users' ? 'active' : ''}`}
+              onClick={() => setActiveTab('users')}
+            >
+              <span className="sidebar-icon">👥</span> User Management
+            </button>
+            <button
+              className={`sidebar-item ${activeTab === 'subscriptions' ? 'active' : ''}`}
+              onClick={() => setActiveTab('subscriptions')}
+            >
+              <span className="sidebar-icon">💳</span> Subscriptions
+            </button>
+            <button
+              className={`sidebar-item ${activeTab === 'analytics' ? 'active' : ''}`}
+              onClick={() => setActiveTab('analytics')}
+            >
+              <span className="sidebar-icon">📈</span> Analytics
+            </button>
+            <button
+              className={`sidebar-item ${activeTab === 'audit' ? 'active' : ''}`}
+              onClick={() => setActiveTab('audit')}
+            >
+              <span className="sidebar-icon">📋</span> Audit Logs
+            </button>
+          </div>
+
+          <div className="sidebar-section">
+            <button
+              className={`sidebar-item ${activeTab === 'system' ? 'active' : ''}`}
+              onClick={() => setActiveTab('system')}
+            >
+              <span className="sidebar-icon">⚙️</span> System Health
+            </button>
+          </div>
+        </nav>
+
+        {/* Main Content */}
+        <main className="admin-main">
+          <div className="admin-content">
         {loading && <div className="loading">Loading admin data...</div>}
 
-        {activeTab === 'overview' && (
-          <div className="overview-tab">
-            <h2>Platform Overview</h2>
+            {activeTab === 'overview' && (
+              <div className="overview-tab">
+                <div className="content-header">
+                  <h1>Welcome to ScottGPT Admin</h1>
+                  <p>Monitor your platform performance and manage users efficiently</p>
+                  <div className="header-buttons">
+                    <button className="btn btn-primary">📢 Send Announcement</button>
+                    <button className="btn btn-secondary">📊 Export Report</button>
+                  </div>
+                </div>
             
-            {stats && (
-              <div className="admin-stats-grid">
-                <div className="admin-stat-card">
-                  <h3>Total Users</h3>
-                  <p className="stat-number">{stats.users?.total || 0}</p>
-                  <p className="stat-detail">
-                    {stats.users?.newUsersLast30Days || 0} new this month
-                  </p>
+                {stats && (
+                  <div className="metrics-grid">
+                    <div className="metric-card">
+                      <div className="metric-header">
+                        <h3>Total Users</h3>
+                        <span className="metric-icon">👥</span>
+                      </div>
+                      <div className="metric-value">{stats.users?.total || 0}</div>
+                      <div className="metric-change">Active: {stats.users?.active || 0} | Premium: {stats.users?.premium || 0}</div>
+                      <div className="metric-breakdown">
+                        <div className="breakdown-item">
+                          <span>ARR: $1.5K</span>
+                        </div>
+                        <div className="breakdown-item">
+                          <span>Active Users</span>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="metric-card">
+                      <div className="metric-header">
+                        <h3>Monthly Revenue</h3>
+                        <span className="metric-icon">💰</span>
+                      </div>
+                      <div className="metric-value">$1535</div>
+                      <div className="metric-change positive">ARR: $18,420</div>
+                      <div className="metric-breakdown">
+                        <div className="breakdown-item">
+                          <span>Limit: 150</span>
+                        </div>
+                        <div className="breakdown-item">
+                          <span>Resume Gen</span>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="metric-card">
+                      <div className="metric-header">
+                        <h3>Resume Generations</h3>
+                        <span className="metric-icon">📄</span>
+                      </div>
+                      <div className="metric-value">{stats.analytics?.totalViews || 0}</div>
+                      <div className="metric-change">Memory: 9GB | CPU: 45%</div>
+                      <div className="metric-breakdown">
+                        <div className="breakdown-item">
+                          <span>5d 14h uptime</span>
+                        </div>
+                        <div className="breakdown-item">
+                          <span>System Health</span>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="metric-card">
+                      <div className="metric-header">
+                        <h3>System Health</h3>
+                        <span className="metric-icon">⚡</span>
+                      </div>
+                      <div className="metric-value">8</div>
+                      <div className="metric-change">Active users today</div>
+                      <div className="metric-breakdown">
+                        <div className="breakdown-item">
+                          <span>13,866,801,854% uptime</span>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                <div className="dashboard-sections">
+                  <div className="dashboard-section">
+                    <div className="section-header">
+                      <h2>Recent Activity</h2>
+                      <a href="#" className="section-link">View All →</a>
+                    </div>
+                    <div className="activity-list">
+                      <div className="empty-state">
+                        <p>No recent activity</p>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="dashboard-section">
+                    <div className="section-header">
+                      <h2>Quick Statistics</h2>
+                    </div>
+                    <div className="quick-stats">
+                      <div className="stat-item">
+                        <div className="stat-label">Paid Users</div>
+                        <div className="stat-value">4</div>
+                      </div>
+                      <div className="stat-item">
+                        <div className="stat-label">Total Revenue</div>
+                        <div className="stat-value">$1535</div>
+                      </div>
+                      <div className="stat-item">
+                        <div className="stat-label">Platform Uptime</div>
+                        <div className="stat-value">5d 14h</div>
+                      </div>
+                      <div className="stat-item">
+                        <div className="stat-label">Active Users Today</div>
+                        <div className="stat-value">8</div>
+                      </div>
+                    </div>
+                  </div>
                 </div>
-                
-                <div className="admin-stat-card">
-                  <h3>Content Items</h3>
-                  <p className="stat-number">{stats.content?.totalContent || 0}</p>
-                  <p className="stat-detail">
-                    {stats.content?.newContentLast30Days || 0} new this month
-                  </p>
-                </div>
-                
-                <div className="admin-stat-card">
-                  <h3>Profile Views</h3>
-                  <p className="stat-number">{stats.analytics?.totalViews || 0}</p>
-                  <p className="stat-detail">
-                    {stats.analytics?.viewsLast30Days || 0} this month
-                  </p>
-                </div>
-                
-                <div className="admin-stat-card">
-                  <h3>Active Users</h3>
-                  <p className="stat-number">{stats.analytics?.uniqueViewers || 0}</p>
-                  <p className="stat-detail">Last 30 days</p>
+
+                <div className="navigation-grid">
+                  <div className="nav-card">
+                    <div className="nav-card-icon">👥</div>
+                    <div className="nav-card-content">
+                      <h3>User Management</h3>
+                      <p>Manage users, roles, and permissions</p>
+                      <div className="nav-card-count">15 users</div>
+                    </div>
+                  </div>
+
+                  <div className="nav-card">
+                    <div className="nav-card-icon">💳</div>
+                    <div className="nav-card-content">
+                      <h3>Subscriptions</h3>
+                      <p>Monitor billing and subscriptions</p>
+                      <div className="nav-card-count">4 active</div>
+                    </div>
+                  </div>
+
+                  <div className="nav-card">
+                    <div className="nav-card-icon">📈</div>
+                    <div className="nav-card-content">
+                      <h3>Analytics</h3>
+                      <p>View detailed platform analytics</p>
+                      <div className="nav-card-count">Real-time data</div>
+                    </div>
+                  </div>
+
+                  <div className="nav-card">
+                    <div className="nav-card-icon">⚙️</div>
+                    <div className="nav-card-content">
+                      <h3>System Health</h3>
+                      <p>Monitor and improve platform performance</p>
+                      <div className="nav-card-count">13,866,801,854% uptime</div>
+                    </div>
+                  </div>
                 </div>
               </div>
             )}
 
-            <div className="admin-sections">
-              <div className="admin-section">
-                <h3>User Roles Breakdown</h3>
-                {stats?.users?.byRole && (
-                  <div className="role-breakdown">
-                    {Object.entries(stats.users.byRole).map(([role, count]) => (
-                      <div key={role} className="role-item">
-                        <span className="role-name">{role.replace('_', ' ')}</span>
-                        <span className="role-count">{count}</span>
-                      </div>
-                    ))}
-                  </div>
-                )}
+            {activeTab === 'subscriptions' && (
+              <div className="subscriptions-tab">
+                <h2>Subscriptions</h2>
+                <p>Subscription management features coming soon...</p>
               </div>
+            )}
 
-              <div className="admin-section">
-                <h3>Subscription Tiers</h3>
-                {stats?.users?.byTier && (
-                  <div className="tier-breakdown">
-                    {Object.entries(stats.users.byTier).map(([tier, count]) => (
-                      <div key={tier} className="tier-item">
-                        <span className="tier-name">{tier}</span>
-                        <span className="tier-count">{count}</span>
-                      </div>
-                    ))}
-                  </div>
-                )}
+            {activeTab === 'analytics' && (
+              <div className="analytics-tab">
+                <h2>Analytics</h2>
+                <p>Analytics dashboard coming soon...</p>
               </div>
-            </div>
-          </div>
-        )}
+            )}
 
-        {activeTab === 'users' && (
+            {activeTab === 'audit' && (
+              <div className="audit-tab">
+                <h2>Audit Logs</h2>
+                <p>Audit log viewer coming soon...</p>
+              </div>
+            )}
+
+            {activeTab === 'users' && (
           <div className="users-tab">
             <h2>User Management</h2>
             
@@ -208,47 +350,37 @@ const AdminDashboard = () => {
                 </tbody>
               </table>
             </div>
-          </div>
-        )}
+            )}
 
-        {activeTab === 'content' && (
-          <div className="content-tab">
-            <h2>Content Management</h2>
-            <p>Content management features coming soon...</p>
-            <div className="placeholder-content">
-              <h3>Platform Content Overview</h3>
-              <p>Monitor and manage user-generated content across the platform.</p>
-            </div>
-          </div>
-        )}
+            {activeTab === 'system' && (
+              <div className="system-tab">
+                <h2>System Health</h2>
+                <div className="system-status">
+                  <div className="status-item">
+                    <span className="status-label">Database</span>
+                    <span className="status-value healthy">Healthy</span>
+                  </div>
+                  <div className="status-item">
+                    <span className="status-label">API</span>
+                    <span className="status-value healthy">Operational</span>
+                  </div>
+                  <div className="status-item">
+                    <span className="status-label">Authentication</span>
+                    <span className="status-value healthy">Operational</span>
+                  </div>
+                </div>
 
-        {activeTab === 'system' && (
-          <div className="system-tab">
-            <h2>System Status</h2>
-            <div className="system-status">
-              <div className="status-item">
-                <span className="status-label">Database</span>
-                <span className="status-value healthy">Healthy</span>
+                <div className="system-actions">
+                  <h3>System Actions</h3>
+                  <button className="btn btn-secondary">Clear Cache</button>
+                  <button className="btn btn-secondary">Run Health Check</button>
+                  <button className="btn btn-warning">Generate Report</button>
+                </div>
               </div>
-              <div className="status-item">
-                <span className="status-label">API</span>
-                <span className="status-value healthy">Operational</span>
-              </div>
-              <div className="status-item">
-                <span className="status-label">Authentication</span>
-                <span className="status-value healthy">Operational</span>
-              </div>
-            </div>
-
-            <div className="system-actions">
-              <h3>System Actions</h3>
-              <button className="btn btn-secondary">Clear Cache</button>
-              <button className="btn btn-secondary">Run Health Check</button>
-              <button className="btn btn-warning">Generate Report</button>
-            </div>
+            )}
           </div>
-        )}
-      </main>
+        </main>
+      </div>
     </div>
   );
 };

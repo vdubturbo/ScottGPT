@@ -5,6 +5,7 @@ import React, { useState, useCallback, useEffect } from 'react';
 import { useEditor, EditorContent } from '@tiptap/react';
 import StarterKit from '@tiptap/starter-kit';
 import Placeholder from '@tiptap/extension-placeholder';
+import axios from 'axios';
 import { calculateMatchScore } from '../lib/keywordExtraction';
 import { htmlToText } from '../lib/htmlSanitizer';
 import { validateATSCompatibility } from '../lib/htmlSanitizer';
@@ -12,13 +13,14 @@ import KeywordMatchMeter from './KeywordMatchMeter';
 import ExportButtons from './ExportButtons';
 import './ResumeEditor.css';
 
-const ResumeEditor = ({ 
-  content, 
-  jobKeywords, 
+const ResumeEditor = ({
+  content,
+  jobKeywords,
   jobDescription,
   metadata = null,
-  onBack, 
+  onBack,
   onRegenerate,
+  onBackToJobDescription,
   isAdvanced = false
 }) => {
   const [matchScore, setMatchScore] = useState(0);
@@ -125,24 +127,19 @@ const ResumeEditor = ({
 
     try {
       const html = editor.getHTML();
-      const response = await fetch('/api/user/export/resume', {
+      const response = await axios({
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
+        url: '/api/user/export/resume',
+        data: {
           content: html,
           format,
           options,
-        }),
+        },
+        responseType: 'blob', // Important for file downloads
       });
 
-      if (!response.ok) {
-        throw new Error('Export failed');
-      }
-
       // Handle file download
-      const blob = await response.blob();
+      const blob = new Blob([response.data]);
       const url = window.URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = url;
@@ -173,14 +170,24 @@ const ResumeEditor = ({
       {/* Header with controls */}
       <header className="editor-header">
         <div className="editor-header-left">
+          {onBackToJobDescription && (
+            <button
+              className="btn btn-primary"
+              onClick={onBackToJobDescription}
+              aria-label="Return to job description"
+              style={{ marginRight: '12px' }}
+            >
+              ← Back to Job Description
+            </button>
+          )}
           <button
             className="btn btn-secondary"
             onClick={onBack}
             aria-label="Clear resume and start over"
           >
-            ← Clear Resume
+            🗑️ Clear Resume
           </button>
-          
+
           <h1 className="editor-title">Resume Editor</h1>
         </div>
 

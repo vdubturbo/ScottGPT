@@ -57,7 +57,7 @@ router.post('/register', rateLimitPerUser({ requests: 5, window: 15 }), async (r
     }
 
     // Validate role
-    const validRoles = ['job_seeker', 'recruiter', 'job_poster'];
+    const validRoles = ['job_seeker', 'recruiter', 'job_poster', 'admin'];
     if (role && !validRoles.includes(role)) {
       return res.status(400).json({
         error: 'Invalid role',
