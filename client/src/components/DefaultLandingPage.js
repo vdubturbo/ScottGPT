@@ -1,5 +1,5 @@
 // client/src/components/DefaultLandingPage.js
-// Default landing page with original ScottGPT functionality
+// Default landing page with original SplitOut.ai functionality
 
 import React, { useState, useEffect } from 'react';
 

@@ -6,7 +6,7 @@ function TestUpload() {
   return (
     <div className="App">
       <header className="App-header">
-        <img src="/Logo3.png" alt="ScottGPT" className="app-logo" />
+        <img src="/Logo3.png" alt="SplitOut.ai" className="app-logo" />
         <h1>Upload Test - Progress Tracking</h1>
       </header>
       

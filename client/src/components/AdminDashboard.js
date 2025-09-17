@@ -53,7 +53,7 @@ const AdminDashboard = () => {
       <header className="admin-header">
         <div className="header-content">
           <div className="admin-brand">
-            <h1>ScottGPT</h1>
+            <h1>SplitOut.ai</h1>
             <span className="admin-badge">ADMIN PANEL</span>
           </div>
           <div className="header-search">
@@ -128,7 +128,7 @@ const AdminDashboard = () => {
             {activeTab === 'overview' && (
               <div className="overview-tab">
                 <div className="content-header">
-                  <h1>Welcome to ScottGPT Admin</h1>
+                  <h1>Welcome to SplitOut.ai Admin</h1>
                   <p>Monitor your platform performance and manage users efficiently</p>
                   <div className="header-buttons">
                     <button className="btn btn-primary">📢 Send Announcement</button>

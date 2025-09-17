@@ -160,7 +160,7 @@ const AppContent = () => {
             <AdminRoute>
               <ComingSoon
                 title="Subscription Management"
-                description="Comprehensive billing and subscription management for the ScottGPT platform."
+                description="Comprehensive billing and subscription management for the SplitOut.ai platform."
                 features={[
                   'Revenue dashboard with key metrics',
                   'Payment issue alerts and resolution',

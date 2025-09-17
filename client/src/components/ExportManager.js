@@ -1,5 +1,5 @@
 /**
- * ExportManager - Comprehensive export and output tools for ScottGPT
+ * ExportManager - Comprehensive export and output tools for SplitOut.ai
  * Provides access to all backend features: data export, resume generation, 
  * company intelligence, skills analysis, timeline analysis, and more
  */
@@ -583,22 +583,22 @@ const ExportManager = () => {
       switch (format) {
         case 'json':
           url = `/api/user/export/json?${params}`;
-          filename = `scottgpt-data-${new Date().toISOString().split('T')[0]}.json`;
+          filename = `splitout-data-${new Date().toISOString().split('T')[0]}.json`;
           mimeType = 'application/json';
           break;
         case 'csv':
           url = `/api/user/export/csv?${params}`;
-          filename = `scottgpt-data-${new Date().toISOString().split('T')[0]}.csv`;
+          filename = `splitout-data-${new Date().toISOString().split('T')[0]}.csv`;
           mimeType = 'text/csv';
           break;
         case 'timeline':
           url = `/api/user/export/timeline?${params}`;
-          filename = `scottgpt-timeline-${new Date().toISOString().split('T')[0]}.json`;
+          filename = `splitout-timeline-${new Date().toISOString().split('T')[0]}.json`;
           mimeType = 'application/json';
           break;
         case 'resume-data':
           url = `/api/user/export/resume-data?${params}`;
-          filename = `scottgpt-resume-data-${new Date().toISOString().split('T')[0]}.json`;
+          filename = `splitout-resume-data-${new Date().toISOString().split('T')[0]}.json`;
           mimeType = 'application/json';
           break;
         default:

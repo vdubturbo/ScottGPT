@@ -76,10 +76,10 @@ const AdminLayout = ({ children }) => {
         {/* Logo and Brand */}
         <div className="sidebar-header">
           <div className="admin-logo">
-            <img src="/Logo3.png" alt="ScottGPT" className="logo-image" />
+            <img src="/Logo3.png" alt="SplitOut.ai" className="logo-image" />
             {!sidebarCollapsed && (
               <div className="logo-text">
-                <h2>ScottGPT</h2>
+                <h2>SplitOut.ai</h2>
                 <span>Admin Panel</span>
               </div>
             )}

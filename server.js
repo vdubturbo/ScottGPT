@@ -14,7 +14,7 @@ const __dirname = path.dirname(__filename);
 // Environment validation is handled by centralized configuration
 logger.info('Environment validation handled by centralized configuration');
 console.log('✅ Environment validation handled by centralized configuration');
-console.log(`🚀 Starting ScottGPT server in ${CONFIG.environment.NODE_ENV} mode`);
+console.log(`🚀 Starting SplitOut.ai server in ${CONFIG.environment.NODE_ENV} mode`);
 
 // Log detected environment information
 CONFIG.environment.detector.logEnvironmentInfo();
@@ -289,7 +289,7 @@ async function startServer() {
 
   // Health check endpoint
   app.get('/api/health', (req, res) => {
-    res.json({ status: 'ok', message: 'ScottGPT API is running' });
+    res.json({ status: 'ok', message: 'SplitOut.ai API is running' });
   });
 
   // Public profile routing by URL slug (before wildcard)
@@ -355,8 +355,8 @@ async function startServer() {
   });
 
   app.listen(PORT, async () => {
-    logger.info('ScottGPT server started successfully', { port: PORT });
-    console.log(`ScottGPT server running on port ${PORT}`);
+    logger.info('SplitOut.ai server started successfully', { port: PORT });
+    console.log(`SplitOut.ai server running on port ${PORT}`);
 
     // Start usage reset scheduler in production
     if (CONFIG.environment.NODE_ENV === 'production') {

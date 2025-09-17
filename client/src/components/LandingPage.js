@@ -47,7 +47,7 @@ const LandingPage = () => {
         }}>
           <img
             src="/Logo3.png"
-            alt="ScottGPT Logo"
+            alt="SplitOut.ai Logo"
             style={{
               height: '80px',
               width: 'auto'

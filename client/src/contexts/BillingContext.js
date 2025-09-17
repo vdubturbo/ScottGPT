@@ -1,5 +1,5 @@
 /**
- * Billing Context - State Management for ScottGPT Billing
+ * Billing Context - State Management for SplitOut.ai Billing
  * ========================================================
  *
  * Provides centralized state management for:
