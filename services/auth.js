@@ -68,11 +68,34 @@ export class AuthService {
 
       if (authError) {
         console.error('❌ Auth Debug: Supabase auth error:', authError);
-        throw new Error(`Registration failed: ${authError.message}`);
+
+        // Handle specific error cases with user-friendly messages
+        if (authError.code === 'user_already_exists') {
+          throw new Error('An account with this email address already exists. Please try logging in instead.');
+        } else if (authError.code === 'invalid_email') {
+          throw new Error('Please enter a valid email address.');
+        } else if (authError.code === 'weak_password') {
+          throw new Error('Password is too weak. Please choose a stronger password.');
+        } else {
+          throw new Error(`Registration failed: ${authError.message}`);
+        }
       }
 
       // Create user profile (this will be handled by trigger after auth confirms)
       if (authData.user) {
+        console.log('🔍 Auth Debug: User created successfully, checking URL slug...');
+
+        // Check if URL slug is available (now that we know email is unique)
+        if (urlSlug) {
+          const isAvailable = await this.isSlugAvailable(urlSlug);
+          if (!isAvailable) {
+            // Clean up the user we just created since slug is taken
+            console.log('🔍 Auth Debug: URL slug taken, cleaning up user...');
+            // Note: In production, you might want to implement user cleanup
+            throw new Error('The requested URL slug is already taken or reserved');
+          }
+        }
+
         console.log('🔍 Auth Debug: Creating user profile...');
         const profileData = await this.createUserProfile({
           id: authData.user.id,
@@ -83,12 +106,28 @@ export class AuthService {
           urlSlug
         });
 
-        return {
-          success: true,
-          user: authData.user,
-          profile: profileData,
-          message: 'Registration successful. Please check your email to verify your account.'
-        };
+        // For auto-login after registration, establish a session
+        console.log('🔍 Auth Debug: Attempting auto-login after registration...');
+        const loginResult = await this.loginUser(email, password);
+
+        if (loginResult.success) {
+          console.log('🔍 Auth Debug: Auto-login successful');
+          return {
+            success: true,
+            user: loginResult.user,
+            profile: loginResult.profile,
+            session: loginResult.session,
+            message: 'Registration successful! You are now logged in.'
+          };
+        } else {
+          console.warn('🔍 Auth Debug: Auto-login failed, returning registration data only');
+          return {
+            success: true,
+            user: authData.user,
+            profile: profileData,
+            message: 'Registration successful. Please log in to continue.'
+          };
+        }
       }
 
       throw new Error('User registration succeeded but user object is missing');

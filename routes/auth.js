@@ -65,18 +65,7 @@ router.post('/register', rateLimitPerUser({ requests: 5, window: 15 }), async (r
       });
     }
 
-    // Check if URL slug is available (if provided)
-    if (urlSlug) {
-      const isAvailable = await AuthService.isSlugAvailable(urlSlug);
-      if (!isAvailable) {
-        return res.status(400).json({
-          error: 'URL slug not available',
-          message: 'The requested URL slug is already taken or reserved'
-        });
-      }
-    }
-
-    // Register user
+    // Register user (this will catch existing email addresses)
     const result = await AuthService.registerUser({
       email,
       password,
@@ -87,7 +76,7 @@ router.post('/register', rateLimitPerUser({ requests: 5, window: 15 }), async (r
     });
 
     if (result.success) {
-      res.status(201).json({
+      const responseData = {
         success: true,
         message: result.message,
         user: {
@@ -99,7 +88,14 @@ router.post('/register', rateLimitPerUser({ requests: 5, window: 15 }), async (r
           role: result.profile.role,
           subscription_tier: result.profile.subscription_tier
         }
-      });
+      };
+
+      // Include session data if auto-login was successful
+      if (result.session) {
+        responseData.session = result.session;
+      }
+
+      res.status(201).json(responseData);
     } else {
       res.status(400).json({
         error: 'Registration failed',

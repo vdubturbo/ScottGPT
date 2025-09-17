@@ -143,14 +143,57 @@ const AuthModal = ({ isOpen, onClose, initialTab = 'register' }) => {
 
     try {
       console.log('🔍 Frontend Debug: Calling register function...');
+      console.log('🔍 Frontend Debug: Form data being sent:', { ...formData, password: '[HIDDEN]' });
       const result = await register(formData);
       console.log('🔍 Frontend Debug: Register result:', result);
       
       if (result.success) {
-        onClose();
-        alert('Registration successful! Please check your email to verify your account.');
+        if (result.autoLogin) {
+          // User was automatically logged in, close modal and redirect to dashboard
+          onClose();
+          console.log('🔍 Frontend Debug: Auto-login successful, redirecting to dashboard');
+          window.location.href = '/dashboard';
+        } else {
+          // Close modal and show success message without auto-login
+          onClose();
+          alert('Registration successful! Please log in to continue.');
+        }
       } else {
-        setFormError(result.error || 'Registration failed');
+        const errorMessage = result.error || 'Registration failed';
+        setFormError(errorMessage);
+
+        // Handle specific error types with helpful suggestions
+        if (errorMessage.includes('already exists')) {
+          setTimeout(() => {
+            if (window.confirm('An account with this email already exists. Would you like to sign in instead?')) {
+              setActiveTab('login');
+              setFormData(prev => ({
+                ...prev,
+                // Keep email but clear other fields
+                full_name: '',
+                display_name: '',
+                url_slug: '',
+                role: 'job_seeker'
+              }));
+              setFormError('');
+            }
+          }, 100);
+        } else if (errorMessage.includes('URL slug') && errorMessage.includes('taken')) {
+          // Generate a suggested alternative slug
+          const currentSlug = formData.url_slug;
+          const randomSuffix = Math.floor(Math.random() * 1000);
+          const suggestedSlug = `${currentSlug}-${randomSuffix}`;
+
+          setTimeout(() => {
+            if (window.confirm(`The URL "${currentSlug}" is already taken. Would you like to try "${suggestedSlug}" instead?`)) {
+              setFormData(prev => ({
+                ...prev,
+                url_slug: suggestedSlug
+              }));
+              setFormError('');
+            }
+          }, 100);
+        }
       }
     } catch (err) {
       setFormError('An unexpected error occurred');
@@ -321,7 +364,7 @@ const AuthModal = ({ isOpen, onClose, initialTab = 'register' }) => {
                     placeholder="your-name"
                     className="form-input url-input"
                     disabled={loading}
-                    pattern="[a-z0-9-]+"
+                    pattern="[a-z0-9\-]+"
                     title="Only lowercase letters, numbers, and hyphens allowed"
                   />
                   {slugChecking && <span className="spinner-small"></span>}

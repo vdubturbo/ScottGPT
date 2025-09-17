@@ -136,15 +136,35 @@ export const AuthProvider = ({ children }) => {
 
       console.log('🔍 Auth Context Debug: Transformed API data:', { ...apiData, password: '[HIDDEN]' });
       console.log('🔍 Auth Context Debug: Making API call to /api/auth/register');
+      console.log('🔍 Auth Context Debug: Request URL:', axios.defaults.baseURL + '/api/auth/register');
+      console.log('🔍 Auth Context Debug: Request data:', { ...apiData, password: '[HIDDEN]' });
+
       const response = await axios.post('/api/auth/register', apiData);
       console.log('🔍 Auth Context Debug: API response:', response.data);
 
       if (response.data.success) {
-        return { 
-          success: true, 
+        // If session data is included, auto-login the user
+        if (response.data.session) {
+          const { user, profile, session } = response.data;
+
+          // Store tokens for auto-login
+          localStorage.setItem('auth_token', session.access_token);
+          localStorage.setItem('refresh_token', session.refresh_token);
+
+          // Set axios header
+          axios.defaults.headers.common['Authorization'] = `Bearer ${session.access_token}`;
+
+          // Update state to log user in immediately
+          setUser(user);
+        }
+
+        return {
+          success: true,
           message: response.data.message,
           user: response.data.user,
-          profile: response.data.profile
+          profile: response.data.profile,
+          session: response.data.session,
+          autoLogin: !!response.data.session
         };
       } else {
         throw new Error(response.data.message || 'Registration failed');
