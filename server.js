@@ -35,11 +35,13 @@ const createRateLimit = (windowMs, max, message) => rateLimit({
 });
 
 // Rate limits from centralized configuration
-const generalLimit = createRateLimit(
-  CONFIG.rateLimiting.general.windowMs, 
-  CONFIG.rateLimiting.general.maxRequests, 
-  CONFIG.rateLimiting.general.message
-);
+const generalLimit = CONFIG.environment.IS_DEVELOPMENT
+  ? createRateLimit(1000, 200, 'Development rate limit') // 200 requests per second for dev
+  : createRateLimit(
+      CONFIG.rateLimiting.general.windowMs,
+      CONFIG.rateLimiting.general.maxRequests,
+      CONFIG.rateLimiting.general.message
+    );
 const chatLimit = createRateLimit(
   CONFIG.rateLimiting.chat.windowMs, 
   CONFIG.rateLimiting.chat.maxRequests, 
@@ -51,8 +53,8 @@ const uploadLimit = createRateLimit(
   CONFIG.rateLimiting.upload.message
 );
 // Development-friendly data limits
-const dataLimit = CONFIG.environment.IS_DEVELOPMENT 
-  ? createRateLimit(1 * 60 * 1000, 1000, 'Development rate limit') // Very high limit for dev
+const dataLimit = CONFIG.environment.IS_DEVELOPMENT
+  ? createRateLimit(1000, 100, 'Development rate limit') // 100 requests per second for dev
   : createRateLimit(1 * 60 * 1000, 20, 'Too many data requests, please try again later');
 
 // Middleware
@@ -86,10 +88,28 @@ async function startServer() {
 
   // Multi-tenant SaaS routes
   const authRoutes = await import('./routes/auth.js');
-  const adminRoutes = await import('./routes/admin.js');
-  const billingRoutes = await import('./routes/billing.js');
-  const webhookRoutes = await import('./routes/webhooks.js');
-  const analyticsRoutes = await import('./routes/analytics.js');
+
+  // Conditionally import admin and payment-related routes only if Stripe is configured
+  let adminRoutes, secureAdminRoutes, billingRoutes, webhookRoutes, analyticsRoutes;
+  if (CONFIG.billing.stripe.secretKey) {
+    try {
+      adminRoutes = await import('./routes/admin.js');
+      secureAdminRoutes = await import('./routes/secure-admin.js');
+      billingRoutes = await import('./routes/billing.js');
+      webhookRoutes = await import('./routes/webhooks.js');
+      analyticsRoutes = await import('./routes/analytics.js');
+    } catch (error) {
+      console.log('⚠️  Payment-related routes failed to import:', error.message);
+    }
+  } else {
+    // Load non-payment admin routes
+    try {
+      adminRoutes = await import('./routes/admin.js');
+      secureAdminRoutes = await import('./routes/secure-admin.js');
+    } catch (error) {
+      console.log('⚠️  Admin routes failed to import:', error.message);
+    }
+  }
   
   // Auth middleware
   const { authenticateToken, requireAuth } = await import('./middleware/auth.js');
@@ -111,10 +131,116 @@ async function startServer() {
   
   // Multi-tenant SaaS routes
   app.use('/api/auth', authRoutes.default);
-  app.use('/api/admin', adminRoutes.default);
-  app.use('/api/billing', billingRoutes.default);
-  app.use('/api/webhooks', webhookRoutes.default);
-  app.use('/api/analytics', analyticsRoutes.default);
+
+  // Register admin routes if available
+  if (adminRoutes) {
+    app.use('/api/admin', adminRoutes.default);
+    console.log('✅ Admin routes registered');
+  } else {
+    console.log('⚠️  Admin routes skipped');
+  }
+
+  // Register secure admin routes with hidden path
+  if (secureAdminRoutes) {
+    app.use('/api/vdubturboadmin', secureAdminRoutes.default);
+    console.log('✅ Secure admin routes registered at hidden path');
+  } else {
+    console.log('⚠️  Secure admin routes skipped');
+  }
+
+  // Only register payment routes if Stripe is configured
+  if (CONFIG.billing.stripe.secretKey && billingRoutes && webhookRoutes && analyticsRoutes) {
+    app.use('/api/billing', billingRoutes.default);
+    app.use('/api/webhooks', webhookRoutes.default);
+    app.use('/api/analytics', analyticsRoutes.default);
+    console.log('✅ Payment routes registered');
+  } else {
+    console.log('⚠️  Payment routes skipped (Stripe not configured)');
+
+    // Provide basic billing endpoints for development/frontend compatibility
+    app.get('/api/billing/plans', (req, res) => {
+      res.json({
+        success: true,
+        data: {
+          plans: {
+            free: {
+              name: 'Free',
+              price: 0,
+              resumeLimit: 3,
+              billingPeriod: 'month',
+              features: ['3 resume generations', 'Basic support']
+            },
+            premium: {
+              name: 'Premium',
+              price: 6.99,
+              resumeLimit: 50,
+              billingPeriod: 'month',
+              features: ['50 resume generations', 'Priority support', 'Advanced templates']
+            }
+          }
+        }
+      });
+    });
+
+    app.get('/api/billing/status', async (req, res) => {
+      // Apply authentication middleware
+      authenticateToken(req, res, () => {
+        res.json({
+          success: true,
+          data: {
+            subscription: {
+              tier: 'free',
+              status: 'active',
+              currentPeriodEnd: null,
+              cancelAtPeriodEnd: false
+            },
+            usage: {
+              resumeCountUsed: 0,
+              resumeCountLimit: 3,
+              resumeCountRemaining: 3,
+              resetDate: null,
+              canGenerateResume: true
+            }
+          }
+        });
+      });
+    });
+
+    app.get('/api/billing/subscription', async (req, res) => {
+      // Apply authentication middleware
+      authenticateToken(req, res, () => {
+        res.json({
+          success: true,
+          data: {
+            subscription: {
+              tier: 'free',
+              status: 'active',
+              currentPeriodEnd: null,
+              cancelAtPeriodEnd: false
+            }
+          }
+        });
+      });
+    });
+
+    app.get('/api/billing/history', async (req, res) => {
+      // Apply authentication middleware
+      authenticateToken(req, res, () => {
+        res.json({
+          success: true,
+          data: []
+        });
+      });
+    });
+
+    // Catch-all for other billing endpoints
+    app.use('/api/billing/*', (req, res) => {
+      res.status(501).json({
+        error: 'Billing not configured',
+        message: 'Stripe billing is not configured for this environment'
+      });
+    });
+  }
 
   // Health check endpoint
   app.get('/api/health', (req, res) => {
@@ -128,7 +254,7 @@ async function startServer() {
     const { slug } = req.params;
     
     // Skip reserved routes - let React handle these
-    const reservedRoutes = ['dashboard', 'admin', 'login', 'register', 'api'];
+    const reservedRoutes = ['dashboard', 'admin', 'login', 'register', 'api', 'vdubturboadmin'];
     if (reservedRoutes.includes(slug)) {
       return res.sendFile(path.join(__dirname, 'client/build', 'index.html'));
     }

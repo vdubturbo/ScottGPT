@@ -50,25 +50,25 @@ const createRateLimit = (windowMs, max, message) => rateLimit({
 });
 
 const generalLimiter = createRateLimit(
-  15 * 60 * 1000, // 15 minutes
-  100, // 100 requests per window
+  1000, // 1 second
+  10, // 10 requests per second - allows rapid editing
   'Too many requests, please try again later'
 );
 
 // Note: Rate limit logging moved to handler in express-rate-limit v7
 
 const updateLimiter = createRateLimit(
-  5 * 60 * 1000, // 5 minutes
-  50, // 50 updates per window - more permissive for auto-save functionality
+  1000, // 1 second
+  5, // 5 updates per second - allows rapid form editing and auto-save
   'Too many update requests, please try again later'
 );
 
 // Note: Rate limit logging moved to handler in express-rate-limit v7
 
 const deleteLimiter = createRateLimit(
-  8 * 1000, // 8 seconds
-  1, // 1 deletion per window (one every 8 seconds)
-  'Too many delete requests, please try again in 8 seconds'
+  1000, // 1 second
+  2, // 2 deletions per second - allows bulk cleanup operations
+  'Too many delete requests, please try again in a moment'
 );
 
 // Note: Rate limit logging moved to handler in express-rate-limit v7
