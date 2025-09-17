@@ -582,11 +582,73 @@ export class ResumeGenerationService {
   }
 
   /**
+   * Filter job description keywords to only include those present in user's actual experience
+   */
+  filterKeywordsAgainstUserData(jobKeywords, userData, ragContext) {
+    // Create a searchable text from all user data
+    const allUserContent = [
+      // User skills
+      ...userData.skills,
+      // Work history content
+      ...userData.workHistory.map(job => [
+        job.title || '',
+        job.description || '',
+        (job.skills || []).join(' '),
+        job.achievements || ''
+      ].join(' ')),
+      // RAG context content
+      ...ragContext.chunks.map(chunk => chunk.content || chunk.title || ''),
+      // Education content
+      ...userData.education.map(edu => [
+        edu.degree || '',
+        edu.field || '',
+        edu.institution || ''
+      ].join(' '))
+    ].join(' ').toLowerCase();
+
+    // Filter technical keywords
+    const validTechnicalKeywords = jobKeywords.technical.filter(keyword => {
+      const keywordLower = keyword.toLowerCase();
+      // Check if keyword exists in user's data (with some flexibility for variations)
+      return allUserContent.includes(keywordLower) ||
+             allUserContent.includes(keywordLower.replace(/\+/g, 'plus')) || // C++ -> C plus
+             allUserContent.includes(keywordLower.replace(/\./g, '')) ||      // Node.js -> Nodejs
+             allUserContent.includes(keywordLower.replace(/\s+/g, ''));       // React Native -> ReactNative
+    });
+
+    // Filter soft skills keywords
+    const validSoftKeywords = jobKeywords.soft.filter(keyword => {
+      const keywordLower = keyword.toLowerCase();
+      return allUserContent.includes(keywordLower) ||
+             allUserContent.includes(keywordLower.replace(/\s+/g, ''));
+    });
+
+    const validOtherKeywords = jobKeywords.other.filter(keyword => {
+      const keywordLower = keyword.toLowerCase();
+      return allUserContent.includes(keywordLower);
+    });
+
+    console.log(`🔍 Keyword filtering results:`);
+    console.log(`   Technical: ${jobKeywords.technical.length} → ${validTechnicalKeywords.length} (${validTechnicalKeywords.join(', ')})`);
+    console.log(`   Soft: ${jobKeywords.soft.length} → ${validSoftKeywords.length} (${validSoftKeywords.join(', ')})`);
+    console.log(`   Other: ${jobKeywords.other.length} → ${validOtherKeywords.length} (${validOtherKeywords.join(', ')})`);
+
+    return {
+      technical: validTechnicalKeywords,
+      soft: validSoftKeywords,
+      other: validOtherKeywords
+    };
+  }
+
+  /**
    * Generate resume using AI with actual user data and token budget management
    */
   async generateResumeWithAI({ jobDescription, jobKeywords, userData, ragContext, style, maxBulletPoints }) {
     // Analyze the available evidence for examples and metrics
     const evidenceAnalysis = this.analyzeEvidence(ragContext.chunks);
+
+    // Filter job keywords to only include those present in user's actual experience
+    const validatedKeywords = this.filterKeywordsAgainstUserData(jobKeywords, userData, ragContext);
 
     // Create focused system prompt that prioritizes real examples when available
     const systemPrompt = `Professional resume writer creating comprehensive HTML-formatted resumes based ONLY on provided evidence.
@@ -625,12 +687,12 @@ FALLBACK FOR LIMITED EVIDENCE:
 
 PROFESSIONAL STANDARDS:
 - Write compelling content appropriate for ${style} level using ONLY real evidence
-- Include relevant keywords from job description when supported by evidence
+- Include ONLY validated keywords that exist in the candidate's actual experience
 - Use ONLY metrics that exist in evidence - never invent quantifiable results
 - Ensure content reflects documented positions WITHOUT adding fabricated achievements
 
 Evidence Analysis: ${evidenceAnalysis.summary}
-Target keywords: ${[...jobKeywords.technical, ...jobKeywords.soft].join(', ')}
+Validated keywords (only those in candidate's experience): ${[...validatedKeywords.technical, ...validatedKeywords.soft, ...validatedKeywords.other].join(', ')}
 Format: Professional resume text with proper formatting and structure.`;
 
     // Get user data summary (more concise)
