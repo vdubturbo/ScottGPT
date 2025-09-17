@@ -12,6 +12,7 @@ import DocumentsModal from './DocumentsModal';
 import ResumeGenerator from './ResumeGenerator';
 import UserMenu from './UserMenu';
 import UsageTracker from './billing/UsageTracker';
+import FeedbackModal from './FeedbackModal';
 
 const Dashboard = () => {
   const { user, logout, isAdmin } = useAuth();
@@ -19,6 +20,7 @@ const Dashboard = () => {
   const [activeTab, setActiveTab] = useState('overview');
   const [dashboardStats, setDashboardStats] = useState(null);
   const [showDocumentsModal, setShowDocumentsModal] = useState(false);
+  const [showFeedbackModal, setShowFeedbackModal] = useState(false);
   const { getWorkHistory, getExportStats, getDuplicatesSummary, getUploadedDocuments } = useUserDataAPI();
 
   // Load dashboard statistics
@@ -89,6 +91,17 @@ const Dashboard = () => {
               />
             </div>
 
+            {/* Middle - Feedback Button */}
+            <div className="header-center">
+              <button
+                className="feedback-btn"
+                onClick={() => setShowFeedbackModal(true)}
+                title="Share your feedback with us"
+              >
+                💬 Provide Feedback
+              </button>
+            </div>
+
             {/* Right Side - Admin Link and User Menu */}
             <div className="header-right">
               {isAdmin() && (
@@ -136,50 +149,57 @@ const Dashboard = () => {
 
             {/* Data Metrics */}
             <div className="data-metrics">
-              <h3>📊 Your Data Summary</h3>
-              <div className="metrics-grid">
-                <div className="metric-card">
-                  <div className="metric-icon">💼</div>
+
+              {/* Compact Summary Row */}
+              <div className="metrics-compact-row">
+                <div className="metric-card compact">
+                  <div className="metric-icon compact">💼</div>
                   <div className="metric-content">
-                    <div className="metric-number">{dashboardStats?.totalJobs || 0}</div>
-                    <div className="metric-label">Job Positions</div>
+                    <div className="metric-number compact">{dashboardStats?.totalJobs || 0}</div>
+                    <div className="metric-label compact">Job Positions</div>
                   </div>
                 </div>
-                <div className="metric-card">
-                  <div className="metric-icon">🏢</div>
+                <div className="metric-card compact">
+                  <div className="metric-icon compact">🏢</div>
                   <div className="metric-content">
-                    <div className="metric-number">{dashboardStats?.companies || 0}</div>
-                    <div className="metric-label">Companies</div>
+                    <div className="metric-number compact">{dashboardStats?.companies || 0}</div>
+                    <div className="metric-label compact">Companies</div>
                   </div>
                 </div>
-                <div 
-                  className="metric-card clickable" 
+                <div className="metric-card compact">
+                  <div className="metric-icon compact">👀</div>
+                  <div className="metric-content">
+                    <div className="metric-number compact">{profile?.profile_views || 0}</div>
+                    <div className="metric-label compact">Profile Views</div>
+                  </div>
+                </div>
+                {dashboardStats?.duplicates && dashboardStats.duplicates.estimatedDuplicates > 0 && (
+                  <div className="metric-card compact warning">
+                    <div className="metric-icon compact">⚠️</div>
+                    <div className="metric-content">
+                      <div className="metric-number compact">{dashboardStats.duplicates.estimatedDuplicates}</div>
+                      <div className="metric-label compact">Potential Duplicates</div>
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {/* Featured Documents Card */}
+              <div className="metrics-featured">
+                <div
+                  className="metric-card featured clickable"
                   onClick={() => setShowDocumentsModal(true)}
                   style={{ cursor: 'pointer' }}
                   title="Click to view uploaded documents"
                 >
-                  <div className="metric-icon">📄</div>
+                  <div className="metric-icon featured">📄</div>
                   <div className="metric-content">
-                    <div className="metric-number">{dashboardStats?.documentsUploaded || 0}</div>
-                    <div className="metric-label">Documents Uploaded</div>
+                    <div className="metric-number featured">{dashboardStats?.documentsUploaded || 0}</div>
+                    <div className="metric-label featured">Documents Uploaded</div>
+                    <div className="metric-subtitle">Click to view and manage</div>
                   </div>
+                  <div className="featured-indicator">→</div>
                 </div>
-                <div className="metric-card">
-                  <div className="metric-icon">👀</div>
-                  <div className="metric-content">
-                    <div className="metric-number">{profile?.profile_views || 0}</div>
-                    <div className="metric-label">Profile Views</div>
-                  </div>
-                </div>
-                {dashboardStats?.duplicates && dashboardStats.duplicates.estimatedDuplicates > 0 && (
-                  <div className="metric-card warning">
-                    <div className="metric-icon">⚠️</div>
-                    <div className="metric-content">
-                      <div className="metric-number">{dashboardStats.duplicates.estimatedDuplicates}</div>
-                      <div className="metric-label">Potential Duplicates</div>
-                    </div>
-                  </div>
-                )}
               </div>
             </div>
 
@@ -248,9 +268,15 @@ const Dashboard = () => {
       </main>
 
       {/* Documents Modal */}
-      <DocumentsModal 
-        isOpen={showDocumentsModal} 
-        onClose={() => setShowDocumentsModal(false)} 
+      <DocumentsModal
+        isOpen={showDocumentsModal}
+        onClose={() => setShowDocumentsModal(false)}
+      />
+
+      {/* Feedback Modal */}
+      <FeedbackModal
+        isOpen={showFeedbackModal}
+        onClose={() => setShowFeedbackModal(false)}
       />
     </div>
   );

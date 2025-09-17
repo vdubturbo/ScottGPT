@@ -88,6 +88,7 @@ async function startServer() {
 
   // Multi-tenant SaaS routes
   const authRoutes = await import('./routes/auth.js');
+  const feedbackRoutes = await import('./routes/feedback.js');
 
   // Conditionally import admin and payment-related routes only if Stripe is configured
   let adminRoutes, secureAdminRoutes, billingRoutes, webhookRoutes, analyticsRoutes;
@@ -131,6 +132,7 @@ async function startServer() {
   
   // Multi-tenant SaaS routes
   app.use('/api/auth', authRoutes.default);
+  app.use('/api/feedback', authenticateToken, requireAuth, feedbackRoutes.default);
 
   // Register admin routes if available
   if (adminRoutes) {
@@ -182,9 +184,23 @@ async function startServer() {
       });
     });
 
+    // Simple in-memory usage tracking for development
+    const userUsageCache = new Map();
+
     app.get('/api/billing/status', async (req, res) => {
       // Apply authentication middleware
       authenticateToken(req, res, () => {
+        if (!req.user || !req.user.id) {
+          return res.status(401).json({
+            error: 'Authentication required',
+            message: 'Please log in to view billing status'
+          });
+        }
+        const userId = req.user.id;
+        const currentUsage = userUsageCache.get(userId) || 0;
+        const limit = 3;
+        const remaining = Math.max(0, limit - currentUsage);
+
         res.json({
           success: true,
           data: {
@@ -195,12 +211,41 @@ async function startServer() {
               cancelAtPeriodEnd: false
             },
             usage: {
-              resumeCountUsed: 0,
-              resumeCountLimit: 3,
-              resumeCountRemaining: 3,
+              resumeCountUsed: currentUsage,
+              resumeCountLimit: limit,
+              resumeCountRemaining: remaining,
               resetDate: null,
-              canGenerateResume: true
+              canGenerateResume: remaining > 0
             }
+          }
+        });
+      });
+    });
+
+    // Endpoint to increment usage count
+    app.post('/api/billing/increment-usage', async (req, res) => {
+      authenticateToken(req, res, () => {
+        if (!req.user || !req.user.id) {
+          return res.status(401).json({
+            error: 'Authentication required',
+            message: 'Please log in to increment usage'
+          });
+        }
+        const userId = req.user.id;
+        const currentUsage = userUsageCache.get(userId) || 0;
+        const newUsage = currentUsage + 1;
+        userUsageCache.set(userId, newUsage);
+
+        const limit = 3;
+        const remaining = Math.max(0, limit - newUsage);
+
+        res.json({
+          success: true,
+          data: {
+            resumeCountUsed: newUsage,
+            resumeCountLimit: limit,
+            resumeCountRemaining: remaining,
+            canGenerateResume: remaining > 0
           }
         });
       });
